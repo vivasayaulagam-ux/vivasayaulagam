@@ -72,18 +72,43 @@ export default function ShippingSection({ form, update }: Props) {
                     {WEIGHT_UNITS.map(u => <option key={u}>{u}</option>)}
                   </select>
                 </div>
-                <div className="mt-3 rounded-lg border border-green-100 bg-green-50 px-3 py-2 text-xs text-green-800">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-semibold">Courier preview</span>
-                    <span className="font-bold">
-                      {formatWeightKg(weightKg)} / {getCourierBracketLabel(weightKg)} / Rs.{courierPreview}
-                    </span>
+                
+                <div className="mt-3 bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="bg-green-50 border-b border-green-100 px-3 py-2 text-xs text-green-800">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-semibold">Current Courier Preview</span>
+                      <span className="font-bold">
+                        {formatWeightKg(weightKg)} / {getCourierBracketLabel(weightKg)} / ₹{courierPreview}
+                      </span>
+                    </div>
+                    {weightKg <= 0 && (
+                      <p className="mt-1 text-[11px] font-medium text-amber-700">
+                        Set product weight so cart and checkout can calculate courier charges correctly. Note: Weight variants will override this base weight.
+                      </p>
+                    )}
                   </div>
-                  {weightKg <= 0 && (
-                    <p className="mt-1 text-[11px] font-medium text-amber-700">
-                      Set product weight so cart and checkout can calculate courier charges correctly.
-                    </p>
-                  )}
+                  
+                  <div className="p-3 bg-white text-xs">
+                    <h4 className="font-semibold text-gray-600 mb-2">Courier Charge Slabs</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                      <div className="p-2 border border-gray-100 rounded bg-gray-50">
+                        <div className="text-[10px] text-gray-500 font-bold uppercase mb-0.5">Up to 250g</div>
+                        <div className="font-semibold text-gray-800">₹{courierRates.charge_250g}</div>
+                      </div>
+                      <div className="p-2 border border-gray-100 rounded bg-gray-50">
+                        <div className="text-[10px] text-gray-500 font-bold uppercase mb-0.5">Up to 500g</div>
+                        <div className="font-semibold text-gray-800">₹{courierRates.charge_500g}</div>
+                      </div>
+                      <div className="p-2 border border-gray-100 rounded bg-gray-50">
+                        <div className="text-[10px] text-gray-500 font-bold uppercase mb-0.5">Up to 1kg</div>
+                        <div className="font-semibold text-gray-800">₹{courierRates.charge_1kg}</div>
+                      </div>
+                      <div className="p-2 border border-gray-100 rounded bg-gray-50">
+                        <div className="text-[10px] text-gray-500 font-bold uppercase mb-0.5">Above 1kg</div>
+                        <div className="font-semibold text-gray-800">₹{courierRates.charge_above}</div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 

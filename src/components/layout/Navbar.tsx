@@ -129,7 +129,7 @@ function CenterWave() {
   return (
     <svg
       aria-hidden="true"
-      className="absolute left-1/2 top-[56px] z-[1] hidden h-[68px] w-[470px] -translate-x-1/2 lg:block"
+      className="absolute left-1/2 top-[42px] z-[1] hidden h-[58px] w-[470px] -translate-x-1/2 lg:block"
       viewBox="0 0 580 92"
       preserveAspectRatio="none"
     >
@@ -165,23 +165,23 @@ function LogoMedallion({ mobile = false }: { mobile?: boolean }) {
       className={`organic-logo-medallion group absolute left-1/2 z-20 -translate-x-1/2 rounded-full ${
         mobile
           ? "top-[7px] h-[58px] w-[58px]"
-          : "top-[-13px] h-[118px] w-[118px] xl:h-[126px] xl:w-[126px]"
+          : "top-[-6px] h-[86px] w-[86px] xl:h-[96px] xl:w-[96px]"
       }`}
     >
-      <span className="absolute -inset-4 rounded-full bg-[#79D420]/22 blur-2xl transition-opacity duration-300 group-hover:opacity-90" />
-      <span className="absolute inset-0 rounded-full bg-[conic-gradient(from_135deg,#163D14,#3D7A1C,#79D420,#163D14)] p-[4px] shadow-[0_24px_52px_-25px_rgba(22,61,20,0.85)]">
-        <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-full border border-white/55 bg-[radial-gradient(circle_at_50%_40%,#79D420_0%,#3D7A1C_38%,#102E12_73%,#071709_100%)] shadow-[inset_0_0_30px_rgba(121,212,32,0.3)]">
+      <span className="absolute -inset-4 rounded-full bg-white/40 blur-2xl transition-opacity duration-300 group-hover:opacity-90" />
+      <span className="absolute inset-0 rounded-full bg-white border-2 border-[#1F6B3B]/15 shadow-[0_24px_52px_-25px_rgba(22,61,20,0.4)]">
+        <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-white shadow-[inset_0_0_20px_rgba(31,107,59,0.05)]">
           <Logo
             className={
               mobile
-                ? "h-[54px] w-[54px] scale-[1.12] rounded-full object-cover"
-                : "h-[111px] w-[111px] scale-[1.16] rounded-full object-cover xl:h-[119px] xl:w-[119px]"
+                ? "h-[46px] w-[46px] rounded-full object-contain"
+                : "h-[70px] w-[70px] xl:h-[78px] xl:w-[78px] rounded-full object-contain"
             }
           />
         </span>
       </span>
       {!mobile && (
-        <span className="absolute -bottom-2 left-1/2 h-[12px] w-[64px] -translate-x-1/2 rounded-full bg-[#163D14]/22 blur-[7px]" />
+        <span className="absolute -bottom-2 left-1/2 h-[12px] w-[64px] -translate-x-1/2 rounded-full bg-[#163D14]/15 blur-[7px]" />
       )}
     </Link>
   );
@@ -387,13 +387,13 @@ export default function Navbar() {
 
       <header
         ref={headerRef}
-        className={`site-header fixed left-0 right-0 top-0 z-[999] h-[84px] bg-transparent transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] lg:h-[124px] ${
+        className={`site-header fixed left-0 right-0 top-0 z-[999] h-[84px] bg-transparent transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] lg:h-[96px] ${
           visible ? "translate-y-0" : "-translate-y-full"
         }`}
       >
         <div className="relative hidden h-full w-full px-5 pt-3 lg:block xl:px-7">
           <div
-            className={`relative mx-auto h-[96px] w-full max-w-[1510px] overflow-visible rounded-[28px] border border-white/90 bg-[#f8f8f5]/95 shadow-[0_22px_58px_-42px_rgba(22,61,20,0.58),0_8px_24px_-23px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-xl transition-all duration-300 ${
+            className={`relative mx-auto h-[76px] w-full max-w-[1510px] overflow-visible rounded-[28px] border border-white/90 bg-[#f8f8f5]/95 shadow-[0_22px_58px_-42px_rgba(22,61,20,0.58),0_8px_24px_-23px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-xl transition-all duration-300 ${
               scrolled ? "shadow-[0_20px_56px_-40px_rgba(22,61,20,0.7),inset_0_1px_0_rgba(255,255,255,0.92)]" : ""
             }`}
           >
@@ -401,7 +401,7 @@ export default function Navbar() {
             <CenterWave />
             <FloatingLeaves />
 
-            <div className="relative z-10 grid h-[78px] grid-cols-[minmax(0,1fr)_142px_minmax(0,1fr)] items-center px-6 xl:grid-cols-[minmax(0,1fr)_170px_minmax(0,1fr)] xl:px-9 2xl:px-12">
+            <div className="relative z-10 grid h-[60px] grid-cols-[minmax(0,1fr)_142px_minmax(0,1fr)] items-center px-6 xl:grid-cols-[minmax(0,1fr)_170px_minmax(0,1fr)] xl:px-9 2xl:px-12">
               <nav className="flex items-center justify-end gap-4 xl:gap-7 2xl:gap-10" aria-label="Primary navigation left">
                 {leftNavItems.map(renderNavItem)}
               </nav>
@@ -564,9 +564,9 @@ export default function Navbar() {
                   className="relative z-10 flex items-center gap-3"
                   aria-label="Vivasaya Ulagam Home"
                 >
-                  <span className="flex h-[70px] w-[70px] items-center justify-center overflow-hidden rounded-full bg-[conic-gradient(from_135deg,#163D14,#3D7A1C,#79D420,#163D14)] p-[3px] shadow-[0_18px_42px_-26px_rgba(22,61,20,0.75)]">
-                    <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#173D14]">
-                      <Logo className="h-[66px] w-[66px] scale-[1.16] rounded-full object-cover" />
+                  <span className="flex h-[60px] w-[60px] items-center justify-center overflow-hidden rounded-full border-2 border-[#1F6B3B]/15 bg-white shadow-sm">
+                    <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-white">
+                      <Logo className="h-[48px] w-[48px] rounded-full object-contain" />
                     </span>
                   </span>
                   <span className="flex flex-col leading-tight">

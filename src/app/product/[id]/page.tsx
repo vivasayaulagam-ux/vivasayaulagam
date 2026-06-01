@@ -456,7 +456,12 @@ export default function ProductDetailPage() {
                   <Truck size={20} className="text-primary shrink-0 animate-bounce" /> 
                   <div className="flex flex-col">
                     <span className="leading-tight text-primary font-bold">Delivery in 3–4 Days</span>
-                    <span className="text-[10px] text-gray-400 font-medium mt-0.5">Free shipping on orders above ₹499</span>
+                    <span className="text-[11px] text-gray-500 font-medium mt-1">
+                      Estimated Courier: <span className="font-bold text-gray-800">₹{
+                        getCourierFee(getWeightInKg(), currentSalePrice * quantity)
+                      }</span> ({getCourierBracketLabel(getWeightInKg())})
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-medium mt-0.5">Calculated based on selected weight</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 pl-3.5">
