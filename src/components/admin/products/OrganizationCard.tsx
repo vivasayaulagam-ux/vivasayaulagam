@@ -20,7 +20,7 @@ export default function OrganizationCard({ form, update }: Props) {
       setTagInput('');
     }
   };
-  const removeTag = (t: string) => update({ tags: form.tags.filter(x => x !== t) });
+  const removeTag = (t: string) => update({ tags: form.tags.filter((x: string) => x !== t) });
 
   return (
     <motion.div initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, delay: 0.05 }}
