@@ -30,16 +30,25 @@ const authProviders: NextAuthOptions["providers"] = [
 
       await dbConnect();
       
-      const user = await User.findOne({ email: credentials.email }).select("+password");
+      const normalizedEmail = credentials.email.toLowerCase().trim();
+      const user = await User.findOne({ email: normalizedEmail }).select("+password");
 
-      if (!user || !user.password) {
-        throw new Error("Invalid email or password");
+      if (!user) {
+        throw new Error("No account found with this email");
+      }
+
+      if (!user.password) {
+        throw new Error("Invalid login method. Try passwordless OTP or Google login.");
+      }
+
+      if (user.emailVerified === false) {
+        throw new Error("Please verify your email before login");
       }
 
       const isPasswordMatch = await bcrypt.compare(credentials.password, user.password);
 
       if (!isPasswordMatch) {
-        throw new Error("Invalid email or password");
+        throw new Error("Incorrect password");
       }
 
       return {
@@ -88,7 +97,11 @@ const authProviders: NextAuthOptions["providers"] = [
           name: defaultName,
           email: credentials.email.toLowerCase(),
           role: "user",
+          emailVerified: true,
         });
+      } else if (user.emailVerified === false) {
+        user.emailVerified = true;
+        await user.save();
       }
 
       return {

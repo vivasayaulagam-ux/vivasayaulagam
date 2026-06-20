@@ -152,9 +152,7 @@ export default function ProductsClient({ products }: Props) {
     URL.revokeObjectURL(url);
   };
 
-  const handleImport = () => {
-    alert('Product import is not configured yet. Use Add product to create products manually.');
-  };
+
 
   return (
     <div className="space-y-5">
@@ -165,13 +163,6 @@ export default function ProductsClient({ products }: Props) {
           <p className="text-sm text-gray-500 mt-0.5">{localProducts.length} total · {localProducts.filter(p => p.status === 'active').length} active</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleImport}
-            className="flex items-center gap-1.5 px-3.5 py-2 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-          >
-            <Upload size={15} /> Import
-          </button>
           <button
             type="button"
             onClick={handleExport}

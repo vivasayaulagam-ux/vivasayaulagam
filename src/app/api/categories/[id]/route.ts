@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import Category from '@/models/Category';
+import Product from '@/models/Product';
 import { requireAdmin } from '@/lib/authHelper';
 
 export async function PUT(
@@ -41,10 +42,31 @@ export async function DELETE(
 
     await dbConnect();
     const { id } = await params;
-    const category = await Category.findByIdAndDelete(id);
+
+    // Find the category first
+    const category = await Category.findById(id);
     if (!category) {
       return NextResponse.json({ success: false, error: 'Category not found' }, { status: 404 });
     }
+
+    // Check if any products are linked to this category (by slug)
+    const linkedProductCount = await Product.countDocuments({ category: category.slug });
+    if (linkedProductCount > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `This category has ${linkedProductCount} product${linkedProductCount > 1 ? 's' : ''}. Please move or delete those products first.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    // Also remove any subcategories that belong to this parent
+    await Category.deleteMany({ parentId: id });
+
+    // Delete the category
+    await Category.findByIdAndDelete(id);
+
     return NextResponse.json({ success: true, message: 'Category deleted successfully' });
   } catch (error: any) {
     console.error('Delete category error:', error);

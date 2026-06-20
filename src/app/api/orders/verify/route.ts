@@ -41,9 +41,9 @@ export async function POST(req: Request) {
 
     await dbConnect();
 
-    // Update order status
-    const order = await Order.findByIdAndUpdate(
-      dbOrderId,
+    // Update order status only if it hasn't been updated yet to prevent duplicates
+    const order = await Order.findOneAndUpdate(
+      { _id: dbOrderId, isPaid: false },
       {
         razorpayPaymentId: razorpay_payment_id,
         razorpaySignature: razorpay_signature,
@@ -55,24 +55,29 @@ export async function POST(req: Request) {
     ).populate('user');
 
     if (order) {
-      try {
-        // Send Email to Admin
-        await sendAdminNotification(
-          `New Order Placed - ${dbOrderId}`,
-          `<h1>New Order Received!</h1><p>Order ID: ${dbOrderId}</p><p>Amount: ₹${order.totalAmount}</p>`
-        );
+      // Fire and forget emails to speed up response
+      sendAdminNotification(
+        `New Order Placed - ${dbOrderId}`,
+        `<h1>New Order Received!</h1><p>Order ID: ${dbOrderId}</p><p>Amount: ₹${order.totalAmount}</p>`
+      ).catch(emailErr => console.error("Failed to send admin email:", emailErr));
 
-        // Send Email to Customer
-        const orderUser = order.user as { email?: string } | null;
-        if (orderUser?.email) {
-          await sendEmail(
-            orderUser.email,
-            'Order Confirmation - Vivasaya Ulagam',
-            `<h1>Thank you for your order!</h1><p>Your order (ID: ${dbOrderId}) has been received and is now processing.</p><p>Amount Paid: ₹${order.totalAmount}</p>`
-          );
-        }
-      } catch (emailErr) {
-        console.error("Failed to send verification emails:", emailErr);
+      const orderUser = order.user as { email?: string } | null;
+      const orderEmail = order.shippingAddress?.email || orderUser?.email;
+      if (orderEmail && !orderEmail.includes("@guest.vivasayaulagam.com")) {
+        sendEmail(
+          orderEmail,
+          'Order Confirmation - Vivasaya Ulagam',
+          `<h1>Thank you for your order!</h1><p>Your order (ID: ${dbOrderId}) has been received and is now processing.</p><p>Amount Paid: ₹${order.totalAmount}</p>`
+        ).catch(emailErr => console.error("Failed to send customer email:", emailErr));
+      }
+    } else {
+      // Order might already be paid (duplicate callback), check if it exists and is paid
+      const existingOrder = await Order.findById(dbOrderId);
+      if (existingOrder && existingOrder.isPaid) {
+        // Already paid, safe to return success
+        return NextResponse.json({ success: true, message: 'Payment already verified' });
+      } else {
+        return NextResponse.json({ error: 'Order not found or already processed' }, { status: 400 });
       }
     }
 

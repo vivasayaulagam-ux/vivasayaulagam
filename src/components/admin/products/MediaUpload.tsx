@@ -3,10 +3,11 @@
 import { useRef, useState, useCallback, useEffect, useId } from 'react';
 import { motion, Reorder, AnimatePresence } from 'framer-motion';
 import {
-  Upload, ImagePlus, FolderOpen, Star, ChevronRight, Edit3,
+  Upload, ImagePlus, FolderOpen, Star, ChevronRight, Edit3, Loader2, Trash2,
 } from 'lucide-react';
-import { ProductFormData } from '@/app/admin/products/add/page';
+import { ProductFormData } from '@/app/admin/(dashboard)/products/add/page';
 import MediaCustomizeModal, { MediaImage } from './MediaCustomizeModal';
+import { normalizeImageUrl, getFullImageUrl } from '@/lib/utils';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function generateId() {
@@ -32,7 +33,7 @@ async function fileToMediaImage(file: File): Promise<MediaImage> {
     const reader = new FileReader();
     reader.onload = (e) => {
       const src = e.target?.result as string;
-      const img = new Image();
+      const img = document.createElement('img');
       img.onload = () => {
         resolve({
           id: generateId(),
@@ -62,6 +63,7 @@ type Props = { form: ProductFormData; update: (f: Partial<ProductFormData>) => v
 function ThumbCard({
   img,
   isFeatured,
+  onRemove,
   onEdit,
 }: {
   img: MediaImage;
@@ -81,10 +83,23 @@ function ThumbCard({
       className="relative group aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-50 shadow-sm cursor-pointer"
     >
       {/* Image */}
-      <img src={img.src} alt={img.altText || img.fileName} className="w-full h-full object-cover" draggable={false} />
+      <img src={getFullImageUrl(img.src)} alt={img.altText || img.fileName} className="w-full h-full object-cover" draggable={false} />
 
       {/* Subtle dark overlay on hover to signal clickability */}
       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-all duration-200" />
+
+      {/* Delete button */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove();
+        }}
+        className="absolute top-1.5 right-1.5 z-10 p-1.5 rounded-lg bg-white/95 text-gray-500 hover:text-red-600 hover:bg-white shadow-sm border border-gray-200 md:opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center justify-center"
+        title="Remove image"
+      >
+        <Trash2 size={12} />
+      </button>
 
       {/* Featured badge */}
       {isFeatured && (
@@ -103,10 +118,59 @@ function ThumbCard({
 export default function MediaUpload({ form, update }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
-  const [mediaImages, setMediaImages] = useState<MediaImage[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [mediaImages, setMediaImages] = useState<MediaImage[]>(() => {
+    if (form?.images && form.images.length > 0) {
+      return form.images.map((src, i) => {
+        const cleanSrc = normalizeImageUrl(src);
+        return {
+          id: `existing-${i}-${Math.random().toString(36).slice(2, 9)}`,
+          src: cleanSrc,
+          altText: '',
+          fileName: cleanSrc.split('/').pop() || `image-${i}`,
+          fileType: cleanSrc.split('.').pop()?.toUpperCase() || 'IMG',
+          fileSize: '—',
+          resolution: '—',
+          createdDate: today(),
+          usedInProducts: 1,
+          focusX: 50,
+          focusY: 50,
+          isFeatured: i === 0,
+        };
+      });
+    }
+    return [];
+  });
   const [modalOpen, setModalOpen] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
   const dropId = useId();
+
+  // Keep internal mediaImages state in sync if form.images has items but mediaImages is empty
+  // (e.g. if loaded asynchronously after mount)
+  useEffect(() => {
+    if (form?.images && form.images.length > 0 && mediaImages.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setMediaImages(
+        form.images.map((src, i) => {
+          const cleanSrc = normalizeImageUrl(src);
+          return {
+            id: `existing-${i}-${Math.random().toString(36).slice(2, 9)}`,
+            src: cleanSrc,
+            altText: '',
+            fileName: cleanSrc.split('/').pop() || `image-${i}`,
+            fileType: cleanSrc.split('.').pop()?.toUpperCase() || 'IMG',
+            fileSize: '—',
+            resolution: '—',
+            createdDate: today(),
+            usedInProducts: 1,
+            focusX: 50,
+            focusY: 50,
+            isFeatured: i === 0,
+          };
+        })
+      );
+    }
+  }, [form?.images]);
 
   // ── Sync local mediaImages → parent form.images after every change ──────────
   // IMPORTANT: never call update() inside a setState functional updater —
@@ -117,9 +181,62 @@ export default function MediaUpload({ form, update }: Props) {
   }, [mediaImages]);
 
   const processFiles = useCallback(async (files: FileList | null) => {
-    if (!files) return;
-    const newImgs = await Promise.all(Array.from(files).map(fileToMediaImage));
-    setMediaImages((prev) => [...prev, ...newImgs]);
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    try {
+      const newImgs = await Promise.all(
+        Array.from(files).map(async (file) => {
+          try {
+            // Post file to upload api
+            const fd = new FormData();
+            fd.append('file', file);
+            const res = await fetch('/api/admin/upload', {
+              method: 'POST',
+              body: fd,
+            });
+            if (!res.ok) throw new Error('Upload failed');
+            const data = await res.json();
+            if (!data.success || !data.url) throw new Error(data.error || 'Upload failed');
+            
+            const fileUrl = data.url;
+            return new Promise<MediaImage>((resolve) => {
+              const img = document.createElement('img');
+              img.onload = () => {
+                resolve({
+                  id: generateId(),
+                  src: fileUrl,
+                  altText: '',
+                  fileName: file.name,
+                  fileType: getFileType(file.name),
+                  fileSize: formatBytes(file.size),
+                  resolution: `${img.naturalWidth} × ${img.naturalHeight}`,
+                  createdDate: today(),
+                  usedInProducts: 0,
+                  focusX: 50,
+                  focusY: 50,
+                  isFeatured: false,
+                });
+              };
+              img.src = fileUrl;
+            });
+          } catch (err: any) {
+            console.error('Error uploading file:', file.name, err);
+            alert(`Failed to upload ${file.name}: ${err.message || 'Unknown error'}`);
+            return null;
+          }
+        })
+      );
+
+      const validNewImgs = newImgs.filter((img): img is MediaImage => img !== null);
+      if (validNewImgs.length > 0) {
+        setMediaImages((prev) => [...prev, ...validNewImgs]);
+      }
+    } catch (err) {
+      console.error('File upload error:', err);
+      alert('An error occurred during file upload');
+    } finally {
+      setUploading(false);
+    }
   }, []);
 
   const removeImage = (id: string) => {
@@ -178,13 +295,15 @@ export default function MediaUpload({ form, update }: Props) {
           role="button"
           tabIndex={0}
           aria-label="Upload media files"
-          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+          onDragOver={(e) => { e.preventDefault(); if (!uploading) setDragging(true); }}
           onDragLeave={() => setDragging(false)}
-          onDrop={(e) => { e.preventDefault(); setDragging(false); processFiles(e.dataTransfer.files); }}
-          onClick={() => fileRef.current?.click()}
-          onKeyDown={(e) => e.key === 'Enter' && fileRef.current?.click()}
+          onDrop={(e) => { e.preventDefault(); setDragging(false); if (!uploading) processFiles(e.dataTransfer.files); }}
+          onClick={() => { if (!uploading) fileRef.current?.click(); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !uploading) fileRef.current?.click(); }}
           className={`border-2 border-dashed rounded-xl p-7 text-center cursor-pointer transition-all outline-none focus-visible:ring-2 focus-visible:ring-gray-400 ${
-            dragging
+            uploading
+              ? 'border-gray-300 bg-gray-50/50 cursor-not-allowed opacity-70'
+              : dragging
               ? 'border-gray-900 bg-gray-50 scale-[1.01]'
               : 'border-gray-200 hover:border-gray-400 hover:bg-gray-50/60'
           }`}
@@ -192,32 +311,29 @@ export default function MediaUpload({ form, update }: Props) {
           <motion.div
             animate={{ y: dragging ? -3 : 0 }}
             className={`w-10 h-10 mx-auto mb-3 rounded-xl flex items-center justify-center ${
-              dragging ? 'bg-gray-900' : 'bg-gray-100'
+              uploading ? 'bg-gray-200' : dragging ? 'bg-gray-900' : 'bg-gray-100'
             } transition-colors`}
           >
-            <Upload size={18} className={dragging ? 'text-white' : 'text-gray-500'} />
+            {uploading ? (
+              <Loader2 size={18} className="text-gray-500 animate-spin" />
+            ) : (
+              <Upload size={18} className={dragging ? 'text-white' : 'text-gray-500'} />
+            )}
           </motion.div>
           <p className="text-sm font-semibold text-gray-700">
-            {dragging ? 'Drop to upload' : 'Drop files to upload'}
+            {uploading ? 'Uploading files...' : dragging ? 'Drop to upload' : 'Drop files to upload'}
           </p>
           <p className="text-xs text-gray-400 mt-0.5">or use the buttons below</p>
 
           <div className="flex justify-center gap-2.5 mt-4">
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}
-              className="flex items-center gap-1.5 px-4 py-2 bg-gray-900 text-white text-xs font-semibold rounded-lg hover:bg-gray-700 transition-colors shadow-sm"
+              disabled={uploading}
+              onClick={(e) => { e.stopPropagation(); if (!uploading) fileRef.current?.click(); }}
+              className="flex items-center gap-1.5 px-4 py-2 bg-gray-900 text-white text-xs font-semibold rounded-lg hover:bg-gray-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ImagePlus size={13} />
               Upload files
-            </button>
-            <button
-              type="button"
-              onClick={(e) => e.stopPropagation()}
-              className="flex items-center gap-1.5 px-4 py-2 border border-gray-200 text-gray-600 text-xs font-semibold rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors"
-            >
-              <FolderOpen size={13} />
-              Select existing
             </button>
           </div>
 
@@ -231,6 +347,7 @@ export default function MediaUpload({ form, update }: Props) {
             multiple
             accept=".jpg,.jpeg,.png,.webp,.svg,image/*"
             className="hidden"
+            disabled={uploading}
             onChange={(e) => processFiles(e.target.files)}
           />
         </div>

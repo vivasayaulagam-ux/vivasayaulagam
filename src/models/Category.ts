@@ -10,8 +10,11 @@ const CategorySchema = new mongoose.Schema(
     order: { type: Number, default: 0 },
     parentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', default: null },
     image: { type: String, default: '' },
+    redirectUrl: { type: String, default: '' },
   },
   { timestamps: true }
 );
+
+CategorySchema.index({ isVisible: 1, order: 1 });
 
 export default mongoose.models.Category || mongoose.model('Category', CategorySchema);

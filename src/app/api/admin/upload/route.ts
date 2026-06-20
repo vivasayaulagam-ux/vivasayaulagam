@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/authHelper';
 import { writeFile } from 'fs/promises';
 import { join } from 'path';
 import fs from 'fs';
+import sharp from 'sharp';
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,10 +23,14 @@ export async function POST(req: NextRequest) {
 
     // Convert file to buffer
     const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    let buffer: Buffer = Buffer.from(bytes);
 
     // Set up path to public/uploads/
-    const sanitizedFilename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+    const isCompressibleImage = ['image/jpeg', 'image/png', 'image/webp', 'image/avif'].includes(file.type);
+    const originalStem = file.name.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const sanitizedFilename = isCompressibleImage
+      ? `${Date.now()}-${originalStem}.webp`
+      : `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
     const uploadDir = join(process.cwd(), 'public', 'uploads');
     
     // Ensure uploads directory exists
@@ -34,6 +39,13 @@ export async function POST(req: NextRequest) {
     }
 
     const filePath = join(uploadDir, sanitizedFilename);
+    if (isCompressibleImage) {
+      buffer = await sharp(buffer)
+        .rotate()
+        .resize({ width: 2400, height: 2400, fit: 'inside', withoutEnlargement: true })
+        .webp({ quality: 78, effort: 4 })
+        .toBuffer();
+    }
     await writeFile(filePath, buffer);
     
     // Return relative url path

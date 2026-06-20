@@ -10,13 +10,14 @@ export interface CartItem {
   image: string;
   weight?: number;
   weightUnit?: string;
+  isOutOfStock?: boolean;
 }
 
 interface CartState {
   items: CartItem[];
   hasHydrated: boolean;
   addItem: (item: CartItem) => void;
-  updateItemMetadata: (id: string, metadata: Partial<Pick<CartItem, 'image' | 'name' | 'price' | 'weight' | 'weightUnit'>>) => void;
+  updateItemMetadata: (id: string, metadata: Partial<Pick<CartItem, 'image' | 'name' | 'price' | 'weight' | 'weightUnit' | 'isOutOfStock'>>) => void;
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;

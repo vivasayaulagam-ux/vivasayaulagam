@@ -72,6 +72,35 @@ export default function MediaCustomizeModal({ images, activeIndex, onClose, onSa
 
   const handleSave = () => onSave(imgs);
 
+  const handleDelete = () => {
+    if (!img) return;
+    
+    // Create new array excluding current image
+    const updatedImgs = imgs.filter((_, i) => i !== idx);
+    
+    if (updatedImgs.length === 0) {
+      onSave([]);
+      onClose();
+      return;
+    }
+
+    // If we deleted the featured image, make the first image featured
+    const wasFeatured = img.isFeatured;
+    const cleanedImgs = updatedImgs.map((im, i) => {
+      if (wasFeatured && i === 0) {
+        return { ...im, isFeatured: true };
+      }
+      return im;
+    });
+
+    setImgs(cleanedImgs);
+    
+    // Adjust index to stay within valid range
+    if (idx >= cleanedImgs.length) {
+      setIdx(cleanedImgs.length - 1);
+    }
+  };
+
   if (!img) return null;
 
   return (
@@ -383,7 +412,10 @@ export default function MediaCustomizeModal({ images, activeIndex, onClose, onSa
 
             {/* Bottom – Delete */}
             <div className="p-4 border-t border-white/[0.06]">
-              <button className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-[12px] text-red-400/70 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all">
+              <button
+                onClick={handleDelete}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-[12px] text-red-400/70 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all"
+              >
                 <Trash2 size={13} />
                 Delete image
               </button>

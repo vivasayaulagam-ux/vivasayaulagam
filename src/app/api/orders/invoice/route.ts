@@ -15,6 +15,8 @@ type InvoiceOrder = {
   items: InvoiceItem[];
   subtotalAmount?: number;
   deliveryFee?: number;
+  totalWeightKg?: number;
+  courierRate?: number;
   totalAmount: number;
   createdAt: string | Date;
   status: string;
@@ -67,12 +69,12 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
     .invoice-wrapper { max-width: 800px; margin: 0 auto; padding: 40px; }
     
     /* Header */
-    .header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 30px; border-bottom: 3px solid #1F6B3B; margin-bottom: 30px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 30px; border-bottom: 3px solid #34a121; margin-bottom: 30px; }
     .brand { display: flex; flex-direction: column; }
-    .brand-name { font-size: 26px; font-weight: 900; color: #1F6B3B; letter-spacing: -0.5px; text-transform: uppercase; }
+    .brand-name { font-size: 26px; font-weight: 900; color: #34a121; letter-spacing: -0.5px; text-transform: uppercase; }
     .brand-sub { font-size: 10px; color: #6b7280; letter-spacing: 3px; text-transform: uppercase; margin-top: 2px; }
     .invoice-title { text-align: right; }
-    .invoice-title h1 { font-size: 32px; font-weight: 900; color: #1F6B3B; letter-spacing: -1px; }
+    .invoice-title h1 { font-size: 32px; font-weight: 900; color: #34a121; letter-spacing: -1px; }
     .invoice-title p { font-size: 13px; color: #6b7280; margin-top: 4px; }
     
     /* Addresses */
@@ -86,11 +88,11 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
     .order-meta { display: flex; gap: 20px; margin-bottom: 30px; }
     .meta-item { flex: 1; text-align: center; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px; }
     .meta-item .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #6b7280; }
-    .meta-item .value { font-size: 15px; font-weight: 700; color: #1F6B3B; margin-top: 4px; }
+    .meta-item .value { font-size: 15px; font-weight: 700; color: #34a121; margin-top: 4px; }
     
     /* Items table */
     table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
-    thead tr { background: #1F6B3B; }
+    thead tr { background: #34a121; }
     thead th { padding: 12px; color: #fff; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; text-align: left; }
     thead th:last-child, thead th:nth-child(3), thead th:nth-child(2) { text-align: right; }
     thead th:nth-child(2) { text-align: center; }
@@ -100,11 +102,11 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
     .totals-table { width: 280px; }
     .totals-table tr td { padding: 6px 12px; font-size: 13px; }
     .totals-table .subtotal td { color: #6b7280; }
-    .totals-table .grand-total td { background: #1F6B3B; color: #fff; font-size: 16px; font-weight: 900; padding: 12px; border-radius: 4px; }
+    .totals-table .grand-total td { background: #34a121; color: #fff; font-size: 16px; font-weight: 900; padding: 12px; border-radius: 4px; }
     
     /* Footer */
     .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; color: #9ca3af; font-size: 11px; }
-    .footer strong { color: #1F6B3B; }
+    .footer strong { color: #34a121; }
     
     /* Payment badge */
     .payment-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-top: 6px; }
@@ -188,6 +190,23 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
           <td>Subtotal</td>
           <td style="text-align:right;">${formatCurrency(subtotal)}</td>
         </tr>
+        ${order.totalWeightKg ? `
+        <tr class="subtotal">
+          <td>Total Weight</td>
+          <td style="text-align:right;">${order.totalWeightKg.toFixed(2)} kg</td>
+        </tr>
+        ` : ''}
+        ${order.courierRate ? `
+        <tr class="subtotal">
+          <td>Courier Rate</td>
+          <td style="text-align:right;">${formatCurrency(order.courierRate)} / kg</td>
+        </tr>
+        ` : (order.deliveryFee && order.totalWeightKg ? `
+        <tr class="subtotal">
+          <td>Courier Rate</td>
+          <td style="text-align:right;">${formatCurrency(order.deliveryFee / order.totalWeightKg)} / kg</td>
+        </tr>
+        ` : '')}
         <tr class="subtotal">
           <td>Delivery Fee</td>
           <td style="text-align:right;">${formatCurrency(Math.max(0, deliveryFee))}</td>

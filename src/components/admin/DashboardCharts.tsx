@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   BarChart,
   Bar,
@@ -15,6 +15,11 @@ import {
 
 export default function DashboardCharts({ orderData }: { orderData: any[] }) {
   const [timeRange, setTimeRange] = useState("month");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Group orders by date
   const chartData = orderData.reduce((acc: any[], order) => {
@@ -36,6 +41,15 @@ export default function DashboardCharts({ orderData }: { orderData: any[] }) {
     }
     return acc;
   }, []);
+
+  if (!mounted) {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 h-[384px] animate-pulse" />
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 h-[384px] animate-pulse" />
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
@@ -60,7 +74,7 @@ export default function DashboardCharts({ orderData }: { orderData: any[] }) {
               <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#6b7280' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 12, fill: '#6b7280' }} axisLine={false} tickLine={false} tickFormatter={(value) => `₹${value}`} />
               <Tooltip cursor={{ fill: '#f9fafb' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-              <Bar dataKey="revenue" fill="var(--color-primary, #1F6B3B)" radius={[4, 4, 0, 0]} barSize={30} />
+              <Bar dataKey="revenue" fill="var(--color-primary, #34a121 !important)" radius={[4, 4, 0, 0]} barSize={30} />
             </BarChart>
           </ResponsiveContainer>
         </div>

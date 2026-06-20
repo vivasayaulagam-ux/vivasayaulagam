@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Edit2, Trash2, Eye, EyeOff, Save, X, Folder, CornerDownRight } from 'lucide-react';
+import { Plus, Edit2, Trash2, Eye, EyeOff, Save, X, Folder, CornerDownRight, Loader2, Image as ImageIcon, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface CategoryItem {
   _id: string;
@@ -14,6 +14,7 @@ interface CategoryItem {
   order: number;
   parentId: string | null;
   image: string;
+  redirectUrl?: string;
 }
 
 export default function CategoriesPage() {
@@ -31,12 +32,51 @@ export default function CategoriesPage() {
   const [order, setOrder] = useState(0);
   const [parentId, setParentId] = useState<string>('');
   const [image, setImage] = useState('');
+  const [redirectUrl, setRedirectUrl] = useState('');
 
   const [saving, setSaving] = useState(false);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [confirmDeleteName, setConfirmDeleteName] = useState('');
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const showToast = (type: 'success' | 'error', message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 3500);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImageUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch('/api/admin/upload', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.success && data.url) {
+        setImage(data.url);
+      } else {
+        showToast('error', data.error || 'Failed to upload image');
+      }
+    } catch (err) {
+      showToast('error', 'Error uploading image');
+    } finally {
+      setImageUploading(false);
+    }
+  };
 
   const fetchCategories = useCallback(async () => {
     try {
-      const res = await fetch('/api/categories');
+      const res = await fetch('/api/categories', { credentials: 'include' });
       const data = (await res.json()) as { success?: boolean; categories?: CategoryItem[] };
       if (data.success) {
         setCategories(data.categories || []);
@@ -100,6 +140,7 @@ export default function CategoriesPage() {
       order: Number(order),
       parentId: parentId || null,
       image,
+      redirectUrl,
     };
 
     try {
@@ -107,6 +148,7 @@ export default function CategoriesPage() {
       const method = editingId ? 'PUT' : 'POST';
       const res = await fetch(url, {
         method,
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
@@ -114,12 +156,13 @@ export default function CategoriesPage() {
       if (data.success) {
         setShowForm(false);
         resetForm();
+        showToast('success', editingId ? 'Category updated successfully' : 'Category created successfully');
         void fetchCategories();
       } else {
-        alert(data.error || 'Failed to save category');
+        showToast('error', data.error || 'Failed to save category');
       }
     } catch (err) {
-      alert('Error saving category');
+      showToast('error', 'Error saving category');
     } finally {
       setSaving(false);
     }
@@ -135,21 +178,38 @@ export default function CategoriesPage() {
     setOrder(cat.order);
     setParentId(cat.parentId || '');
     setImage(cat.image || '');
+    setRedirectUrl(cat.redirectUrl || '');
     setShowForm(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this category?')) return;
+  const handleDeleteRequest = (cat: CategoryItem) => {
+    setConfirmDeleteId(cat._id);
+    setConfirmDeleteName(cat.name);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!confirmDeleteId) return;
+    const id = confirmDeleteId;
+    setConfirmDeleteId(null);
+    setDeletingId(id);
     try {
-      const res = await fetch(`/api/categories/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/categories/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
       const data = await res.json();
       if (data.success) {
+        // Optimistically remove from list immediately
+        setCategories(prev => prev.filter(c => c._id !== id));
+        showToast('success', 'Category deleted successfully');
         void fetchCategories();
       } else {
-        alert(data.error || 'Failed to delete');
+        showToast('error', data.error || 'Failed to delete category');
       }
     } catch (err) {
-      alert('Error deleting category');
+      showToast('error', 'Error deleting category. Please try again.');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -163,6 +223,7 @@ export default function CategoriesPage() {
     setOrder(0);
     setParentId('');
     setImage('');
+    setRedirectUrl('');
   };
 
   // Build tree structure for parent-child render
@@ -171,6 +232,76 @@ export default function CategoriesPage() {
 
   return (
     <div className="space-y-6">
+      {/* Toast notification */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className={`fixed top-5 right-5 z-[9999] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-lg text-sm font-semibold ${
+              toast.type === 'success'
+                ? 'bg-green-600 text-white'
+                : 'bg-red-600 text-white'
+            }`}
+          >
+            {toast.type === 'success'
+              ? <CheckCircle size={18} />
+              : <AlertCircle size={18} />}
+            {toast.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {confirmDeleteId && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[9000] bg-black/40 backdrop-blur-sm"
+              onClick={() => setConfirmDeleteId(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="fixed z-[9001] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm"
+            >
+              <div className="flex items-start gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                  <Trash2 size={18} className="text-red-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 text-base">Delete Category</h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Are you sure you want to delete <span className="font-semibold text-gray-800">&ldquo;{confirmDeleteName}&rdquo;</span>? This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteId(null)}
+                  className="flex-1 text-sm border border-gray-200 py-2.5 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteConfirm}
+                  className="flex-1 flex items-center justify-center gap-2 text-sm bg-red-600 text-white py-2.5 rounded-xl font-semibold hover:bg-red-700 transition-colors"
+                >
+                  <Trash2 size={15} />
+                  Delete
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -184,7 +315,7 @@ export default function CategoriesPage() {
             resetForm();
             setShowForm(true);
           }}
-          className="flex items-center gap-2 bg-[#1F6B3B] text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:bg-[#154a28] transition-all"
+          className="flex items-center gap-2 bg-[#34a121] text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:bg-[#154a28] transition-all"
         >
           <Plus size={16} />
           Add Category
@@ -226,7 +357,14 @@ export default function CategoriesPage() {
                               <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">Hidden</span>
                             )}
                           </div>
-                          <span className="text-xs text-gray-400">/{cat.slug}</span>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-xs text-gray-400">/{cat.slug}</span>
+                            {cat.redirectUrl && (
+                              <span className="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                                Redirects to: {cat.redirectUrl}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -237,10 +375,14 @@ export default function CategoriesPage() {
                           <Edit2 size={15} />
                         </button>
                         <button
-                          onClick={() => handleDelete(cat._id)}
-                          className="p-1.5 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-600 transition-all"
+                          onClick={() => handleDeleteRequest(cat)}
+                          disabled={deletingId === cat._id}
+                          className="p-1.5 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                          title="Delete category"
                         >
-                          <Trash2 size={15} />
+                          {deletingId === cat._id
+                            ? <Loader2 size={15} className="animate-spin text-red-400" />
+                            : <Trash2 size={15} />}
                         </button>
                       </div>
                     </div>
@@ -255,9 +397,14 @@ export default function CategoriesPage() {
                               <span className="text-xl w-7 h-7 flex items-center justify-center rounded-md bg-gray-100">
                                 {sub.emoji}
                               </span>
-                              <div>
+                              <div className="flex items-center gap-1.5">
                                 <span className="text-xs font-semibold text-gray-700">{sub.name}</span>
-                                <span className="text-[10px] text-gray-400 ml-1.5">/{sub.slug}</span>
+                                <span className="text-[10px] text-gray-400">/{sub.slug}</span>
+                                {sub.redirectUrl && (
+                                  <span className="text-[9px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-full border border-amber-100">
+                                    → {sub.redirectUrl}
+                                  </span>
+                                )}
                               </div>
                             </div>
                             <div className="flex items-center gap-1.5">
@@ -268,10 +415,14 @@ export default function CategoriesPage() {
                                 <Edit2 size={13} />
                               </button>
                               <button
-                                onClick={() => handleDelete(sub._id)}
-                                className="p-1 hover:bg-red-50 rounded-lg text-gray-400 transition-all"
+                                onClick={() => handleDeleteRequest(sub)}
+                                disabled={deletingId === sub._id}
+                                className="p-1 hover:bg-red-50 rounded-lg text-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                title="Delete subcategory"
                               >
-                                <Trash2 size={13} />
+                                {deletingId === sub._id
+                                  ? <Loader2 size={13} className="animate-spin text-red-400" />
+                                  : <Trash2 size={13} />}
                               </button>
                             </div>
                           </div>
@@ -315,7 +466,7 @@ export default function CategoriesPage() {
                     value={name}
                     onChange={e => handleNameChange(e.target.value)}
                     placeholder="e.g. Millet Cereals"
-                    className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#1F6B3B] focus:outline-none transition-colors"
+                    className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:outline-none transition-colors"
                   />
                 </div>
 
@@ -328,7 +479,7 @@ export default function CategoriesPage() {
                       value={emoji}
                       onChange={e => setEmoji(e.target.value)}
                       placeholder="e.g. 🌾"
-                      className="w-full text-center text-lg py-2 border border-gray-200 rounded-xl focus:border-[#1F6B3B] focus:outline-none transition-colors"
+                      className="w-full text-center text-lg py-2 border border-gray-200 rounded-xl focus:border-[#34a121] focus:outline-none transition-colors"
                     />
                   </div>
                   <div>
@@ -339,7 +490,7 @@ export default function CategoriesPage() {
                       value={slug}
                       onChange={e => setSlug(e.target.value)}
                       placeholder="millet-cereals"
-                      className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#1F6B3B] focus:outline-none transition-colors"
+                      className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:outline-none transition-colors"
                     />
                   </div>
                 </div>
@@ -349,7 +500,7 @@ export default function CategoriesPage() {
                   <select
                     value={parentId}
                     onChange={e => setParentId(e.target.value)}
-                    className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#1F6B3B] focus:outline-none bg-white transition-colors"
+                    className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:outline-none bg-white transition-colors"
                   >
                     <option value="">None (Root Category)</option>
                     {categories
@@ -369,7 +520,7 @@ export default function CategoriesPage() {
                       type="number"
                       value={order}
                       onChange={e => setOrder(Number(e.target.value))}
-                      className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#1F6B3B] focus:outline-none transition-colors"
+                      className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:outline-none transition-colors"
                     />
                   </div>
                   <div>
@@ -403,18 +554,48 @@ export default function CategoriesPage() {
                     value={bgColor}
                     onChange={e => setBgColor(e.target.value)}
                     placeholder="from-green-50 to-green-100"
-                    className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#1F6B3B] focus:outline-none transition-colors"
+                    className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:outline-none transition-colors"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1.5">Category Image URL (Optional)</label>
+                  <div className="flex gap-2 mb-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleImageUpload}
+                    />
+                    <button
+                      type="button"
+                      disabled={imageUploading}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center gap-1.5 text-xs px-3 py-2 bg-[#34a121] text-white rounded-xl hover:bg-[#154a28] disabled:opacity-60 cursor-pointer"
+                    >
+                      {imageUploading ? <Loader2 size={14} className="animate-spin" /> : <ImageIcon size={14} />}
+                      {imageUploading ? 'Uploading...' : 'Upload Image'}
+                    </button>
+                    <span className="text-xs text-gray-400 self-center">or paste URL below</span>
+                  </div>
                   <input
                     type="text"
                     value={image}
                     onChange={e => setImage(e.target.value)}
                     placeholder="e.g. /images/rice.jpg"
-                    className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#1F6B3B] focus:outline-none transition-colors"
+                    className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:outline-none transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">Redirect URL / Mapping (Optional)</label>
+                  <input
+                    type="text"
+                    value={redirectUrl}
+                    onChange={e => setRedirectUrl(e.target.value)}
+                    placeholder="e.g. /shop?category=millet"
+                    className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:outline-none transition-colors"
                   />
                 </div>
 
@@ -432,7 +613,7 @@ export default function CategoriesPage() {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="flex-1 flex items-center justify-center gap-1.5 text-sm bg-[#1F6B3B] text-white py-2.5 rounded-xl font-semibold hover:bg-[#154a28] disabled:opacity-60 transition-colors"
+                    className="flex-1 flex items-center justify-center gap-1.5 text-sm bg-[#34a121] text-white py-2.5 rounded-xl font-semibold hover:bg-[#154a28] disabled:opacity-60 transition-colors"
                   >
                     <Save size={15} />
                     {saving ? 'Saving...' : 'Save'}

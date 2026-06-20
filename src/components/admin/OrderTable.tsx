@@ -123,7 +123,7 @@ export default function OrderTable({ orders: initialOrders }: { orders: any[] })
                         <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Customer & Shipping</h4>
                         <div className="space-y-1.5 text-sm bg-white border border-gray-100 rounded-lg p-3">
                           <p><span className="text-gray-400 text-xs">Name</span><br/><strong>{order.shippingAddress?.fullName || order.user?.name || '—'}</strong></p>
-                          <p><span className="text-gray-400 text-xs">Email</span><br/>{order.user?.email || '—'}</p>
+                          <p><span className="text-gray-400 text-xs">Email</span><br/>{order.shippingAddress?.email || order.user?.email || '—'}</p>
                           <p><span className="text-gray-400 text-xs">Phone</span><br/>{order.shippingAddress?.phone || '—'}</p>
                           <p><span className="text-gray-400 text-xs">Address</span><br/>
                             {[order.shippingAddress?.address, order.shippingAddress?.city, order.shippingAddress?.postalCode].filter(Boolean).join(', ') || '—'}

@@ -1,7 +1,7 @@
 'use client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Trash2, Weight } from 'lucide-react';
-import { ProductFormData } from '@/app/admin/products/add/page';
+import { ProductFormData } from '@/app/admin/(dashboard)/products/add/page';
 
 type Variant = ProductFormData['variants'][number];
 type Props = { form: ProductFormData; update: (f: Partial<ProductFormData>) => void };
@@ -35,7 +35,7 @@ export default function VariantsSection({ form, update }: Props) {
           <div className="flex gap-1.5 mr-2 pr-2 border-r border-gray-200">
             {WEIGHT_PRESETS.map(weight => (
               <button key={weight} type="button" onClick={() => addVariant('size', weight)}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#1F6B3B]/20 bg-[#f2fcf4] text-[11px] font-bold text-[#1F6B3B] hover:bg-[#1F6B3B] hover:text-white transition-colors"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#34a121]/20 bg-[#f2fcf4] text-[11px] font-bold text-[#34a121] hover:bg-[#34a121] hover:text-white transition-colors"
                 title={`Quick add ${weight} variant`}>
                 <Weight size={12} /> {weight}
               </button>
@@ -76,7 +76,7 @@ export default function VariantsSection({ form, update }: Props) {
                   value={v.value} 
                   onChange={e => updateVariant(i, { value: e.target.value })}
                   list={`variant-list-${v.type}`}
-                  className="w-full px-2.5 py-2 rounded-lg border border-gray-300 text-sm outline-none focus:ring-2 focus:ring-[#1F6B3B]/20 focus:border-[#1F6B3B] bg-white transition-all" 
+                  className="w-full px-2.5 py-2 rounded-lg border border-gray-300 text-sm outline-none focus:ring-2 focus:ring-[#34a121]/20 focus:border-[#34a121] bg-white transition-all" 
                   placeholder={v.type === 'size' ? 'e.g. 500g' : 'e.g. Red'} 
                 />
                 <datalist id={`variant-list-${v.type}`}>
@@ -85,15 +85,15 @@ export default function VariantsSection({ form, update }: Props) {
                 
                 <input type="number" min={0} value={v.price ?? ''}
                   onChange={e => updateVariant(i, { price: e.target.value === '' ? '' : parseFloat(e.target.value) })}
-                  className="w-full px-2.5 py-2 rounded-lg border border-gray-300 text-sm outline-none focus:ring-2 focus:ring-[#1F6B3B]/20 focus:border-[#1F6B3B] transition-all font-semibold" placeholder="Base Price" />
+                  className="w-full px-2.5 py-2 rounded-lg border border-gray-300 text-sm outline-none focus:ring-2 focus:ring-[#34a121]/20 focus:border-[#34a121] transition-all font-semibold" placeholder="Base Price" />
                 
                 <input type="number" value={v.additionalPrice}
                   onChange={e => updateVariant(i, { additionalPrice: e.target.value === '' ? '' : parseFloat(e.target.value) })}
-                  className="w-full px-2.5 py-2 rounded-lg border border-gray-300 text-sm outline-none focus:ring-2 focus:ring-[#1F6B3B]/20 focus:border-[#1F6B3B] transition-all text-gray-600" placeholder="+ 0.00" />
+                  className="w-full px-2.5 py-2 rounded-lg border border-gray-300 text-sm outline-none focus:ring-2 focus:ring-[#34a121]/20 focus:border-[#34a121] transition-all text-gray-600" placeholder="+ 0.00" />
                 
                 <input type="number" min={0} value={v.stock}
                   onChange={e => updateVariant(i, { stock: e.target.value === '' ? '' : parseInt(e.target.value) })}
-                  className="w-full px-2.5 py-2 rounded-lg border border-gray-300 text-sm outline-none focus:ring-2 focus:ring-[#1F6B3B]/20 focus:border-[#1F6B3B] transition-all" placeholder="0" />
+                  className="w-full px-2.5 py-2 rounded-lg border border-gray-300 text-sm outline-none focus:ring-2 focus:ring-[#34a121]/20 focus:border-[#34a121] transition-all" placeholder="0" />
                 
                 <button type="button" onClick={() => removeVariant(i)}
                   className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center h-full">

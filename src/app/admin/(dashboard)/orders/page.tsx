@@ -17,8 +17,8 @@ export default async function AdminOrdersPage() {
     _id: order._id.toString(),
     user: order.user ? { ...order.user, _id: order.user._id.toString() } : null,
     items: order.items.map((item: any) => ({ ...item, _id: item._id?.toString() })),
-    createdAt: order.createdAt.toISOString(),
-    updatedAt: order.updatedAt.toISOString(),
+    createdAt: order.createdAt ? order.createdAt.toISOString() : null,
+    updatedAt: order.updatedAt ? order.updatedAt.toISOString() : null,
     paidAt: order.paidAt ? order.paidAt.toISOString() : null,
   }));
 

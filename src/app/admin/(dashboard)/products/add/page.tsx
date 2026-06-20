@@ -13,6 +13,7 @@ import PricingSection from '@/components/admin/products/PricingSection';
 import InventorySection from '@/components/admin/products/InventorySection';
 import ShippingSection from '@/components/admin/products/ShippingSection';
 import VariantsSection from '@/components/admin/products/VariantsSection';
+
 import SeoPreview from '@/components/admin/products/SeoPreview';
 import StatusCard from '@/components/admin/products/StatusCard';
 import OrganizationCard from '@/components/admin/products/OrganizationCard';
@@ -38,6 +39,12 @@ export type ProductFormData = {
   weightUnit: string;
   countryOrigin: string;
   hsCode: string;
+  courierRates: {
+    charge_250g: number | '';
+    charge_500g: number | '';
+    charge_1kg: number | '';
+    charge_above: number | '';
+  };
   variants: { type: string; value: string; price?: number | ''; additionalPrice: number | ''; stock: number | '' }[];
   seoTitle: string;
   seoDescription: string;
@@ -55,6 +62,12 @@ const defaultForm: ProductFormData = {
   price: '', compareAtPrice: '', unitPrice: '', chargeTax: false, costPerItem: '',
   trackInventory: false, quantity: '', sku: '', barcode: '', continueSelling: false,
   isPhysical: true, weight: '', weightUnit: 'kg', countryOrigin: '', hsCode: '',
+  courierRates: {
+    charge_250g: '',
+    charge_500g: '',
+    charge_1kg: '',
+    charge_above: '',
+  },
   variants: [], seoTitle: '', seoDescription: '', seoSlug: '',
   status: 'draft', productType: '', vendor: '', collections: [], tags: [],
   themeTemplate: 'default',
@@ -72,6 +85,9 @@ export default function AddProductPage() {
     const e: typeof errors = {};
     if (!form.title.trim()) e.title = 'Title is required';
     if (form.price === '' || Number(form.price) < 0) e.price = 'Valid price is required';
+    if (form.isPhysical && (form.weight === '' || Number(form.weight) <= 0)) {
+      e.weight = 'Weight is required for physical products';
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -129,7 +145,7 @@ export default function AddProductPage() {
           <CategorySelect form={form} update={update} />
           <PricingSection form={form} update={update} errors={errors} />
           <InventorySection form={form} update={update} />
-          <ShippingSection form={form} update={update} />
+          <ShippingSection form={form} update={update} errors={errors} />
           <VariantsSection form={form} update={update} />
           <SeoPreview form={form} update={update} />
         </div>

@@ -16,13 +16,20 @@ import VariantsSection from '@/components/admin/products/VariantsSection';
 import SeoPreview from '@/components/admin/products/SeoPreview';
 import StatusCard from '@/components/admin/products/StatusCard';
 import OrganizationCard from '@/components/admin/products/OrganizationCard';
-import { ProductFormData } from '@/app/admin/products/add/page';
+import { ProductFormData } from '@/app/admin/(dashboard)/products/add/page';
+import { normalizeImageUrl } from '@/lib/utils';
 
 const defaultForm: ProductFormData = {
   title: '', description: '', images: [], category: '', categories: [],
   price: '', compareAtPrice: '', unitPrice: '', chargeTax: false, costPerItem: '',
   trackInventory: false, quantity: '', sku: '', barcode: '', continueSelling: false,
   isPhysical: true, weight: '', weightUnit: 'kg', countryOrigin: '', hsCode: '',
+  courierRates: {
+    charge_250g: '',
+    charge_500g: '',
+    charge_1kg: '',
+    charge_above: '',
+  },
   variants: [], seoTitle: '', seoDescription: '', seoSlug: '',
   status: 'draft', productType: '', vendor: '', collections: [], tags: [],
   themeTemplate: 'default',
@@ -53,7 +60,11 @@ export default function EditProductPage() {
           setForm({
             title: p.title ?? '',
             description: p.description ?? '',
-            images: p.images ?? [],
+            images: Array.isArray(p.images) && p.images.length > 0
+              ? p.images.map((img: string) => normalizeImageUrl(img))
+              : p.image
+              ? [normalizeImageUrl(p.image)]
+              : [],
             category: p.category ?? '',
             categories: p.categories ?? [],
             price: p.price ?? '',
@@ -71,6 +82,12 @@ export default function EditProductPage() {
             weightUnit: p.weightUnit ?? 'kg',
             countryOrigin: p.countryOrigin ?? '',
             hsCode: p.hsCode ?? '',
+            courierRates: {
+              charge_250g: p.courierRates?.charge_250g ?? '',
+              charge_500g: p.courierRates?.charge_500g ?? '',
+              charge_1kg: p.courierRates?.charge_1kg ?? '',
+              charge_above: p.courierRates?.charge_above ?? '',
+            },
             variants: p.variants ?? [],
             seoTitle: p.seoTitle ?? '',
             seoDescription: p.seoDescription ?? '',
@@ -94,6 +111,9 @@ export default function EditProductPage() {
     const e: typeof errors = {};
     if (!form.title.trim()) e.title = 'Title is required';
     if (form.price === '' || Number(form.price) < 0) e.price = 'Valid price is required';
+    if (form.isPhysical && (form.weight === '' || Number(form.weight) <= 0)) {
+      e.weight = 'Weight is required for physical products';
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -122,7 +142,7 @@ export default function EditProductPage() {
     return (
       <div className="min-h-screen bg-[#f5f5f5] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3 text-gray-500">
-          <Loader2 size={32} strokeWidth={1.75} className="animate-spin text-[#1F6B3B]" />
+          <Loader2 size={32} strokeWidth={1.75} className="animate-spin text-[#34a121]" />
           <p className="text-sm font-medium">Loading product...</p>
         </div>
       </div>
@@ -191,7 +211,7 @@ export default function EditProductPage() {
           <CategorySelect form={form} update={update} />
           <PricingSection form={form} update={update} errors={errors} />
           <InventorySection form={form} update={update} />
-          <ShippingSection form={form} update={update} />
+          <ShippingSection form={form} update={update} errors={errors} />
           <VariantsSection form={form} update={update} />
           <SeoPreview form={form} update={update} />
         </div>

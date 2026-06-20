@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Tag, X, ChevronDown } from 'lucide-react';
-import { ProductFormData } from '@/app/admin/products/add/page';
+import { ProductFormData } from '@/app/admin/(dashboard)/products/add/page';
 
 type Props = { form: ProductFormData; update: (f: Partial<ProductFormData>) => void };
 

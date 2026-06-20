@@ -29,7 +29,7 @@ import {
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 
-type TabId = "orders" | "favorites" | "personal" | "password" | "addresses";
+type TabId = "orders" | "personal" | "password" | "addresses";
 type MenuId = TabId | "logout";
 
 interface LocalAccountMenuItem {
@@ -56,13 +56,6 @@ interface LocalAccountOrder {
   images: LocalOrderThumbnail[];
 }
 
-interface LocalFavoriteItem {
-  id: string;
-  name: string;
-  price: string;
-  image: string;
-}
-
 interface LocalAddress {
   _id: string;
   label: string;
@@ -72,7 +65,6 @@ interface LocalAddress {
 
 const MENU_ITEMS: LocalAccountMenuItem[] = [
   { id: "orders", label: "Orders", icon: Package },
-  { id: "favorites", label: "Favorites", icon: Heart },
   { id: "personal", label: "Personal data", icon: User },
   { id: "password", label: "Change password", icon: Lock },
   { id: "addresses", label: "Addresses", icon: Home },
@@ -94,7 +86,6 @@ export default function MyAccountPage() {
   
   // Real Database States
   const [orders, setOrders] = useState<LocalAccountOrder[]>([]);
-  const [favorites, setFavorites] = useState<LocalFavoriteItem[]>([]);
   const [addresses, setAddresses] = useState<LocalAddress[]>([]);
   const [profile, setProfile] = useState({
     name: "Loading...",
@@ -119,7 +110,7 @@ export default function MyAccountPage() {
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.replace("/auth");
+      router.replace("/auth?callbackUrl=/account");
     }
   }, [router, status]);
 
@@ -187,19 +178,12 @@ export default function MyAccountPage() {
       .catch(err => console.error("Failed to load orders", err))
       .finally(() => setLoadingOrders(false));
 
-    // Fetch favorites from local store (or wishlist)
-    const savedFavs = localStorage.getItem("vivasaya-wishlist");
-    if (savedFavs) {
-      try {
-        setFavorites(JSON.parse(savedFavs));
-      } catch (e) {
-        setFavorites([]);
-      }
-    }
+    // Favorites/Wishlist is disabled
   }, [status]);
 
   const handleLogout = () => {
     if (confirm("Are you sure you want to sign out?")) {
+      useCartStore.getState().clearCart();
       signOut({ callbackUrl: "/" });
     }
   };
@@ -212,12 +196,7 @@ export default function MyAccountPage() {
     setActiveTab(id);
   };
 
-  const removeFavorite = (id: string) => {
-    const updated = favorites.filter((item) => item.id !== id);
-    setFavorites(updated);
-    localStorage.setItem("vivasaya-wishlist", JSON.stringify(updated));
-    showToast("success", "Product removed from favorites.");
-  };
+  // removeFavorite logic removed
 
   const handleSaveProfile = async (updatedProfile: typeof profile) => {
     try {
@@ -307,21 +286,21 @@ export default function MyAccountPage() {
     <>
       <Navbar />
       <div
-        className="site-main account-reference-page min-h-screen bg-[#FAF9F5] px-4 py-8 text-[#111] sm:px-8 lg:px-12 lg:py-12"
+        className="site-main account-reference-page min-h-screen bg-[#FAF9F5] px-0 lg:px-12 py-4 lg:py-12 pb-[100px] lg:pb-12"
       >
         <div className="account-shell mx-auto w-full max-w-[1170px] mt-6">
-          <h1 className="account-desktop-title mb-6 text-[22px] font-bold leading-none tracking-tight text-black font-heading">
+          <h1 className="account-desktop-title mb-6 text-[22px] font-bold leading-none tracking-tight text-black font-heading px-4 lg:px-0">
             My Account
           </h1>
 
-          <div className="account-reference-layout grid items-start gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
+          <div className="account-reference-layout flex flex-col lg:grid items-start gap-[24px] lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-8 px-4 lg:px-0">
             {/* Sidebar Navigation */}
-            <aside className="account-sidebar bg-white border border-gray-150 rounded-2xl p-5 shadow-sm">
-              <p className="account-welcome mb-6 text-sm font-bold leading-none text-black font-body">
+            <aside className="account-sidebar w-full lg:w-[300px] bg-white border border-[#e5e5e5] lg:border-gray-150 rounded-[14px] lg:rounded-2xl p-[14px] lg:p-5 shadow-[0_4px_14px_rgba(0,0,0,0.06)] lg:shadow-sm">
+              <p className="account-welcome mb-5 lg:mb-6 text-sm font-bold leading-none text-[#111111] font-body">
                 Welcome, {profile.name || session.user?.name}
               </p>
 
-              <nav aria-label="Account menu" className="account-menu flex flex-col gap-1.5">
+              <nav aria-label="Account menu" className="account-menu flex flex-col gap-0 lg:gap-1.5">
                 {MENU_ITEMS.map((item) => {
                   const Icon = item.icon;
                   const isActive = activeTab === item.id;
@@ -331,14 +310,21 @@ export default function MyAccountPage() {
                       key={item.id}
                       type="button"
                       onClick={() => handleMenuClick(item.id)}
-                      className={`account-menu-button flex h-14 w-full items-center justify-between border-0 px-4 rounded-xl text-left transition-colors cursor-pointer ${
+                      className={`account-menu-button flex w-full items-center justify-between border-0 rounded-none lg:rounded-xl text-left transition-colors cursor-pointer ${
                         isActive
-                          ? "bg-primary text-white font-bold"
-                          : "bg-transparent text-gray-700 hover:bg-gray-50"
+                          ? "bg-[#2f9e24] lg:bg-primary text-white font-bold"
+                          : "bg-white lg:bg-transparent text-[#111111] lg:text-gray-700 hover:bg-gray-50"
+                      } ${
+                        "h-11 lg:h-14 px-3 lg:px-4 border-b border-[#eeeeee] lg:border-b-0 last:border-b-0"
                       }`}
                     >
-                      <span className="account-menu-inner flex items-center gap-4">
-                        <Icon size={18} strokeWidth={isActive ? 2.5 : 1.75} aria-hidden="true" />
+                      <span className="account-menu-inner flex items-center gap-3 lg:gap-4">
+                        <Icon 
+                          size={18} 
+                          strokeWidth={isActive ? 2.5 : 1.75} 
+                          className={isActive ? "text-white" : "text-gray-400 lg:text-gray-500"}
+                          aria-hidden="true" 
+                        />
                         <span className="account-menu-label text-xs font-bold">
                           {item.label}
                         </span>
@@ -356,7 +342,7 @@ export default function MyAccountPage() {
             </aside>
 
             {/* Main Tabs Panel Content */}
-            <div className="account-content min-h-[580px] bg-white border border-gray-150 rounded-2xl p-6 shadow-sm">
+            <div className="account-content w-full min-h-[580px] bg-transparent lg:bg-white border-0 lg:border border-gray-150 rounded-none lg:rounded-2xl p-0 lg:p-6 shadow-none lg:shadow-sm">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activeTab}
@@ -377,14 +363,10 @@ export default function MyAccountPage() {
                         } else if (actionType === "TRACK ORDER") {
                           router.push(`/track-order?orderId=${orderId}`);
                         } else {
-                          window.open(`/api/orders/invoice?orderId=${orderId}`, "_blank");
+                          router.push(`/orders/${orderId}`);
                         }
                       }}
                     />
-                  )}
-
-                  {activeTab === "favorites" && (
-                    <FavoritesPanel items={favorites} onRemove={removeFavorite} />
                   )}
 
                   {activeTab === "personal" && (
@@ -469,9 +451,9 @@ export default function MyAccountPage() {
                       className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-primary"
                     />
                   </div>
-                  <button
+                   <button
                     type="submit"
-                    className="w-full bg-[#1F6B3B] hover:bg-[#154b29] text-white py-2.5 rounded-lg font-bold tracking-wider text-xs border-0 cursor-pointer transition-colors shadow-sm"
+                    className="w-full bg-[#34a121] hover:bg-[#28801a] text-white py-2.5 rounded-lg font-bold tracking-wider text-xs border-0 cursor-pointer transition-colors shadow-sm"
                   >
                     ADD ADDRESS
                   </button>
@@ -509,6 +491,36 @@ export default function MyAccountPage() {
   );
 }
 
+const renderStatusBadge = (status: string) => {
+  const s = (status || "").toLowerCase();
+  if (s === "shipped") {
+    return (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-orange-50 text-orange-600 border border-orange-200 leading-none">
+        Shipped
+      </span>
+    );
+  }
+  if (s === "delivered") {
+    return (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-green-50 text-green-600 border border-green-200 leading-none">
+        Delivered
+      </span>
+    );
+  }
+  if (s === "cancelled") {
+    return (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-red-50 text-red-600 border border-red-200 leading-none">
+        Cancelled
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-gray-50 text-gray-600 border border-gray-200 leading-none">
+      {status}
+    </span>
+  );
+};
+
 function OrdersPanel({
   orders,
   loading,
@@ -523,17 +535,18 @@ function OrdersPanel({
 
   return (
     <div>
-      <h2 className="mb-6 text-[22px] font-bold leading-none text-black font-heading">
+      <h2 className="mb-6 text-[22px] font-bold leading-none text-black font-heading hidden lg:block">
         Orders
       </h2>
 
-      <div className="space-y-4">
+      <div className="flex flex-col gap-[12px] lg:space-y-4">
         {orders.map((order, index) => (
           <article
             key={`${order.id}-${index}`}
-            className="border border-[#e8e8e8] rounded-xl bg-white p-5 hover:shadow-sm transition-shadow"
+            className="border border-[#e5e5e5] lg:border-[#e8e8e8] rounded-[14px] lg:rounded-xl bg-white p-[14px] lg:p-5 shadow-[0_4px_14px_rgba(0,0,0,0.06)] lg:shadow-sm hover:shadow-md transition-shadow"
           >
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_160px] lg:gap-7 items-center">
+            {/* Desktop Layout */}
+            <div className="hidden lg:grid gap-6 lg:grid-cols-[minmax(0,1fr)_160px] lg:gap-7 items-center">
               <div>
                 <div className="flex min-h-[50px] items-start gap-3 flex-wrap">
                   {order.images.map((image, imgIdx) => (
@@ -548,7 +561,7 @@ function OrdersPanel({
                   <OrderMeta
                     label="Status"
                     value={order.status}
-                    valueClassName={`${statusToneClass[order.statusTone]} uppercase font-bold`}
+                    valueClassName={`${statusToneClass[order.statusTone as LocalAccountOrder["statusTone"]]} uppercase font-bold`}
                   />
                 </div>
               </div>
@@ -577,6 +590,64 @@ function OrdersPanel({
                     </button>
                   )}
                 </div>
+              </div>
+            </div>
+
+            {/* Mobile/Tablet Layout */}
+            <div className="lg:hidden flex flex-col gap-4 font-body">
+              {/* Top Row: Image on top-left, details on top-right */}
+              <div className="flex gap-4">
+                <div className="shrink-0">
+                  {order.images.length > 0 ? (
+                    <ProductThumbnail image={order.images[0]} />
+                  ) : (
+                    <div className="w-14 h-16 bg-gray-50 border border-gray-150 rounded-xl flex items-center justify-center text-xl">🌿</div>
+                  )}
+                </div>
+                
+                <div className="flex-grow flex flex-col justify-center min-w-0">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Order ID</span>
+                  <span className="text-xs font-bold text-[#111111] truncate">#{order.id.slice(-8).toUpperCase()}</span>
+                  
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mt-1">{order.dateLabel}</span>
+                  <span className="text-xs font-semibold text-[#555555]">{order.date}</span>
+                </div>
+              </div>
+
+              {/* Middle Row: Total amount & status badge in 2 columns */}
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-[#eeeeee] pt-3">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total</span>
+                  <span className="text-sm font-bold text-[#111111] mt-0.5">{order.total}</span>
+                </div>
+                
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status</span>
+                  <div className="mt-1">
+                    {renderStatusBadge(order.status)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons Row */}
+              <div className="flex flex-col gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={() => onAction(order.id, order.action)}
+                  className="h-10 w-full bg-[#2f9e24] hover:bg-[#257d1c] text-white border-0 rounded-lg text-xs font-bold uppercase transition-colors cursor-pointer shadow-sm"
+                >
+                  {order.action}
+                </button>
+
+                {order.secondaryAction && (
+                  <button
+                    type="button"
+                    onClick={() => onAction(order.id, "Cancel order")}
+                    className="h-10 w-full border border-red-200 text-red-500 hover:bg-red-50 rounded-lg text-xs font-bold uppercase transition-colors cursor-pointer bg-transparent"
+                  >
+                    {order.secondaryAction}
+                  </button>
+                )}
               </div>
             </div>
           </article>
@@ -621,60 +692,7 @@ function OrderMeta({
   );
 }
 
-function FavoritesPanel({
-  items,
-  onRemove,
-}: {
-  items: LocalFavoriteItem[];
-  onRemove: (id: string) => void;
-}) {
-  return (
-    <div>
-      <h2 className="mb-6 text-[22px] font-bold leading-none text-black font-heading">
-        Favorites
-      </h2>
-
-      {items.length === 0 ? (
-        <EmptyPanel title="No favorites yet" description="Saved products will appear here." />
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-body">
-          {items.map((item) => (
-            <article
-              key={item.id}
-              className="flex items-center justify-between border border-[#e8e8e8] rounded-xl bg-white p-4"
-            >
-              <div className="flex items-center gap-4">
-                <div className="relative h-14 w-12 overflow-hidden bg-[#f2f2f2] rounded flex items-center justify-center">
-                  {item.image.startsWith("/") || item.image.startsWith("http") ? (
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      className="object-cover w-full h-full"
-                    />
-                  ) : (
-                    <span className="text-xl">{item.image}</span>
-                  )}
-                </div>
-                <div>
-                  <h3 className="text-xs font-bold text-black">{item.name}</h3>
-                  <p className="mt-1 text-xs font-semibold text-primary">{item.price}</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => onRemove(item.id)}
-                className="flex h-8 w-8 items-center justify-center border border-[#e8e8e8] rounded-lg text-black hover:bg-red-50 hover:text-red-500 cursor-pointer bg-white transition-colors"
-                aria-label={`Remove ${item.name}`}
-              >
-                <X size={14} aria-hidden="true" />
-              </button>
-            </article>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+// FavoritesPanel removed
 
 function PersonalDataPanel({
   profile,
@@ -694,8 +712,8 @@ function PersonalDataPanel({
   if (loading) return <div className="text-center py-10 text-gray-500 font-body font-bold">Loading personal info...</div>;
 
   return (
-    <div>
-      <h2 className="mb-6 text-[22px] font-bold leading-none text-black font-heading">
+    <div className="bg-white border border-[#e5e5e5] lg:border-0 rounded-[14px] lg:rounded-none p-[14px] lg:p-0 shadow-[0_4px_14px_rgba(0,0,0,0.06)] lg:shadow-none">
+      <h2 className="mb-6 text-[22px] font-bold leading-none text-black font-heading hidden lg:block">
         Personal Data
       </h2>
 
@@ -739,8 +757,8 @@ function PasswordPanel({ onSave }: { onSave: () => void }) {
   });
 
   return (
-    <div>
-      <h2 className="mb-6 text-[22px] font-bold leading-none text-black font-heading">
+    <div className="bg-white border border-[#e5e5e5] lg:border-0 rounded-[14px] lg:rounded-none p-[14px] lg:p-0 shadow-[0_4px_14px_rgba(0,0,0,0.06)] lg:shadow-none">
+      <h2 className="mb-6 text-[22px] font-bold leading-none text-black font-heading hidden lg:block">
         Change Password
       </h2>
 
@@ -812,9 +830,9 @@ function AddressesPanel({
   if (loading) return <div className="text-center py-10 text-gray-500 font-body font-bold">Loading addresses...</div>;
 
   return (
-    <div>
-      <div className="mb-6 flex items-center justify-between gap-4">
-        <h2 className="text-[22px] font-bold leading-none text-black font-heading">
+    <div className="bg-transparent border-0 rounded-none p-0 shadow-none">
+      <div className="mb-6 flex items-center justify-between gap-4 px-4 lg:px-0">
+        <h2 className="text-[22px] font-bold leading-none text-black font-heading hidden lg:block">
           Addresses
         </h2>
         <button
@@ -828,11 +846,13 @@ function AddressesPanel({
       </div>
 
       {addresses.length === 0 ? (
-        <EmptyPanel title="No addresses found" description="Click Add Address above to set one." />
+        <div className="px-4 lg:px-0">
+          <EmptyPanel title="No addresses found" description="Click Add Address above to set one." />
+        </div>
       ) : (
-        <div className="account-address-grid grid gap-4 md:grid-cols-2 font-body">
+        <div className="account-address-grid grid gap-[12px] lg:gap-4 grid-cols-1 md:grid-cols-2 font-body">
           {addresses.map((address) => (
-            <article key={address._id} className="border border-[#e8e8e8] rounded-xl p-5 relative bg-white">
+            <article key={address._id} className="border border-[#e5e5e5] lg:border-[#e8e8e8] rounded-[14px] lg:rounded-xl p-[14px] lg:p-5 relative bg-white shadow-[0_4px_14px_rgba(0,0,0,0.06)] lg:shadow-none">
               <button
                 type="button"
                 onClick={() => onDelete(address._id)}

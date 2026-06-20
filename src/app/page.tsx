@@ -3,22 +3,42 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowUp } from "lucide-react";
+import dynamic from "next/dynamic";
 
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
-
 import HeroBanner from "@/components/home/HeroBanner";
-import CategoryGrid from "@/components/home/CategoryGrid";
-import LargeFeaturedBanners from "@/components/home/LargeFeaturedBanners";
-import ShopByVideos from "@/components/home/ShopByVideos";
-import NewProducts from "@/components/home/NewProducts";
-import ShopByConcern from "@/components/home/ShopByConcern";
-import LimitedDeals from "@/components/home/LimitedDeals";
-import WhyUs from "@/components/home/WhyUs";
-import Certifications from "@/components/home/Certifications";
+
+// Lazy load below-the-fold components using dynamic imports
+const CategoryGrid = dynamic(() => import("@/components/home/CategoryGrid"), { ssr: true });
+const LargeFeaturedBanners = dynamic(() => import("@/components/home/LargeFeaturedBanners"), { ssr: true });
+const ShopByVideos = dynamic(() => import("@/components/home/ShopByVideos"), { ssr: false });
+const NewProducts = dynamic(() => import("@/components/home/NewProducts"), { ssr: true });
+const ShopByConcern = dynamic(() => import("@/components/home/ShopByConcern"), { ssr: true });
+const WhyUs = dynamic(() => import("@/components/home/WhyUs"), { ssr: true });
+const LimitedDeals = dynamic(() => import("@/components/home/LimitedDeals"), { ssr: true });
+const Certifications = dynamic(() => import("@/components/home/Certifications"), { ssr: true });
 
 type HomeSettings = {
+  // Legacy single-slide hero (kept for back-compat)
   hero_slides?: { image?: string; link?: string; headline?: string; subtitle?: string }[];
+
+  // New multi-slide banner slider
+  banner_slides?: { id?: string; image: string; desktopImage?: string; mobileImage?: string; link?: string; headline?: string; subtitle?: string }[];
+  banner_timer?: number;
+  banner_height_desktop?: number;
+  banner_height_mobile?: number;
+  banner_show_arrows?: boolean;
+  banner_show_dots?: boolean;
+
+  // Featured promo banners
+  promo_left_link?: string;
+  promo_right_link?: string;
+  promo_left_image?: string;
+  promo_right_image?: string;
+  promo_left_title?: string;
+  promo_right_title?: string;
+
   section_hero_enabled?: boolean;
   section_category_grid_enabled?: boolean;
   section_large_featured_banners_enabled?: boolean;
@@ -72,9 +92,25 @@ export default function HomePage() {
     <>
       <Navbar />
 
-      {settings.section_hero_enabled !== false && <HeroBanner settings={settings} />}
+      {/* Spacer so content never hides behind the fixed navbar */}
+      <div className="hero-banner-container" />
+
+      {settings.section_hero_enabled !== false && (
+        <HeroBanner
+          settings={{
+            banner_slides: settings.banner_slides && settings.banner_slides.length > 0
+              ? settings.banner_slides
+              : settings.hero_slides?.map((s, i) => ({ id: `legacy-${i}`, image: s.image || '/banner.jpg', link: s.link, headline: s.headline, subtitle: s.subtitle })),
+            banner_timer: settings.banner_timer,
+            banner_height_desktop: settings.banner_height_desktop,
+            banner_height_mobile: settings.banner_height_mobile,
+            banner_show_arrows: settings.banner_show_arrows,
+            banner_show_dots: settings.banner_show_dots,
+          }}
+        />
+      )}
       {settings.section_category_grid_enabled !== false && <CategoryGrid settings={settings} />}
-      {settings.section_large_featured_banners_enabled !== false && <LargeFeaturedBanners settings={settings} />}
+      {settings.section_large_featured_banners_enabled !== false && <LargeFeaturedBanners settings={{ promo_left_link: settings.promo_left_link, promo_right_link: settings.promo_right_link, promo_left_image: settings.promo_left_image, promo_right_image: settings.promo_right_image, promo_left_title: settings.promo_left_title, promo_right_title: settings.promo_right_title }} />}
       {settings.section_shop_by_videos_enabled !== false && <ShopByVideos />}
       {settings.section_new_products_enabled !== false && <NewProducts settings={settings} />}
       {settings.section_shop_by_concern_enabled !== false && <ShopByConcern />}

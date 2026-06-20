@@ -133,7 +133,7 @@ export default function OrdersStatsBar({ orders }: Props) {
       title: "Orders",
       value: totalOrders,
       icon: <ShoppingBag size={16} />,
-      color: "#1F6B3B",
+      color: "#34a121",
       bgColor: "#f0fdf4",
       trend: last7,
     },

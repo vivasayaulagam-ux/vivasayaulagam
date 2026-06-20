@@ -298,21 +298,17 @@ export default function ContactPage() {
             <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
               <Globe2 size={20} className="text-primary" /> Our Farm Center Map
             </h3>
-            <div className="w-full h-64 bg-secondary border border-gray-200 rounded-3xl overflow-hidden relative flex flex-col items-center justify-center shadow-sm">
-              {settings.contact_map_image ? (
-                <img
-                  src={settings.contact_map_image}
-                  alt="HQ Map Location"
-                  className="absolute inset-0 w-full h-full object-cover"
-                />
-              ) : (
-                <div className="absolute inset-0 bg-gradient-to-b from-green-50/50 to-lime-50/50 flex flex-col items-center justify-center p-4 text-center">
-                  <MapPin className="text-red-500 animate-bounce mb-2" size={32} />
-                  <p className="text-xs font-extrabold text-gray-800">{settings.contact_map_title || "Vivasaya Ullagam HQ"}</p>
-                  <p className="text-[10px] text-gray-400 mt-0.5">{settings.contact_map_subtitle || "Coimbatore, Tamil Nadu"}</p>
-                  <span className="text-[9px] bg-primary text-white px-2 py-0.5 rounded-full font-bold mt-2">{settings.contact_map_zone || "100% Organic Soil Zone"}</span>
-                </div>
-              )}
+            <div className="w-full h-64 bg-secondary border border-gray-200 rounded-3xl overflow-hidden relative shadow-sm">
+              <iframe
+                title="Vivasaya Ulagam HQ Location Map"
+                src={settings.contact_map_embed || `https://maps.google.com/maps?q=${encodeURIComponent(settings.shop_address || "Vivasaya Ulagam Agri Products, Coimbatore, Tamil Nadu, India")}&t=&z=14&ie=UTF8&iwloc=&output=embed`}
+                width="100%"
+                height="100%"
+                style={{ border: 0 }}
+                allowFullScreen={false}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
             </div>
           </div>
         </div>

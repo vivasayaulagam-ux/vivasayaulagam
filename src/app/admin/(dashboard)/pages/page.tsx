@@ -163,7 +163,7 @@ export default function PagesPage() {
             resetForm();
             setShowForm(true);
           }}
-          className="flex items-center gap-2 bg-[#1F6B3B] text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:bg-[#154a28] transition-all"
+          className="flex items-center gap-2 bg-[#34a121] text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:bg-[#154a28] transition-all"
         >
           <Plus size={16} />
           Create Page
@@ -206,7 +206,7 @@ export default function PagesPage() {
                       <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
                         <span>Slug: /{p.slug}</span>
                         <span>•</span>
-                        <Link href={`/pages/${p.slug}`} target="_blank" className="text-[#1F6B3B] hover:underline">
+                        <Link href={`/pages/${p.slug}`} target="_blank" className="text-[#34a121] hover:underline">
                           View Live
                         </Link>
                       </div>
@@ -217,7 +217,7 @@ export default function PagesPage() {
                     {/* Visual builder entry */}
                     <Link
                       href={`/admin/pages/builder/${p._id}`}
-                      className="flex items-center gap-1.5 bg-green-50 text-[#1F6B3B] hover:bg-[#1F6B3B] hover:text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-sm border border-green-200"
+                      className="flex items-center gap-1.5 bg-green-50 text-[#34a121] hover:bg-[#34a121] hover:text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-sm border border-green-200"
                     >
                       <Sparkles size={13} />
                       Visual Builder
@@ -272,7 +272,7 @@ export default function PagesPage() {
                     value={title}
                     onChange={e => handleTitleChange(e.target.value)}
                     placeholder="e.g. Organic Millet Festival"
-                    className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#1F6B3B] focus:outline-none transition-colors"
+                    className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:outline-none transition-colors"
                   />
                 </div>
 
@@ -284,7 +284,7 @@ export default function PagesPage() {
                     value={slug}
                     onChange={e => setSlug(e.target.value)}
                     placeholder="e.g. organic-millet-festival"
-                    className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#1F6B3B] focus:outline-none transition-colors"
+                    className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:outline-none transition-colors"
                   />
                 </div>
 
@@ -320,7 +320,7 @@ export default function PagesPage() {
                       value={seoTitle}
                       onChange={e => setSeoTitle(e.target.value)}
                       placeholder="e.g. Custom Meta Title"
-                      className="w-full text-xs px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#1F6B3B] focus:outline-none transition-colors"
+                      className="w-full text-xs px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:outline-none transition-colors"
                     />
                   </div>
                   <div>
@@ -330,7 +330,7 @@ export default function PagesPage() {
                       value={seoDescription}
                       onChange={e => setSeoDescription(e.target.value)}
                       placeholder="Enter description for Google Search"
-                      className="w-full text-xs px-3.5 py-2 border border-gray-200 rounded-xl focus:border-[#1F6B3B] focus:outline-none transition-colors resize-none"
+                      className="w-full text-xs px-3.5 py-2 border border-gray-200 rounded-xl focus:border-[#34a121] focus:outline-none transition-colors resize-none"
                     />
                   </div>
                 </div>
@@ -349,7 +349,7 @@ export default function PagesPage() {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="flex-1 flex items-center justify-center gap-1.5 text-sm bg-[#1F6B3B] text-white py-2.5 rounded-xl font-semibold hover:bg-[#154a28] disabled:opacity-60 transition-colors"
+                    className="flex-1 flex items-center justify-center gap-1.5 text-sm bg-[#34a121] text-white py-2.5 rounded-xl font-semibold hover:bg-[#154a28] disabled:opacity-60 transition-colors"
                   >
                     <Save size={15} />
                     {saving ? 'Saving...' : 'Save'}

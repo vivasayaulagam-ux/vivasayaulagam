@@ -16,7 +16,11 @@ interface Order {
   _id: string; orderId: string; user: { name: string; email: string } | null;
   items: OrderItem[]; totalAmount: number; status: string; isPaid: boolean;
   createdAt: string; updatedAt: string; paidAt?: string | null;
-  shippingAddress?: { fullName?: string; address?: string; city?: string; postalCode?: string; phone?: string; };
+  shippingAddress?: { fullName?: string; address?: string; city?: string; postalCode?: string; phone?: string; email?: string; };
+  subtotalAmount?: number;
+  deliveryFee?: number;
+  totalWeightKg?: number;
+  courierRate?: number;
 }
 type OrderSortColumn = "orderId" | "user" | "createdAt" | "status" | "totalAmount";
 
@@ -128,7 +132,7 @@ function OrderDetailPanel({
             <div className="bg-white border border-[#e5e5e5] rounded-[12px] p-4 space-y-2.5 text-sm">
               {[
                 ["Name", order.shippingAddress?.fullName || order.user?.name || "—"],
-                ["Email", order.user?.email || "—"],
+                ["Email", order.shippingAddress?.email || order.user?.email || "—"],
                 ["Phone", order.shippingAddress?.phone || "—"],
                 ["Address", [order.shippingAddress?.address, order.shippingAddress?.city, order.shippingAddress?.postalCode].filter(Boolean).join(", ") || "—"],
               ].map(([label, value]) => (
@@ -224,12 +228,34 @@ function OrderDetailPanel({
                     <p className="text-sm font-semibold truncate text-gray-800">{item.name}</p>
                     <p className="text-[11px] text-gray-400">Qty: {item.quantity} × {formatPrice(item.price)}</p>
                   </div>
-                  <span className="text-sm font-bold text-[#1F6B3B] shrink-0">{formatPrice(item.quantity * item.price)}</span>
+                  <span className="text-sm font-bold text-[#34a121] shrink-0">{formatPrice(item.quantity * item.price)}</span>
                 </div>
               ))}
-              <div className="flex justify-between items-center pt-2 border-t border-gray-100 px-1">
-                <span className="text-xs font-bold text-gray-500">Total</span>
-                <span className="text-base font-extrabold text-[#1F6B3B]">{formatPrice(order.totalAmount)}</span>
+              <div className="space-y-1.5 pt-2 border-t border-gray-100 text-xs text-gray-500 px-1">
+                <div className="flex justify-between">
+                  <span>Subtotal:</span>
+                  <span className="font-semibold text-gray-700">{formatPrice(order.subtotalAmount || (order.totalAmount - (order.deliveryFee || 0)))}</span>
+                </div>
+                {order.totalWeightKg !== undefined && order.totalWeightKg > 0 && (
+                  <div className="flex justify-between">
+                    <span>Total Weight:</span>
+                    <span className="font-semibold text-gray-700">{order.totalWeightKg.toFixed(2)} kg</span>
+                  </div>
+                )}
+                {order.courierRate !== undefined && order.courierRate > 0 && (
+                  <div className="flex justify-between">
+                    <span>Courier Rate:</span>
+                    <span className="font-semibold text-gray-700">₹{order.courierRate} / kg</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span>Courier Charges:</span>
+                  <span className="font-semibold text-gray-700">{formatPrice(order.deliveryFee || 0)}</span>
+                </div>
+                <div className="flex justify-between items-center pt-1.5 border-t border-dashed border-gray-200 text-sm font-extrabold text-[#34a121]">
+                  <span>Total:</span>
+                  <span>{formatPrice(order.totalAmount)}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -246,26 +272,21 @@ interface Props {
   loading?: boolean;
   selectedIds: Set<string>;
   onSelectionChange: (ids: Set<string>) => void;
+  onOrderUpdate: (dbId: string, updatedFields: any) => void;
 }
 
-export default function OrdersTable({ orders, filters, loading, selectedIds, onSelectionChange }: Props) {
+export default function OrdersTable({ orders, filters, loading, selectedIds, onSelectionChange, onOrderUpdate }: Props) {
   const [expandedId, setExpandedId]   = useState<string | null>(null);
   const [updatingId, setUpdatingId]   = useState<string | null>(null);
   const [successId, setSuccessId]     = useState<string | null>(null);
-  const [orderUpdates, setOrderUpdates] = useState<Record<string, Partial<Pick<Order, "status" | "isPaid">>>>({});
   const [page, setPage]               = useState(1);
   const [pageSize, setPageSize]       = useState(10);
   const [sortCol, setSortCol]         = useState<OrderSortColumn | null>(null);
   const [sortDir, setSortDir]         = useState<"asc" | "desc">("asc");
 
-  const localOrders = useMemo(
-    () => orders.map((order) => ({ ...order, ...(orderUpdates[order._id] || {}) })),
-    [orderUpdates, orders]
-  );
-
   // ── Filter ──────────────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
-    let list = [...localOrders];
+    let list = [...orders];
 
     if (filters.search) {
       const q = filters.search.toLowerCase();
@@ -278,6 +299,16 @@ export default function OrdersTable({ orders, filters, loading, selectedIds, onS
     if (filters.status !== "all") list = list.filter((o) => o.status === filters.status);
     if (filters.payment === "paid") list = list.filter((o) => o.isPaid);
     if (filters.payment === "cod")  list = list.filter((o) => !o.isPaid);
+    if (filters.startDate) {
+      const start = new Date(filters.startDate);
+      start.setHours(0, 0, 0, 0);
+      list = list.filter((o) => new Date(o.createdAt).getTime() >= start.getTime());
+    }
+    if (filters.endDate) {
+      const end = new Date(filters.endDate);
+      end.setHours(23, 59, 59, 999);
+      list = list.filter((o) => new Date(o.createdAt).getTime() <= end.getTime());
+    }
 
     // Sort
     const sortKey = filters.sort || "date_desc";
@@ -300,7 +331,7 @@ export default function OrdersTable({ orders, filters, loading, selectedIds, onS
       });
     }
     return list;
-  }, [localOrders, filters, sortCol, sortDir]);
+  }, [orders, filters, sortCol, sortDir]);
 
   // ── Pagination ──────────────────────────────────────────────────────────────
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -339,27 +370,24 @@ export default function OrdersTable({ orders, filters, loading, selectedIds, onS
   const updateStatus = useCallback(async (orderId: string, dbId: string, newStatus: string) => {
     setUpdatingId(orderId);
     try {
-      const res  = await fetch("/api/admin/orders/status", {
+      const res = await fetch("/api/admin/orders/status", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orderId: dbId, status: newStatus }),
       });
       const data = await res.json();
       if (data.success) {
-        setOrderUpdates((prev) => ({
-          ...prev,
-          [dbId]: { status: data.status, isPaid: data.isPaid },
-        }));
+        onOrderUpdate(dbId, { status: data.status, isPaid: data.isPaid });
         setSuccessId(orderId);
         setTimeout(() => setSuccessId(null), 2500);
       } else alert("Failed: " + (data.error || "Unknown error"));
     } catch { alert("Network error. Please try again."); }
     finally  { setUpdatingId(null); }
-  }, []);
+  }, [onOrderUpdate]);
 
   // ── Column header helper ────────────────────────────────────────────────────
   // ── Empty / Loading ─────────────────────────────────────────────────────────
-  if (!loading && filtered.length === 0 && localOrders.length === 0) {
+  if (!loading && filtered.length === 0 && orders.length === 0) {
     return (
       <div className="bg-white border border-[#e5e5e5] rounded-[14px] overflow-hidden">
         <OrderEmptyState />
@@ -381,7 +409,7 @@ export default function OrdersTable({ orders, filters, loading, selectedIds, onS
                   checked={allOnPage}
                   ref={(el) => { if (el) el.indeterminate = someOnPage && !allOnPage; }}
                   onChange={toggleAll}
-                  className="w-3.5 h-3.5 accent-[#1F6B3B] cursor-pointer rounded"
+                  className="w-3.5 h-3.5 accent-[#34a121] cursor-pointer rounded"
                 />
               </th>
               <ColumnHeader label="Order ID"    col="orderId" onSort={handleColSort} />
@@ -415,13 +443,13 @@ export default function OrdersTable({ orders, filters, loading, selectedIds, onS
                           type="checkbox"
                           checked={selectedIds.has(order._id)}
                           onChange={() => toggleOne(order._id)}
-                          className="w-3.5 h-3.5 accent-[#1F6B3B] cursor-pointer rounded"
+                          className="w-3.5 h-3.5 accent-[#34a121] cursor-pointer rounded"
                         />
                       </td>
 
                       {/* Order ID */}
                       <td className="px-4 py-3.5">
-                        <span className="font-mono font-bold text-[#1F6B3B] text-[13px]">
+                        <span className="font-mono font-bold text-[#34a121] text-[13px]">
                           {order.orderId || "—"}
                         </span>
                       </td>
@@ -487,7 +515,7 @@ export default function OrdersTable({ orders, filters, loading, selectedIds, onS
                 ))}
 
             {/* No results (when filters applied) */}
-            {!loading && filtered.length === 0 && localOrders.length > 0 && (
+            {!loading && filtered.length === 0 && orders.length > 0 && (
               <tr>
                 <td colSpan={8} className="py-16 text-center">
                   <p className="text-gray-400 text-sm">No orders match your filters.</p>
@@ -506,7 +534,7 @@ export default function OrdersTable({ orders, filters, loading, selectedIds, onS
             <select
               value={pageSize}
               onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
-              className="px-2 py-1 border border-[#e5e5e5] rounded-lg text-[12px] bg-white outline-none focus:border-[#1F6B3B] transition-colors"
+              className="px-2 py-1 border border-[#e5e5e5] rounded-lg text-[12px] bg-white outline-none focus:border-[#34a121] transition-colors"
             >
               {PAGE_SIZE_OPTIONS.map((n) => <option key={n} value={n}>{n}</option>)}
             </select>
@@ -535,7 +563,7 @@ export default function OrdersTable({ orders, filters, loading, selectedIds, onS
                   onClick={() => setPage(pg)}
                   className={`w-8 h-8 flex items-center justify-center rounded-lg text-[12px] font-semibold transition-all ${
                     pg === safePage
-                      ? "bg-[#1F6B3B] text-white border border-[#1F6B3B]"
+                      ? "bg-[#34a121] text-white border border-[#34a121]"
                       : "border border-[#e5e5e5] bg-white text-gray-600 hover:bg-gray-50"
                   }`}
                 >

@@ -75,7 +75,7 @@ function ImagePicker({
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-xs bg-white focus:border-[#1F6B3B] focus:outline-none transition-colors"
+          className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-xs bg-white focus:border-[#34a121] focus:outline-none transition-colors"
           placeholder="e.g. /uploads/image.jpg"
         />
         <button
@@ -125,7 +125,7 @@ function AccordionHeader({
       onClick={() => setActiveAccordion(isOpen ? null : id)}
       className={`w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-xl text-left text-xs font-bold border transition-colors ${
         isOpen
-          ? "border-[#1F6B3B] bg-[#1F6B3B]/5 text-[#1F6B3B]"
+          ? "border-[#34a121] bg-[#34a121]/5 text-[#34a121]"
           : "border-gray-200 text-gray-700"
       }`}
     >
@@ -149,23 +149,23 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
   const [previewKey, setPreviewKey] = useState(0);
 
   // 1. Theme & Global Announcement Settings
-  const [primaryColor, setPrimaryColor] = useState(initialData.primary_color || "#1F6B3B");
+  const [primaryColor, setPrimaryColor] = useState(initialData.primary_color || "#34a121");
   const [announcementText, setAnnouncementText] = useState(initialData.announcement_text || "Free Shipping on orders above ₹1000!");
   const [announcementEnabled, setAnnouncementEnabled] = useState(initialData.announcement_enabled !== false);
-  const [announcementBg, setAnnouncementBg] = useState(initialData.announcement_bg || "#1F6B3B");
+  const [announcementBg, setAnnouncementBg] = useState(initialData.announcement_bg || "#34a121");
   const [announcementTextColor, setAnnouncementTextColor] = useState(initialData.announcement_text_color || "#ffffff");
 
   // 2. Brand Identity Settings
   const [logoPath, setLogoPath] = useState(initialData.logo_path || "/logo.png");
   const [faviconPath, setFaviconPath] = useState(initialData.favicon_path || "/favicon.ico");
-  const [contactEmail, setContactEmail] = useState(initialData.contact_email || "crazyboyajith743@gmail.com");
+  const [contactEmail, setContactEmail] = useState(initialData.contact_email || "vivasayaulagam@gmail.com");
   const [contactPhone, setContactPhone] = useState(initialData.contact_phone || "+91 98765 43210");
   const [shopAddress, setShopAddress] = useState(initialData.shop_address || "12, Organic Green Valley, Coimbatore, Tamil Nadu - 641001");
 
   // 3. Hero Slideshow Settings
   const defaultSlides = [
     { id: 1, image: "/nari-payuru-banner-new.jpg", isImageOnly: true, link: "#shop", bg: "bg-black" },
-    { id: 2, headline: "Wholesome Pasta, made with Millet Goodness", subtitle: "Directly from the farms of Tamil Nadu to your kitchen.", bg: "from-[#1F6B3B] to-[#3F8F55]", imgEmoji: "🍝", isImageOnly: false, link: "#shop" },
+    { id: 2, headline: "Wholesome Pasta, made with Millet Goodness", subtitle: "Directly from the farms of Tamil Nadu to your kitchen.", bg: "from-[#34a121] to-[#3F8F55]", imgEmoji: "🍝", isImageOnly: false, link: "#shop" },
     { id: 3, headline: "Pure Cold Pressed Oils for your Family", subtitle: "100% natural, unrefined, and chemical-free.", bg: "from-[#C9A227] to-[#A4811A]", imgEmoji: "🫙", isImageOnly: false, link: "#shop" },
     { id: 4, headline: "100% Organic Traditional Palm Jaggery", subtitle: "The healthy sweetener alternative.", bg: "from-[#2A4433] to-[#1F3326]", imgEmoji: "🍯", isImageOnly: false, link: "#shop" }
   ];
@@ -224,7 +224,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
   // 6. About Page Content
   const [aboutHeroTitle, setAboutHeroTitle] = useState(initialData.about_hero_title || "Nurturing Wholesome Living");
   const [aboutHeroSubtitle, setAboutHeroSubtitle] = useState(initialData.about_hero_subtitle || "Honoring traditional farming wisdom to deliver pure, unadulterated organic products directly to your doorstep.");
-  const [aboutHeroBg, setAboutHeroBg] = useState(initialData.about_hero_bg || "from-[#1F6B3B] to-[#154a28]");
+  const [aboutHeroBg, setAboutHeroBg] = useState(initialData.about_hero_bg || "from-[#34a121] to-[#154a28]");
   
   const [aboutStoryTag, setAboutStoryTag] = useState(initialData.about_story_tag || "Our Beginnings");
   const [aboutStoryTitle, setAboutStoryTitle] = useState(initialData.about_story_title || "Cultivating Health and Preserving Bio-diversity");
@@ -457,7 +457,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
   // Slideshow Handlers
   const addSlide = () => {
     const nextId = heroSlides.length > 0 ? Math.max(...heroSlides.map(s => s.id)) + 1 : 1;
-    setHeroSlides([...heroSlides, { id: nextId, image: "/logo.png", isImageOnly: false, headline: "New Slide Title", subtitle: "Slide Subtitle description here", bg: "from-[#1F6B3B] to-[#3F8F55]", imgEmoji: "🌾", link: "#shop" }]);
+    setHeroSlides([...heroSlides, { id: nextId, image: "/logo.png", isImageOnly: false, headline: "New Slide Title", subtitle: "Slide Subtitle description here", bg: "from-[#34a121] to-[#3F8F55]", imgEmoji: "🌾", link: "#shop" }]);
   };
 
   const removeSlide = (id: number) => {
@@ -498,7 +498,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
         {/* Header */}
         <div className="mb-6 border-b border-gray-150 pb-4">
           <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-            <Store size={20} className="text-[#1F6B3B]" />
+            <Store size={20} className="text-[#34a121]" />
             Site Customizer
           </h2>
           <p className="text-xs text-gray-400 mt-1">Configure layout, assets, and banner options in modular sections.</p>
@@ -552,7 +552,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
                             type="text"
                             value={announcementText}
                             onChange={(e) => setAnnouncementText(e.target.value)}
-                            className="w-full border border-gray-200 rounded-xl p-2 text-xs focus:outline-none focus:border-[#1F6B3B]"
+                            className="w-full border border-gray-200 rounded-xl p-2 text-xs focus:outline-none focus:border-[#34a121]"
                           />
                         </div>
                         <div className="grid grid-cols-2 gap-3">
@@ -599,7 +599,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
                       type="text"
                       value={faviconPath}
                       onChange={(e) => setFaviconPath(e.target.value)}
-                      className="w-full border border-gray-200 rounded-xl p-2 text-xs focus:outline-none focus:border-[#1F6B3B]"
+                      className="w-full border border-gray-200 rounded-xl p-2 text-xs focus:outline-none focus:border-[#34a121]"
                     />
                   </div>
 
@@ -613,7 +613,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
                         type="email"
                         value={contactEmail}
                         onChange={(e) => setContactEmail(e.target.value)}
-                        className="w-full border border-gray-200 rounded-xl p-2 text-xs focus:outline-none focus:border-[#1F6B3B]"
+                        className="w-full border border-gray-200 rounded-xl p-2 text-xs focus:outline-none focus:border-[#34a121]"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -622,7 +622,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
                         type="text"
                         value={contactPhone}
                         onChange={(e) => setContactPhone(e.target.value)}
-                        className="w-full border border-gray-200 rounded-xl p-2 text-xs focus:outline-none focus:border-[#1F6B3B]"
+                        className="w-full border border-gray-200 rounded-xl p-2 text-xs focus:outline-none focus:border-[#34a121]"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -631,7 +631,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
                         value={shopAddress}
                         onChange={(e) => setShopAddress(e.target.value)}
                         rows={2}
-                        className="w-full border border-gray-200 rounded-xl p-2 text-xs focus:outline-none focus:border-[#1F6B3B] resize-none"
+                        className="w-full border border-gray-200 rounded-xl p-2 text-xs focus:outline-none focus:border-[#34a121] resize-none"
                       />
                     </div>
                   </div>
@@ -649,7 +649,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
                     <select
                       value={headerStyle}
                       onChange={(e) => setHeaderStyle(e.target.value)}
-                      className="w-full border border-gray-200 rounded-xl p-2 text-xs bg-white focus:outline-none focus:border-[#1F6B3B]"
+                      className="w-full border border-gray-200 rounded-xl p-2 text-xs bg-white focus:outline-none focus:border-[#34a121]"
                     >
                       <option value="white">Classic Clean White</option>
                       <option value="premium-clean">Premium Clean Ecommerce Header (92px White)</option>
@@ -671,7 +671,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
                   <hr className="border-gray-200" />
 
                   <div className="space-y-3">
-                    <h4 className="text-xs font-bold text-[#1F6B3B]">Best Selling Badge</h4>
+                    <h4 className="text-xs font-bold text-[#34a121]">Best Selling Badge</h4>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
                         <label className="text-[10px] font-semibold text-gray-600">Badge Text</label>
@@ -695,7 +695,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
                   </div>
 
                   <div className="space-y-3">
-                    <h4 className="text-xs font-bold text-[#1F6B3B]">Special Combo Badge</h4>
+                    <h4 className="text-xs font-bold text-[#34a121]">Special Combo Badge</h4>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
                         <label className="text-[10px] font-semibold text-gray-600">Badge Text</label>
@@ -722,7 +722,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
 
                   <div className="space-y-3 bg-white p-3 border border-gray-200 rounded-xl">
                     <div className="flex items-center justify-between border-b border-gray-150 pb-1.5">
-                      <h4 className="text-xs font-bold text-[#1F6B3B]">Mega Menu Promo Block</h4>
+                      <h4 className="text-xs font-bold text-[#34a121]">Mega Menu Promo Block</h4>
                       <button
                         type="button"
                         onClick={() => setMegamenuPromoEnabled(!megamenuPromoEnabled)}
@@ -789,7 +789,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
                     <button
                       type="button"
                       onClick={addSlide}
-                      className="flex items-center gap-1 bg-[#1F6B3B]/10 hover:bg-[#1F6B3B]/20 text-[#1F6B3B] text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition-colors"
+                      className="flex items-center gap-1 bg-[#34a121]/10 hover:bg-[#34a121]/20 text-[#34a121] text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition-colors"
                     >
                       <Plus size={12} /> Add Slide
                     </button>
@@ -799,7 +799,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
                     {heroSlides.map((slide, index) => (
                       <div key={slide.id} className="bg-white border border-gray-200 rounded-xl p-3.5 space-y-3 shadow-sm relative">
                         <div className="flex items-center justify-between border-b border-gray-100 pb-1.5">
-                          <span className="text-[11px] font-bold text-[#1F6B3B]">Slide #{index + 1}</span>
+                          <span className="text-[11px] font-bold text-[#34a121]">Slide #{index + 1}</span>
                           <div className="flex items-center gap-1">
                             <button
                               type="button"
@@ -855,7 +855,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
                                   type="text"
                                   value={slide.headline || ""}
                                   onChange={(e) => updateSlideField(slide.id, "headline", e.target.value)}
-                                  className="w-full border border-gray-200 rounded-xl p-1.5 text-xs focus:outline-none focus:border-[#1F6B3B]"
+                                  className="w-full border border-gray-200 rounded-xl p-1.5 text-xs focus:outline-none focus:border-[#34a121]"
                                 />
                               </div>
                               <div className="space-y-1">
@@ -864,7 +864,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
                                   type="text"
                                   value={slide.subtitle || ""}
                                   onChange={(e) => updateSlideField(slide.id, "subtitle", e.target.value)}
-                                  className="w-full border border-gray-200 rounded-xl p-1.5 text-xs focus:outline-none focus:border-[#1F6B3B]"
+                                  className="w-full border border-gray-200 rounded-xl p-1.5 text-xs focus:outline-none focus:border-[#34a121]"
                                 />
                               </div>
                               <div className="grid grid-cols-2 gap-2">
@@ -874,7 +874,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
                                     type="text"
                                     value={slide.imgEmoji || ""}
                                     onChange={(e) => updateSlideField(slide.id, "imgEmoji", e.target.value)}
-                                    className="w-full border border-gray-200 rounded-xl p-1.5 text-xs focus:outline-none focus:border-[#1F6B3B]"
+                                    className="w-full border border-gray-200 rounded-xl p-1.5 text-xs focus:outline-none focus:border-[#34a121]"
                                   />
                                 </div>
                                 <div className="space-y-1">
@@ -883,8 +883,8 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
                                     type="text"
                                     value={slide.bg || ""}
                                     onChange={(e) => updateSlideField(slide.id, "bg", e.target.value)}
-                                    className="w-full border border-gray-200 rounded-xl p-1.5 text-xs focus:outline-none focus:border-[#1F6B3B]"
-                                    placeholder="from-[#1F6B3B] to-[#3F8F55]"
+                                    className="w-full border border-gray-200 rounded-xl p-1.5 text-xs focus:outline-none focus:border-[#34a121]"
+                                    placeholder="from-[#34a121] to-[#3F8F55]"
                                   />
                                 </div>
                               </div>
@@ -897,7 +897,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
                               type="text"
                               value={slide.link || ""}
                               onChange={(e) => updateSlideField(slide.id, "link", e.target.value)}
-                              className="w-full border border-gray-200 rounded-xl p-1.5 text-xs focus:outline-none focus:border-[#1F6B3B]"
+                              className="w-full border border-gray-200 rounded-xl p-1.5 text-xs focus:outline-none focus:border-[#34a121]"
                               placeholder="#shop"
                             />
                           </div>
@@ -915,7 +915,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
               {activeAccordion === "promo_banners" && (
                 <div className="p-4 bg-gray-50 border-x border-b border-gray-200 rounded-b-xl space-y-4 -mt-1.5 mb-2 animate-in fade-in duration-200">
                   <div className="space-y-3 bg-white p-3 border border-gray-200 rounded-xl">
-                    <h4 className="text-xs font-bold text-[#1F6B3B]">Left Featured Combo Banner</h4>
+                    <h4 className="text-xs font-bold text-[#34a121]">Left Featured Combo Banner</h4>
                     <ImagePicker 
                       label="Banner Background Image" 
                       value={promoLeftImage} 
@@ -942,7 +942,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
                   </div>
 
                   <div className="space-y-3 bg-white p-3 border border-gray-200 rounded-xl">
-                    <h4 className="text-xs font-bold text-[#1F6B3B]">Right Featured Combo Banner</h4>
+                    <h4 className="text-xs font-bold text-[#34a121]">Right Featured Combo Banner</h4>
                     <ImagePicker 
                       label="Banner Background Image" 
                       value={promoRightImage} 
@@ -1091,7 +1091,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
                   {/* Shop Page Banner */}
                   <div className="space-y-3 bg-white p-3 border border-gray-200 rounded-xl">
                     <div className="flex items-center justify-between border-b border-gray-150 pb-1.5">
-                      <h4 className="text-xs font-bold text-[#1F6B3B]">Shop Page Banner</h4>
+                      <h4 className="text-xs font-bold text-[#34a121]">Shop Page Banner</h4>
                       <button
                         type="button"
                         onClick={() => setShopBannerEnabled(!shopBannerEnabled)}
@@ -1114,7 +1114,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
                   {/* Categories Page Banner */}
                   <div className="space-y-3 bg-white p-3 border border-gray-200 rounded-xl">
                     <div className="flex items-center justify-between border-b border-gray-150 pb-1.5">
-                      <h4 className="text-xs font-bold text-[#1F6B3B]">Categories Page Banner</h4>
+                      <h4 className="text-xs font-bold text-[#34a121]">Categories Page Banner</h4>
                       <button
                         type="button"
                         onClick={() => setCategoriesBannerEnabled(!categoriesBannerEnabled)}
@@ -1137,7 +1137,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
                   {/* Cart Page Banner */}
                   <div className="space-y-3 bg-white p-3 border border-gray-200 rounded-xl">
                     <div className="flex items-center justify-between border-b border-gray-150 pb-1.5">
-                      <h4 className="text-xs font-bold text-[#1F6B3B]">Cart Page Banner</h4>
+                      <h4 className="text-xs font-bold text-[#34a121]">Cart Page Banner</h4>
                       <button
                         type="button"
                         onClick={() => setCartBannerEnabled(!cartBannerEnabled)}
@@ -1159,14 +1159,14 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
 
                   {/* About Page Hero & Story Custom Images */}
                   <div className="space-y-3 bg-white p-3 border border-gray-200 rounded-xl">
-                    <h4 className="text-xs font-bold text-[#1F6B3B]">About Page Imagery</h4>
+                    <h4 className="text-xs font-bold text-[#34a121]">About Page Imagery</h4>
                     <ImagePicker label="About Page Hero Image" value={aboutHeroImage} onChange={setAboutHeroImage}/>
                     <ImagePicker label="About Page Story Image" value={aboutStoryImage} onChange={setAboutStoryImage}/>
                   </div>
 
                   {/* Contact Page Hero & Map Custom Images */}
                   <div className="space-y-3 bg-white p-3 border border-gray-200 rounded-xl">
-                    <h4 className="text-xs font-bold text-[#1F6B3B]">Contact Page Imagery</h4>
+                    <h4 className="text-xs font-bold text-[#34a121]">Contact Page Imagery</h4>
                     <ImagePicker label="Contact Page Hero Image" value={contactHeroImage} onChange={setContactHeroImage}/>
                     <ImagePicker label="Contact Page Map Placeholder" value={contactMapImage} onChange={setContactMapImage}/>
                   </div>
@@ -1181,13 +1181,13 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
               {activeAccordion === "about" && (
                 <div className="p-4 bg-gray-50 border-x border-b border-gray-200 rounded-b-xl space-y-4 -mt-1.5 mb-2 animate-in fade-in duration-200">
                   <div className="space-y-2 bg-white p-3 border border-gray-200 rounded-xl">
-                    <h4 className="text-xs font-bold text-[#1F6B3B]">Hero Section</h4>
+                    <h4 className="text-xs font-bold text-[#34a121]">Hero Section</h4>
                     <input type="text" value={aboutHeroTitle} onChange={(e)=>setAboutHeroTitle(e.target.value)} placeholder="Hero Title" className="w-full border rounded p-1.5 text-xs mb-2"/>
                     <textarea value={aboutHeroSubtitle} onChange={(e)=>setAboutHeroSubtitle(e.target.value)} placeholder="Hero Subtitle" rows={2} className="w-full border rounded p-1.5 text-xs resize-none"/>
                   </div>
 
                   <div className="space-y-2 bg-white p-3 border border-gray-200 rounded-xl">
-                    <h4 className="text-xs font-bold text-[#1F6B3B]">Brand Story Text</h4>
+                    <h4 className="text-xs font-bold text-[#34a121]">Brand Story Text</h4>
                     <input type="text" value={aboutStoryTag} onChange={(e)=>setAboutStoryTag(e.target.value)} placeholder="Story Tag" className="w-full border rounded p-1 text-xs"/>
                     <input type="text" value={aboutStoryTitle} onChange={(e)=>setAboutStoryTitle(e.target.value)} placeholder="Story Heading" className="w-full border rounded p-1 text-xs"/>
                     <textarea value={aboutStoryDesc1} onChange={(e)=>setAboutStoryDesc1(e.target.value)} placeholder="Story Paragraph 1" rows={3} className="w-full border rounded p-1 text-xs resize-none"/>
@@ -1197,7 +1197,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
                   </div>
 
                   <div className="space-y-2 bg-white p-3 border border-gray-200 rounded-xl text-xs">
-                    <h4 className="text-xs font-bold text-[#1F6B3B]">Statistics Counters</h4>
+                    <h4 className="text-xs font-bold text-[#34a121]">Statistics Counters</h4>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <input type="text" value={aboutStat1Val} onChange={(e)=>setAboutStat1Val(e.target.value)} className="border rounded w-full p-1"/>
@@ -1219,7 +1219,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
                   </div>
 
                   <div className="space-y-2 bg-white p-3 border border-gray-200 rounded-xl">
-                    <h4 className="text-xs font-bold text-[#1F6B3B]">Mission & Vision</h4>
+                    <h4 className="text-xs font-bold text-[#34a121]">Mission & Vision</h4>
                     <input type="text" value={aboutMissionTitle} onChange={(e)=>setAboutMissionTitle(e.target.value)} className="w-full border rounded p-1 text-xs"/>
                     <textarea value={aboutMissionDesc} onChange={(e)=>setAboutMissionDesc(e.target.value)} rows={2} className="w-full border rounded p-1 text-xs resize-none"/>
                     <input type="text" value={aboutVisionTitle} onChange={(e)=>setAboutVisionTitle(e.target.value)} className="w-full border rounded p-1 text-xs"/>
@@ -1235,7 +1235,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
               {activeAccordion === "contact" && (
                 <div className="p-4 bg-gray-50 border-x border-b border-gray-200 rounded-b-xl space-y-4 -mt-1.5 mb-2 animate-in fade-in duration-200">
                   <div className="space-y-2 bg-white p-3 border border-gray-200 rounded-xl">
-                    <h4 className="text-xs font-bold text-[#1F6B3B]">Helpline & Address</h4>
+                    <h4 className="text-xs font-bold text-[#34a121]">Helpline & Address</h4>
                     <input type="text" value={contactHeroTitle} onChange={(e)=>setContactHeroTitle(e.target.value)} placeholder="Contact Title" className="w-full border rounded p-1 text-xs"/>
                     <textarea value={contactHeroSubtitle} onChange={(e)=>setContactHeroSubtitle(e.target.value)} placeholder="Subtext description" rows={2} className="w-full border rounded p-1 text-xs resize-none"/>
                     <input type="text" value={contactHelplineHours} onChange={(e)=>setContactHelplineHours(e.target.value)} placeholder="Opening hours details" className="w-full border rounded p-1 text-xs"/>
@@ -1243,7 +1243,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
                   </div>
 
                   <div className="space-y-2 bg-white p-3 border border-gray-200 rounded-xl text-xs">
-                    <h4 className="text-xs font-bold text-[#1F6B3B]">FAQ Accordion Items</h4>
+                    <h4 className="text-xs font-bold text-[#34a121]">FAQ Accordion Items</h4>
                     <div className="border border-gray-150 p-2 rounded-lg space-y-1">
                       <span className="text-[10px] font-bold text-gray-400">FAQ 1</span>
                       <input type="text" value={contactFaqQ1} onChange={(e)=>setContactFaqQ1(e.target.value)} className="w-full border rounded p-1"/>
@@ -1266,7 +1266,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-[#1F6B3B] hover:bg-[#154a28] text-white py-3 rounded-xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              className="w-full bg-[#34a121] hover:bg-[#154a28] text-white py-3 rounded-xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
             >
               {loading ? (
                 <>
@@ -1293,7 +1293,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
             <select
               value={previewPage}
               onChange={(e) => setPreviewPage(e.target.value)}
-              className="border border-gray-200 rounded-xl px-2.5 py-1.5 text-xs bg-white font-medium text-gray-700 focus:outline-none focus:border-[#1F6B3B]"
+              className="border border-gray-200 rounded-xl px-2.5 py-1.5 text-xs bg-white font-medium text-gray-700 focus:outline-none focus:border-[#34a121]"
             >
               <option value="/">Homepage ( / )</option>
               <option value="/shop">Shop Page ( /shop )</option>
@@ -1320,7 +1320,7 @@ export default function CmsForm({ initialData }: { initialData: Record<string, a
                   title={device.label}
                   className={`p-1.5 rounded-lg transition-all ${
                     previewWidth === device.id
-                      ? "bg-white text-[#1F6B3B] shadow-sm font-bold"
+                      ? "bg-white text-[#34a121] shadow-sm font-bold"
                       : "text-gray-400 hover:text-gray-600"
                   }`}
                 >

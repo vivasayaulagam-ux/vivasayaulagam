@@ -1,8 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Save, AlertCircle, Loader2, Link2, Eye, EyeOff, Plus, Trash2, Video as VideoIcon, Check, DollarSign, ExternalLink } from 'lucide-react';
+import { Save, AlertCircle, Loader2, Link2, Eye, EyeOff, Plus, Trash2, Video as VideoIcon, Check, DollarSign, ExternalLink, Image as ImageIcon, LayoutTemplate, ChevronUp, ChevronDown, Timer, Monitor, Smartphone } from 'lucide-react';
+import Image from "next/image";
+
+interface BannerSlide {
+  id: string;
+  image: string;
+  desktopImage?: string;
+  mobileImage?: string;
+  link?: string;
+  headline?: string;
+  subtitle?: string;
+}
 
 interface SettingsResponse {
   success?: boolean;
@@ -23,12 +34,19 @@ interface SettingsResponse {
       charge_500g?: number;
       charge_1kg?: number;
       charge_above?: number;
+      rate_per_kg?: number;
     };
+    banner_slides?: BannerSlide[];
+    banner_timer?: number;
+    banner_height_desktop?: number;
+    banner_height_mobile?: number;
+    banner_show_arrows?: boolean;
+    banner_show_dots?: boolean;
   };
 }
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'general' | 'courier' | 'reels'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'courier' | 'reels' | 'banner'>('general');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -40,7 +58,7 @@ export default function SettingsPage() {
   const [socialTitle, setSocialTitle] = useState('Shop Our Reels & Shorts');
 
   // Contact Info
-  const [contactEmail, setContactEmail] = useState('crazyboyajith743@gmail.com');
+  const [contactEmail, setContactEmail] = useState('vivasayaulagam@gmail.com');
   const [contactPhone, setContactPhone] = useState('+91 98765 43210');
   const [shopAddress, setShopAddress] = useState('12, Organic Green Valley, Coimbatore, Tamil Nadu - 641001');
 
@@ -49,12 +67,82 @@ export default function SettingsPage() {
   const [courier500g, setCourier500g] = useState<number | ''>(60);
   const [courier1kg, setCourier1kg] = useState<number | ''>(80);
   const [courierAbove, setCourierAbove] = useState<number | ''>(120);
+  const [ratePerKg, setRatePerKg] = useState<number | ''>(100);
+
+  // Banner Slider State
+  const [bannerSlides, setBannerSlides] = useState<BannerSlide[]>([]);
+  const [bannerTimer, setBannerTimer] = useState(5);
+  const [bannerHeightDesktop, setBannerHeightDesktop] = useState(560);
+  const [bannerHeightMobile, setBannerHeightMobile] = useState(320);
+  const [bannerShowArrows, setBannerShowArrows] = useState(true);
+  const [bannerShowDots, setBannerShowDots] = useState(true);
+  const [bannerSaving, setBannerSaving] = useState(false);
+  const [bannerSuccess, setBannerSuccess] = useState(false);
+  const [bannerUploading, setBannerUploading] = useState<string | null>(null);
+  const bannerFileRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const mobileBannerFileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   // Reels State
   const [reels, setReels] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [reelsLoading, setReelsLoading] = useState(true);
   const [addingReel, setAddingReel] = useState(false);
+  const [videoUploading, setVideoUploading] = useState(false);
+  const [imageUploading, setImageUploading] = useState(false);
+  const videoInputRef = useRef<HTMLInputElement | null>(null);
+  const imgInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setVideoUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch('/api/admin/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.success && data.url) {
+        setNewReelVideoUrl(data.url);
+      } else {
+        alert(data.error || 'Failed to upload video');
+      }
+    } catch (err) {
+      alert('Error uploading video');
+    } finally {
+      setVideoUploading(false);
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImageUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch('/api/admin/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.success && data.url) {
+        setNewReelImg(data.url);
+      } else {
+        alert(data.error || 'Failed to upload image');
+      }
+    } catch (err) {
+      alert('Error uploading image');
+    } finally {
+      setImageUploading(false);
+    }
+  };
 
   // Add Reel Form
   const [newReelTitle, setNewReelTitle] = useState('');
@@ -93,7 +181,17 @@ export default function SettingsPage() {
           setCourier500g(courier.charge_500g ?? 60);
           setCourier1kg(courier.charge_1kg ?? 80);
           setCourierAbove(courier.charge_above ?? 120);
+          setRatePerKg(courier.rate_per_kg ?? 100);
         }
+
+        if (data.settings.banner_slides) {
+          setBannerSlides(data.settings.banner_slides);
+        }
+        if (data.settings.banner_timer !== undefined) setBannerTimer(data.settings.banner_timer);
+        if (data.settings.banner_height_desktop !== undefined) setBannerHeightDesktop(data.settings.banner_height_desktop);
+        if (data.settings.banner_height_mobile !== undefined) setBannerHeightMobile(data.settings.banner_height_mobile);
+        if (data.settings.banner_show_arrows !== undefined) setBannerShowArrows(data.settings.banner_show_arrows);
+        if (data.settings.banner_show_dots !== undefined) setBannerShowDots(data.settings.banner_show_dots);
       })
       .catch(err => console.error('Failed to load settings:', err))
       .finally(() => {
@@ -152,6 +250,7 @@ export default function SettingsPage() {
         charge_500g: courier500g === '' ? 60 : Number(courier500g),
         charge_1kg: courier1kg === '' ? 80 : Number(courier1kg),
         charge_above: courierAbove === '' ? 120 : Number(courierAbove),
+        rate_per_kg: ratePerKg === '' ? 100 : Number(ratePerKg),
       }
     };
 
@@ -184,10 +283,21 @@ export default function SettingsPage() {
     setAddingReel(true);
     try {
       const selectedProd = products.find(p => p._id === newReelProductId);
+      
+      let normalizedVideoUrl = newReelVideoUrl.trim();
+      if (normalizedVideoUrl && !normalizedVideoUrl.startsWith('http://') && !normalizedVideoUrl.startsWith('https://') && !normalizedVideoUrl.startsWith('/') && !normalizedVideoUrl.startsWith('data:')) {
+        normalizedVideoUrl = `/uploads/${normalizedVideoUrl}`;
+      }
+
+      let normalizedImg = newReelImg.trim();
+      if (normalizedImg && !normalizedImg.startsWith('http://') && !normalizedImg.startsWith('https://') && !normalizedImg.startsWith('/') && !normalizedImg.startsWith('data:')) {
+        normalizedImg = `/uploads/${normalizedImg}`;
+      }
+
       const payload = {
         title: newReelTitle,
-        videoUrl: newReelVideoUrl,
-        img: newReelImg || (selectedProd ? selectedProd.images?.[0] : ''),
+        videoUrl: normalizedVideoUrl,
+        img: normalizedImg || (selectedProd ? selectedProd.images?.[0] : ''),
         taggedProductId: newReelProductId || null,
         price: newReelPrice !== '' ? Number(newReelPrice) : (selectedProd ? selectedProd.price : 0),
         isActive: true,
@@ -284,25 +394,25 @@ export default function SettingsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-gray-200 bg-white rounded-t-xl px-4 pt-2">
-        {(['general', 'courier', 'reels'] as const).map(tab => (
+      <div className="flex border-b border-gray-200 bg-white rounded-t-xl px-4 pt-2 overflow-x-auto">
+        {(['general', 'banner', 'reels'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-5 py-3 text-sm font-semibold border-b-2 capitalize transition-colors outline-none ${
+            className={`px-5 py-3 text-sm font-semibold border-b-2 capitalize transition-colors outline-none whitespace-nowrap ${
               activeTab === tab
-                ? 'border-[#1F6B3B] text-[#1F6B3B]'
+                ? 'border-[#34a121] text-[#34a121]'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            {tab === 'general' ? 'General & Social' : tab === 'courier' ? 'Courier Charges' : 'Shoppable Reels'}
+            {tab === 'general' ? 'General & Social' : tab === 'banner' ? '🖼 Banner Slider' : (tab as string) === 'courier' ? 'Courier Charges' : 'Shoppable Reels'}
           </button>
         ))}
       </div>
 
       {loading ? (
         <div className="p-12 text-center text-gray-500 bg-white border border-gray-200 border-t-0 rounded-b-xl">
-          <Loader2 className="animate-spin inline-block mr-2 text-[#1F6B3B]" size={20} />
+          <Loader2 className="animate-spin inline-block mr-2 text-[#34a121]" size={20} />
           Loading settings parameters...
         </div>
       ) : (
@@ -314,7 +424,7 @@ export default function SettingsPage() {
                 {/* Social Media Integration */}
                 <div className="bg-white border border-gray-200 rounded-b-xl lg:rounded-xl p-6 shadow-sm space-y-5">
                   <h2 className="text-base font-bold text-gray-800 border-b border-gray-100 pb-3 flex items-center gap-2">
-                    <Link2 size={18} className="text-[#1F6B3B]" />
+                    <Link2 size={18} className="text-[#34a121]" />
                     Social Media Integration
                   </h2>
 
@@ -326,7 +436,7 @@ export default function SettingsPage() {
                         value={instagramLink}
                         onChange={e => setInstagramLink(e.target.value)}
                         placeholder="https://instagram.com/your-username"
-                        className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#1F6B3B] focus:ring-1 focus:ring-[#1F6B3B] focus:outline-none transition-colors"
+                        className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:ring-1 focus:ring-[#34a121] focus:outline-none transition-colors"
                       />
                     </div>
                     <div>
@@ -336,7 +446,7 @@ export default function SettingsPage() {
                         value={youtubeLink}
                         onChange={e => setYoutubeLink(e.target.value)}
                         placeholder="https://youtube.com/@your-channel"
-                        className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#1F6B3B] focus:ring-1 focus:ring-[#1F6B3B] focus:outline-none transition-colors"
+                        className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:ring-1 focus:ring-[#34a121] focus:outline-none transition-colors"
                       />
                     </div>
                   </div>
@@ -348,7 +458,7 @@ export default function SettingsPage() {
                       value={socialTitle}
                       onChange={e => setSocialTitle(e.target.value)}
                       placeholder="Shop Our Reels & Shorts"
-                      className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#1F6B3B] focus:ring-1 focus:ring-[#1F6B3B] focus:outline-none transition-colors"
+                      className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:ring-1 focus:ring-[#34a121] focus:outline-none transition-colors"
                     />
                   </div>
 
@@ -382,7 +492,7 @@ export default function SettingsPage() {
                 {/* Shop Contact Settings */}
                 <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-5">
                   <h2 className="text-base font-bold text-gray-800 border-b border-gray-100 pb-3 flex items-center gap-2">
-                    <AlertCircle size={18} className="text-[#1F6B3B]" />
+                    <AlertCircle size={18} className="text-[#34a121]" />
                     Contact Information
                   </h2>
 
@@ -394,7 +504,7 @@ export default function SettingsPage() {
                         value={contactEmail}
                         onChange={e => setContactEmail(e.target.value)}
                         placeholder="support@vivasayauallagam.com"
-                        className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#1F6B3B] focus:ring-1 focus:ring-[#1F6B3B] focus:outline-none transition-colors"
+                        className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:ring-1 focus:ring-[#34a121] focus:outline-none transition-colors"
                       />
                     </div>
                     <div>
@@ -404,7 +514,7 @@ export default function SettingsPage() {
                         value={contactPhone}
                         onChange={e => setContactPhone(e.target.value)}
                         placeholder="+91 98765 43210"
-                        className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#1F6B3B] focus:ring-1 focus:ring-[#1F6B3B] focus:outline-none transition-colors"
+                        className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:ring-1 focus:ring-[#34a121] focus:outline-none transition-colors"
                       />
                     </div>
                   </div>
@@ -416,7 +526,7 @@ export default function SettingsPage() {
                       value={shopAddress}
                       onChange={e => setShopAddress(e.target.value)}
                       placeholder="Enter store location"
-                      className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#1F6B3B] focus:ring-1 focus:ring-[#1F6B3B] focus:outline-none transition-colors resize-none"
+                      className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:ring-1 focus:ring-[#34a121] focus:outline-none transition-colors resize-none"
                     />
                   </div>
                 </div>
@@ -437,7 +547,7 @@ export default function SettingsPage() {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="w-full flex items-center justify-center gap-2 bg-[#1F6B3B] text-white py-3 rounded-xl font-semibold hover:bg-[#154a28] disabled:opacity-60 transition-colors cursor-pointer"
+                    className="w-full flex items-center justify-center gap-2 bg-[#34a121] text-white py-3 rounded-xl font-semibold hover:bg-[#154a28] disabled:opacity-60 transition-colors cursor-pointer"
                   >
                     {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                     {saving ? 'Saving...' : 'Save Settings'}
@@ -453,7 +563,7 @@ export default function SettingsPage() {
               <div className="lg:col-span-2 space-y-6">
                 <div className="bg-white border border-gray-200 rounded-b-xl lg:rounded-xl p-6 shadow-sm space-y-5">
                   <h2 className="text-base font-bold text-gray-800 border-b border-gray-100 pb-3 flex items-center gap-2">
-                    <DollarSign size={18} className="text-[#1F6B3B]" />
+                    <DollarSign size={18} className="text-[#34a121]" />
                     Weight-Based Courier Charges
                   </h2>
                   <p className="text-xs text-gray-500">
@@ -462,61 +572,16 @@ export default function SettingsPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-xs font-semibold text-gray-600 mb-1.5">Up to 250g Package (₹)</label>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1.5">Global Courier Rate Per KG (₹)</label>
                       <div className="relative">
                         <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-semibold">₹</span>
                         <input
                           type="number"
                           min={0}
-                          value={courier250g}
-                          onChange={e => setCourier250g(e.target.value === '' ? '' : Number(e.target.value))}
-                          placeholder="40"
-                          className="w-full text-sm pl-8 pr-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#1F6B3B] focus:ring-1 focus:ring-[#1F6B3B] focus:outline-none transition-colors"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-600 mb-1.5">Up to 500g Package (₹)</label>
-                      <div className="relative">
-                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-semibold">₹</span>
-                        <input
-                          type="number"
-                          min={0}
-                          value={courier500g}
-                          onChange={e => setCourier500g(e.target.value === '' ? '' : Number(e.target.value))}
-                          placeholder="60"
-                          className="w-full text-sm pl-8 pr-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#1F6B3B] focus:ring-1 focus:ring-[#1F6B3B] focus:outline-none transition-colors"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-600 mb-1.5">Up to 1kg Package (₹)</label>
-                      <div className="relative">
-                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-semibold">₹</span>
-                        <input
-                          type="number"
-                          min={0}
-                          value={courier1kg}
-                          onChange={e => setCourier1kg(e.target.value === '' ? '' : Number(e.target.value))}
-                          placeholder="80"
-                          className="w-full text-sm pl-8 pr-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#1F6B3B] focus:ring-1 focus:ring-[#1F6B3B] focus:outline-none transition-colors"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-600 mb-1.5">Above 1kg Package Rate (₹)</label>
-                      <div className="relative">
-                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-semibold">₹</span>
-                        <input
-                          type="number"
-                          min={0}
-                          value={courierAbove}
-                          onChange={e => setCourierAbove(e.target.value === '' ? '' : Number(e.target.value))}
-                          placeholder="120"
-                          className="w-full text-sm pl-8 pr-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#1F6B3B] focus:ring-1 focus:ring-[#1F6B3B] focus:outline-none transition-colors"
+                          value={ratePerKg}
+                          onChange={e => setRatePerKg(e.target.value === '' ? '' : Number(e.target.value))}
+                          placeholder="100"
+                          className="w-full text-sm pl-8 pr-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:ring-1 focus:ring-[#34a121] focus:outline-none transition-colors"
                         />
                       </div>
                     </div>
@@ -539,7 +604,7 @@ export default function SettingsPage() {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="w-full flex items-center justify-center gap-2 bg-[#1F6B3B] text-white py-3 rounded-xl font-semibold hover:bg-[#154a28] disabled:opacity-60 transition-colors cursor-pointer"
+                    className="w-full flex items-center justify-center gap-2 bg-[#34a121] text-white py-3 rounded-xl font-semibold hover:bg-[#154a28] disabled:opacity-60 transition-colors cursor-pointer"
                   >
                     {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                     {saving ? 'Saving...' : 'Save Settings'}
@@ -549,6 +614,249 @@ export default function SettingsPage() {
             </form>
           )}
 
+          {/* BANNER SLIDER TAB */}
+          {activeTab === 'banner' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left: Slides Manager */}
+              <div className="lg:col-span-2 space-y-4">
+                <div className="bg-white border border-gray-200 rounded-b-xl lg:rounded-xl p-6 shadow-sm">
+                  <h2 className="text-base font-bold text-gray-800 border-b border-gray-100 pb-3 mb-5 flex items-center gap-2">
+                    <LayoutTemplate size={18} className="text-[#34a121]" />
+                    Banner Slides
+                    <span className="ml-auto text-xs font-normal text-gray-400">Up to 6 slides supported</span>
+                  </h2>
+
+                  <div className="space-y-4">
+                    {bannerSlides.map((slide, idx) => (
+                      <div key={slide.id} className="border border-gray-200 rounded-xl p-4 space-y-3 bg-gray-50/60">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Slide {idx + 1}</span>
+                          <div className="flex items-center gap-1.5">
+                            <button type="button" disabled={idx === 0} onClick={() => {
+                              const arr = [...bannerSlides];
+                              [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
+                              setBannerSlides(arr);
+                            }} className="p-1 rounded-lg border border-gray-200 text-gray-400 hover:text-gray-700 disabled:opacity-30 cursor-pointer">
+                              <ChevronUp size={14} />
+                            </button>
+                            <button type="button" disabled={idx === bannerSlides.length - 1} onClick={() => {
+                              const arr = [...bannerSlides];
+                              [arr[idx + 1], arr[idx]] = [arr[idx], arr[idx + 1]];
+                              setBannerSlides(arr);
+                            }} className="p-1 rounded-lg border border-gray-200 text-gray-400 hover:text-gray-700 disabled:opacity-30 cursor-pointer">
+                              <ChevronDown size={14} />
+                            </button>
+                            <button type="button" onClick={() => setBannerSlides(prev => prev.filter(s => s.id !== slide.id))} className="p-1 rounded-lg border border-red-200 text-red-400 hover:text-red-600 hover:bg-red-50 cursor-pointer">
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+
+                        <p className="text-xs font-semibold text-gray-600">Desktop Banner Image <span className="font-normal text-gray-400">(recommended 1920 x 800 px)</span></p>
+                        {/* Desktop image preview + upload */}
+                        <div className="flex gap-3 items-start">
+                          <div className="relative w-28 h-16 shrink-0 rounded-lg overflow-hidden border border-gray-200 bg-gray-100 flex items-center justify-center">
+                            {(slide.desktopImage || slide.image) ? (
+                              <Image
+  src={slide.desktopImage || slide.image}
+  alt={`Slide ${idx + 1}`}
+  fill
+  className="object-cover"
+/>
+                            ) : (
+                              <ImageIcon size={20} className="text-gray-300" />
+                            )}
+                          </div>
+                          <div className="flex-1 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <input
+                                ref={el => { bannerFileRefs.current[slide.id] = el; }}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+                                  setBannerUploading(slide.id);
+                                  try {
+                                    const fd = new FormData();
+                                    fd.append('file', file);
+                                    const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
+                                    const data = await res.json();
+                                    if (data.success && data.url) {
+                                      setBannerSlides(prev => prev.map(s => s.id === slide.id ? { ...s, desktopImage: data.url, image: s.image || data.url } : s));
+                                    } else {
+                                      alert('Upload failed: ' + (data.error || 'Unknown error'));
+                                    }
+                                  } catch { alert('Upload error'); }
+                                  finally { setBannerUploading(null); }
+                                }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => bannerFileRefs.current[slide.id]?.click()}
+                                disabled={bannerUploading === slide.id}
+                                className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-[#34a121] text-white rounded-lg hover:bg-[#154a28] disabled:opacity-60 cursor-pointer"
+                              >
+                                {bannerUploading === slide.id ? <Loader2 size={12} className="animate-spin" /> : <ImageIcon size={12} />}
+                                {bannerUploading === slide.id ? 'Uploading...' : 'Upload Desktop'}
+                              </button>
+                              <span className="text-xs text-gray-400">or paste URL below</span>
+                            </div>
+                            <input
+                              type="text"
+                              value={slide.desktopImage || slide.image}
+                              onChange={e => setBannerSlides(prev => prev.map(s => s.id === slide.id ? { ...s, desktopImage: e.target.value, image: s.image || e.target.value } : s))}
+                              placeholder="/uploads/banner.jpg or https://..."
+                              className="w-full text-xs px-3 py-2 border border-gray-200 rounded-lg focus:border-[#34a121] focus:ring-1 focus:ring-[#34a121] focus:outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        <p className="text-xs font-semibold text-gray-600">Mobile Banner Image <span className="font-normal text-gray-400">(optional, recommended 1080 x 1350 px / 4:5)</span></p>
+                        <div className="flex gap-3 items-start">
+                          <div className="relative w-20 aspect-[4/5] shrink-0 rounded-lg overflow-hidden border border-gray-200 bg-gray-100 flex items-center justify-center">
+                            {slide.mobileImage ? <Image src={slide.mobileImage} alt={`Mobile slide ${idx + 1}`} fill className="object-contain" /> : <Smartphone size={20} className="text-gray-300" />}
+                          </div>
+                          <div className="flex-1 space-y-2">
+                            <input ref={el => { mobileBannerFileRefs.current[slide.id] = el; }} type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              setBannerUploading(`${slide.id}-mobile`);
+                              try {
+                                const fd = new FormData(); fd.append('file', file);
+                                const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
+                                const data = await res.json();
+                                if (data.success && data.url) setBannerSlides(prev => prev.map(s => s.id === slide.id ? { ...s, mobileImage: data.url } : s));
+                                else alert('Upload failed: ' + (data.error || 'Unknown error'));
+                              } catch { alert('Upload error'); } finally { setBannerUploading(null); }
+                            }} />
+                            <button type="button" onClick={() => mobileBannerFileRefs.current[slide.id]?.click()} disabled={bannerUploading === `${slide.id}-mobile`} className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-[#34a121] text-white rounded-lg hover:bg-[#154a28] disabled:opacity-60 cursor-pointer">
+                              {bannerUploading === `${slide.id}-mobile` ? <Loader2 size={12} className="animate-spin" /> : <Smartphone size={12} />}
+                              {bannerUploading === `${slide.id}-mobile` ? 'Uploading...' : 'Upload Mobile'}
+                            </button>
+                            <input type="text" value={slide.mobileImage || ''} onChange={e => setBannerSlides(prev => prev.map(s => s.id === slide.id ? { ...s, mobileImage: e.target.value } : s))} placeholder="Optional mobile image URL" className="w-full text-xs px-3 py-2 border border-gray-200 rounded-lg focus:border-[#34a121] focus:ring-1 focus:ring-[#34a121] focus:outline-none" />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-500 mb-1">Headline (optional)</label>
+                            <input type="text" value={slide.headline || ''} onChange={e => setBannerSlides(prev => prev.map(s => s.id === slide.id ? { ...s, headline: e.target.value } : s))} placeholder="Pure Organic Foods..." className="w-full text-xs px-3 py-2 border border-gray-200 rounded-lg focus:border-[#34a121] focus:ring-1 focus:ring-[#34a121] focus:outline-none" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-500 mb-1">Link URL (optional)</label>
+                            <input type="text" value={slide.link || ''} onChange={e => setBannerSlides(prev => prev.map(s => s.id === slide.id ? { ...s, link: e.target.value } : s))} placeholder="/shop" className="w-full text-xs px-3 py-2 border border-gray-200 rounded-lg focus:border-[#34a121] focus:ring-1 focus:ring-[#34a121] focus:outline-none" />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="block text-xs font-semibold text-gray-500 mb-1">Subtitle (optional)</label>
+                            <input type="text" value={slide.subtitle || ''} onChange={e => setBannerSlides(prev => prev.map(s => s.id === slide.id ? { ...s, subtitle: e.target.value } : s))} placeholder="Traditional staples, cold-pressed oils..." className="w-full text-xs px-3 py-2 border border-gray-200 rounded-lg focus:border-[#34a121] focus:ring-1 focus:ring-[#34a121] focus:outline-none" />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    {bannerSlides.length < 6 && (
+                      <button
+                        type="button"
+                        onClick={() => setBannerSlides(prev => [...prev, { id: `slide-${Date.now()}`, image: '', desktopImage: '', mobileImage: '', link: '/shop', headline: '', subtitle: '' }])}
+                        className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-[#34a121]/30 rounded-xl text-sm font-semibold text-[#34a121] hover:border-[#34a121] hover:bg-[#34a121]/5 transition-colors cursor-pointer"
+                      >
+                        <Plus size={16} /> Add New Slide
+                      </button>
+                    )}
+                    {bannerSlides.length === 0 && (
+                      <p className="text-xs text-gray-400 text-center py-4">No slides yet. Click "Add New Slide" to begin.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right: Settings Panel */}
+              <div className="space-y-4">
+                <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-5">
+                  <h2 className="text-sm font-bold text-gray-800 border-b border-gray-100 pb-3 flex items-center gap-2">
+                    <Timer size={16} className="text-[#34a121]" /> Slider Configuration
+                  </h2>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5">
+                      <Timer size={12} /> Auto-slide Timer (seconds)
+                    </label>
+                    <input type="number" min={2} max={30} value={bannerTimer} onChange={e => setBannerTimer(Number(e.target.value))} className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:ring-1 focus:ring-[#34a121] focus:outline-none" />
+                    <p className="text-xs text-gray-400 mt-1">Time between slides (2–30 sec)</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5">
+                      <Monitor size={12} /> Desktop Banner Height (px)
+                    </label>
+                    <input type="number" min={200} max={900} step={10} value={bannerHeightDesktop} onChange={e => setBannerHeightDesktop(Number(e.target.value))} className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:ring-1 focus:ring-[#34a121] focus:outline-none" />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5">
+                      <Smartphone size={12} /> Mobile Banner Height (px)
+                    </label>
+                    <input type="number" min={150} max={600} step={10} value={bannerHeightMobile} onChange={e => setBannerHeightMobile(Number(e.target.value))} className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:ring-1 focus:ring-[#34a121] focus:outline-none" />
+                  </div>
+
+                  <div className="space-y-3">
+                    <label className="block text-xs font-semibold text-gray-600">Display Options</label>
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                      <span className="text-xs font-medium text-gray-700">Show Arrow Buttons</span>
+                      <button type="button" onClick={() => setBannerShowArrows(!bannerShowArrows)} className={`flex items-center gap-1.5 text-xs px-3 py-1.5 border rounded-lg font-semibold transition-colors cursor-pointer ${ bannerShowArrows ? 'bg-green-50 border-green-200 text-green-700' : 'bg-gray-100 border-gray-300 text-gray-500' }`}>
+                        {bannerShowArrows ? <Eye size={12} /> : <EyeOff size={12} />} {bannerShowArrows ? 'Visible' : 'Hidden'}
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                      <span className="text-xs font-medium text-gray-700">Show Dot Indicators</span>
+                      <button type="button" onClick={() => setBannerShowDots(!bannerShowDots)} className={`flex items-center gap-1.5 text-xs px-3 py-1.5 border rounded-lg font-semibold transition-colors cursor-pointer ${ bannerShowDots ? 'bg-green-50 border-green-200 text-green-700' : 'bg-gray-100 border-gray-300 text-gray-500' }`}>
+                        {bannerShowDots ? <Eye size={12} /> : <EyeOff size={12} />} {bannerShowDots ? 'Visible' : 'Hidden'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {bannerSuccess && (
+                    <div className="p-3 bg-green-50 border border-green-200 text-green-700 text-xs font-semibold rounded-xl flex items-center gap-1.5">
+                      <Check size={14} /> Banner settings saved!
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    disabled={bannerSaving}
+                    onClick={async () => {
+                      const invalid = bannerSlides.filter(s => !(s.desktopImage || s.image).trim());
+                      if (invalid.length > 0) { alert('Please add an image for every slide before saving.'); return; }
+                      setBannerSaving(true);
+                      setBannerSuccess(false);
+                      try {
+                        const payload = {
+                          banner_slides: bannerSlides,
+                          banner_timer: bannerTimer,
+                          banner_height_desktop: bannerHeightDesktop,
+                          banner_height_mobile: bannerHeightMobile,
+                          banner_show_arrows: bannerShowArrows,
+                          banner_show_dots: bannerShowDots,
+                        };
+                        const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                        const data = await res.json();
+                        if (data.success) { setBannerSuccess(true); setTimeout(() => setBannerSuccess(false), 3000); }
+                        else { alert(data.error || 'Save failed'); }
+                      } catch { alert('Network error saving banner settings'); }
+                      finally { setBannerSaving(false); }
+                    }}
+                    className="w-full flex items-center justify-center gap-2 bg-[#34a121] text-white py-3 rounded-xl font-semibold hover:bg-[#154a28] disabled:opacity-60 transition-colors cursor-pointer"
+                  >
+                    {bannerSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                    {bannerSaving ? 'Saving...' : 'Save Banner Settings'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* INSTAGRAM REELS / SHOPPABLE VIDEOS TAB */}
           {activeTab === 'reels' && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -556,7 +864,7 @@ export default function SettingsPage() {
               <div className="space-y-6 lg:col-span-1">
                 <div className="bg-white border border-gray-200 rounded-b-xl lg:rounded-xl p-6 shadow-sm space-y-4">
                   <h2 className="text-base font-bold text-gray-800 border-b border-gray-100 pb-3 flex items-center gap-2">
-                    <VideoIcon size={18} className="text-[#1F6B3B]" />
+                    <VideoIcon size={18} className="text-[#34a121]" />
                     Add Shoppable Reel
                   </h2>
 
@@ -569,19 +877,38 @@ export default function SettingsPage() {
                         onChange={e => setNewReelTitle(e.target.value)}
                         placeholder="e.g. Pure Honey Processing"
                         required
-                        className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#1F6B3B] focus:ring-1 focus:ring-[#1F6B3B] focus:outline-none transition-colors"
+                        className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:ring-1 focus:ring-[#34a121] focus:outline-none transition-colors"
                       />
                     </div>
 
                     <div>
                       <label className="block text-xs font-semibold text-gray-600 mb-1">Video Stream URL (.mp4)</label>
+                      <div className="flex gap-2 mb-2">
+                        <input
+                          ref={videoInputRef}
+                          type="file"
+                          accept="video/*"
+                          className="hidden"
+                          onChange={handleVideoUpload}
+                        />
+                        <button
+                          type="button"
+                          disabled={videoUploading}
+                          onClick={() => videoInputRef.current?.click()}
+                          className="flex items-center gap-1.5 text-xs px-3 py-2 bg-[#34a121] text-white rounded-xl hover:bg-[#154a28] disabled:opacity-60 cursor-pointer"
+                        >
+                          {videoUploading ? <Loader2 size={14} className="animate-spin" /> : <VideoIcon size={14} />}
+                          {videoUploading ? 'Uploading...' : 'Upload Video'}
+                        </button>
+                        <span className="text-xs text-gray-400 self-center">or paste URL below</span>
+                      </div>
                       <input
-                        type="url"
+                        type="text"
                         value={newReelVideoUrl}
                         onChange={e => setNewReelVideoUrl(e.target.value)}
                         placeholder="https://assets.mixkit.co/.../video.mp4"
                         required
-                        className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#1F6B3B] focus:ring-1 focus:ring-[#1F6B3B] focus:outline-none transition-colors"
+                        className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:ring-1 focus:ring-[#34a121] focus:outline-none transition-colors"
                       />
                     </div>
 
@@ -590,7 +917,7 @@ export default function SettingsPage() {
                       <select
                         value={newReelProductId}
                         onChange={e => handleProductSelect(e.target.value)}
-                        className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#1F6B3B] focus:ring-1 focus:ring-[#1F6B3B] focus:outline-none bg-white transition-colors"
+                        className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:ring-1 focus:ring-[#34a121] focus:outline-none bg-white transition-colors"
                       >
                         <option value="">-- Select Active Product --</option>
                         {products.map(p => (
@@ -609,25 +936,44 @@ export default function SettingsPage() {
                         value={newReelPrice}
                         onChange={e => setNewReelPrice(e.target.value === '' ? '' : Number(e.target.value))}
                         placeholder="Auto-fills from product, or override"
-                        className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#1F6B3B] focus:ring-1 focus:ring-[#1F6B3B] focus:outline-none transition-colors"
+                        className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:ring-1 focus:ring-[#34a121] focus:outline-none transition-colors"
                       />
                     </div>
 
                     <div>
                       <label className="block text-xs font-semibold text-gray-600 mb-1">Thumbnail / Cover Image URL</label>
+                      <div className="flex gap-2 mb-2">
+                        <input
+                          ref={imgInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleImageUpload}
+                        />
+                        <button
+                          type="button"
+                          disabled={imageUploading}
+                          onClick={() => imgInputRef.current?.click()}
+                          className="flex items-center gap-1.5 text-xs px-3 py-2 bg-[#34a121] text-white rounded-xl hover:bg-[#154a28] disabled:opacity-60 cursor-pointer"
+                        >
+                          {imageUploading ? <Loader2 size={14} className="animate-spin" /> : <ImageIcon size={14} />}
+                          {imageUploading ? 'Uploading...' : 'Upload Image'}
+                        </button>
+                        <span className="text-xs text-gray-400 self-center">or paste URL below</span>
+                      </div>
                       <input
                         type="text"
                         value={newReelImg}
                         onChange={e => setNewReelImg(e.target.value)}
                         placeholder="/uploads/products/image.png"
-                        className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#1F6B3B] focus:ring-1 focus:ring-[#1F6B3B] focus:outline-none transition-colors"
+                        className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:ring-1 focus:ring-[#34a121] focus:outline-none transition-colors"
                       />
                     </div>
 
                     <button
                       type="submit"
                       disabled={addingReel}
-                      className="w-full flex items-center justify-center gap-2 bg-[#1F6B3B] text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-[#154a28] disabled:opacity-60 transition-colors cursor-pointer mt-2"
+                      className="w-full flex items-center justify-center gap-2 bg-[#34a121] text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-[#154a28] disabled:opacity-60 transition-colors cursor-pointer mt-2"
                     >
                       {addingReel ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
                       {addingReel ? 'Adding...' : 'Add Video'}
@@ -677,7 +1023,7 @@ export default function SettingsPage() {
                             </p>
                             <div className="pt-1">
                               <span className="text-[10px] font-semibold text-gray-500 uppercase block">Tagged Item:</span>
-                              <span className="text-xs font-bold text-[#1F6B3B] truncate block">
+                              <span className="text-xs font-bold text-[#34a121] truncate block">
                                 {r.taggedProductId?.title || 'No Product Tagged'}
                               </span>
                             </div>

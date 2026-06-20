@@ -43,7 +43,7 @@ export default async function RootLayout({
           backgroundColor: "var(--color-secondary)",
           color: "var(--color-dark)",
           overflowX: "hidden",
-          ...(primaryColor ? { "--color-primary": primaryColor } : {}),
+          ...(primaryColor ? { "--color-primary": "#34a121" } : {}),
         } as React.CSSProperties}
       >
         <AuthProvider>

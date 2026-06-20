@@ -26,6 +26,8 @@ type ProductDoc = {
   images?: string[];
   weight?: number;
   weightUnit?: string;
+  trackInventory?: boolean;
+  quantity?: number;
 };
 
 const getEmojiAndBg = (title: string, category: string) => {
@@ -97,6 +99,11 @@ export default async function ShopPage() {
           image: p.images && p.images.length > 0 ? p.images[0] : undefined,
           weight: p.weight || 0,
           weightUnit: p.weightUnit || "kg",
+          trackInventory: p.trackInventory ?? false,
+          quantity: p.quantity ?? 0,
+          stock_quantity: p.quantity ?? 0,
+          stock_status: (p.trackInventory && (p.quantity ?? 0) <= 0) ? 'Out of Stock' : 'In Stock',
+          is_out_of_stock: p.trackInventory && (p.quantity ?? 0) <= 0,
         };
       });
     }

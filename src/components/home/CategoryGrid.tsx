@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { categories } from "@/data/categories";
 import CategoryCard, { CategoryCardData } from "@/components/ui/CategoryCard";
@@ -34,6 +34,7 @@ const mergeWithFallbackCategories = (dbCategories: CategoryCardData[]) => {
 export default function CategoryGrid({ settings }: { settings?: CategoryGridSettings }) {
   const [page, setPage] = useState(0);
   const [dbCategories, setDbCategories] = useState<CategoryCardData[]>([]);
+  const [chunkSize, setChunkSize] = useState(6);
 
   useEffect(() => {
     async function fetchCategories() {
@@ -51,10 +52,44 @@ export default function CategoryGrid({ settings }: { settings?: CategoryGridSett
     fetchCategories();
   }, []);
 
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setChunkSize(3);
+      } else {
+        setChunkSize(6);
+      }
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   const activeCategories: CategoryCardData[] =
     dbCategories.length > 0 ? mergeWithFallbackCategories(dbCategories) : categories;
-  const pages = chunkArray(activeCategories, 6);
+  const pages = chunkArray(activeCategories, chunkSize);
   const currentPage = page < pages.length ? page : 0;
+
+  const touchStartX = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const diff = touchStartX.current - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 40) {
+      if (diff > 0) {
+        // swipe left -> next page
+        setPage((prev) => (prev + 1) % pages.length);
+      } else {
+        // swipe right -> prev page
+        setPage((prev) => (prev - 1 + pages.length) % pages.length);
+      }
+    }
+    touchStartX.current = null;
+  };
 
   if (pages.length === 0) return null;
 
@@ -63,7 +98,7 @@ export default function CategoryGrid({ settings }: { settings?: CategoryGridSett
       id="categories"
       className="w-full bg-white overflow-hidden font-body"
     >
-      <div className="vivasaya-container flex flex-col pt-[52px] pb-[45px]">
+      <div className="vivasaya-container flex flex-col pt-10 pb-10 sm:pt-[52px] sm:pb-[45px]">
         <div className="text-center mb-[31px]">
           <h2 className="vivasaya-section-title uppercase">
             {settings?.section_category_grid_title || "TASTE THE DIFFERENCE"}
@@ -71,7 +106,9 @@ export default function CategoryGrid({ settings }: { settings?: CategoryGridSett
         </div>
 
         <div 
-          className="relative w-full max-w-[1200px] mx-auto flex items-center justify-center h-auto"
+          className="relative mx-auto flex h-auto w-full max-w-[1200px] items-center justify-center px-1 min-[390px]:px-0 touch-pan-y"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
         >
           <AnimatePresence mode="wait">
             <motion.div
@@ -80,7 +117,7 @@ export default function CategoryGrid({ settings }: { settings?: CategoryGridSett
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.35, ease: "easeOut", staggerChildren: 0.1 }}
-              className="grid grid-cols-3 lg:grid-cols-6 gap-x-[25px] gap-y-7 w-full justify-items-center"
+              className="grid w-full grid-cols-3 justify-center justify-items-center gap-x-2 gap-y-7 min-[390px]:gap-x-3 sm:gap-x-[25px] lg:grid-cols-6"
             >
               {pages[currentPage].map((cat, i) => (
                 <motion.div
@@ -89,7 +126,7 @@ export default function CategoryGrid({ settings }: { settings?: CategoryGridSett
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, margin: "-40px" }}
                   transition={{ duration: 0.5, delay: i * 0.1, ease: "easeOut" }}
-                  className="flex-shrink-0"
+                  className="w-full min-w-0 flex-shrink-0"
                 >
                   <CategoryCard category={cat} />
                 </motion.div>

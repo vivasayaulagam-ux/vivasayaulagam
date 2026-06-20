@@ -43,8 +43,8 @@ export default function AdminLoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#f0fdf4] via-[#f8fafc] to-[#e8f5e9] px-4">
       {/* Background decorative circles */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full bg-[#1F6B3B]/8 blur-3xl" />
-        <div className="absolute -bottom-40 -right-40 w-96 h-96 rounded-full bg-[#1F6B3B]/6 blur-3xl" />
+        <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full bg-[#34a121]/8 blur-3xl" />
+        <div className="absolute -bottom-40 -right-40 w-96 h-96 rounded-full bg-[#34a121]/6 blur-3xl" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-white/40 blur-3xl" />
       </div>
 
@@ -54,7 +54,7 @@ export default function AdminLoginPage() {
           
           {/* Logo & Brand */}
           <div className="flex flex-col items-center mb-8">
-            <div className="w-20 h-20 rounded-2xl bg-white border-2 border-[#1F6B3B]/15 shadow-lg flex items-center justify-center mb-4 overflow-hidden">
+            <div className="w-20 h-20 rounded-2xl bg-white border-2 border-[#34a121]/15 shadow-lg flex items-center justify-center mb-4 overflow-hidden">
               <img
                 src="/logo.png"
                 alt="Vivasaya Ulagam"
@@ -65,8 +65,8 @@ export default function AdminLoginPage() {
               />
             </div>
             <div className="flex items-center gap-2 mb-1">
-              <ShieldCheck size={16} className="text-[#1F6B3B]" strokeWidth={2} />
-              <span className="text-xs font-bold text-[#1F6B3B] uppercase tracking-[0.16em]">
+              <ShieldCheck size={16} className="text-[#34a121]" strokeWidth={2} />
+              <span className="text-xs font-bold text-[#34a121] uppercase tracking-[0.16em]">
                 Admin Portal
               </span>
             </div>
@@ -103,7 +103,7 @@ export default function AdminLoginPage() {
                   onChange={(e) => setUsername(e.target.value)}
                   autoComplete="username"
                   placeholder="Enter username"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 text-sm font-medium outline-none transition-all focus:border-[#1F6B3B] focus:ring-2 focus:ring-[#1F6B3B]/10 bg-gray-50 text-gray-900 placeholder:text-gray-400"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 text-sm font-medium outline-none transition-all focus:border-[#34a121] focus:ring-2 focus:ring-[#34a121]/10 bg-gray-50 text-gray-900 placeholder:text-gray-400"
                 />
               </div>
             </div>
@@ -126,7 +126,7 @@ export default function AdminLoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
                   placeholder="Enter password"
-                  className="w-full pl-10 pr-12 py-3 rounded-xl border border-gray-200 text-sm font-medium outline-none transition-all focus:border-[#1F6B3B] focus:ring-2 focus:ring-[#1F6B3B]/10 bg-gray-50 text-gray-900 placeholder:text-gray-400"
+                  className="w-full pl-10 pr-12 py-3 rounded-xl border border-gray-200 text-sm font-medium outline-none transition-all focus:border-[#34a121] focus:ring-2 focus:ring-[#34a121]/10 bg-gray-50 text-gray-900 placeholder:text-gray-400"
                 />
                 <button
                   type="button"
@@ -144,7 +144,7 @@ export default function AdminLoginPage() {
               id="admin-login-btn"
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2.5 bg-[#1F6B3B] hover:bg-[#185430] text-white py-3.5 rounded-xl text-sm font-bold tracking-wide transition-all shadow-[0_8px_24px_-8px_rgba(31,107,59,0.55)] hover:shadow-[0_12px_28px_-8px_rgba(31,107,59,0.7)] hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0 mt-2 border-0 cursor-pointer"
+              className="w-full flex items-center justify-center gap-2.5 bg-[#34a121] hover:bg-[#185430] text-white py-3.5 rounded-xl text-sm font-bold tracking-wide transition-all shadow-[0_8px_24px_-8px_rgba(31,107,59,0.55)] hover:shadow-[0_12px_28px_-8px_rgba(31,107,59,0.7)] hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0 mt-2 border-0 cursor-pointer"
             >
               {loading ? (
                 <>

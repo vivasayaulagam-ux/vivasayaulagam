@@ -6,7 +6,7 @@ import { authOptions } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session || !session.user) {
@@ -18,6 +18,17 @@ export async function GET() {
     const userId = (session.user as any).id;
     if (!userId) {
       return NextResponse.json({ error: 'User ID missing in session' }, { status: 400 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const orderId = searchParams.get('id') || searchParams.get('orderId');
+
+    if (orderId) {
+      const order = await Order.findOne({ user: userId, _id: orderId }).lean();
+      if (!order) {
+        return NextResponse.json({ success: false, error: 'Order not found' }, { status: 404 });
+      }
+      return NextResponse.json({ success: true, order });
     }
 
     const orders = await Order.find({ user: userId }).sort({ createdAt: -1 }).lean();

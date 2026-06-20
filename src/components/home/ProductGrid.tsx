@@ -29,9 +29,9 @@ export default function ProductGrid({
           <SectionTitle title={title} subtitle={subtitle} leafDecorator />
         )}
 
-        <div className="-mt-[30px] grid grid-cols-2 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-7 pt-6 md:-mt-[30px] md:grid-cols-4 md:gap-x-0 md:gap-y-0 md:pt-0">
           {products.map((product) => (
-            <div key={product.id} className="px-[7.5px] pt-[30px] md:px-[15px]">
+            <div key={product.id} className="min-w-0 md:px-[15px] md:pt-[30px]">
               <ProductCard product={product} urgency={urgency} />
             </div>
           ))}

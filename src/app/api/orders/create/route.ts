@@ -7,6 +7,10 @@ import { authOptions } from '@/lib/auth';
 import { sendEmail, sendAdminNotification } from '@/lib/email';
 import User from '@/models/User';
 import Product from '@/models/Product';
+import CourierCharge from '@/models/CourierCharge';
+import Setting from '@/models/Setting';
+import { getCourierFee } from '@/lib/shipping';
+
 
 type CheckoutItem = {
   id?: string;
@@ -35,12 +39,7 @@ type CreateOrderPayload = {
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    
-    if (!session || !session.user) {
-      return NextResponse.json({ error: 'Unauthorized: Session missing' }, { status: 401 });
-    }
-
-    const { items, totalAmount, shippingAddress, isCod } = (await req.json()) as CreateOrderPayload;
+    const { items, totalAmount, shippingAddress, isCod } = (await req.json()) as any;
 
     if (!items || items.length === 0) {
       return NextResponse.json({ error: 'No items in order' }, { status: 400 });
@@ -51,25 +50,51 @@ export async function POST(req: Request) {
       !shippingAddress.address ||
       !shippingAddress.city ||
       !shippingAddress.postalCode ||
-      !shippingAddress.phone
+      !shippingAddress.phone ||
+      !shippingAddress.state
     ) {
-      return NextResponse.json({ error: 'Incomplete shipping address' }, { status: 400 });
+      return NextResponse.json({ error: 'Incomplete shipping address: fullName, address, city, postalCode, phone, and state are required.' }, { status: 400 });
     }
 
     await dbConnect();
 
-    // Safely locate user ID via session property or database email fallback
-    const sessionUser = session.user as typeof session.user & { id?: string };
-    let userId = sessionUser.id;
-    if (!userId && session.user.email) {
-      const dbUser = await User.findOne({ email: session.user.email });
-      if (dbUser) {
-        userId = dbUser._id.toString();
+    let userId = "";
+    let emailToUse = "";
+
+    if (session && session.user) {
+      const sessionUser = session.user as typeof session.user & { id?: string };
+      userId = sessionUser.id || "";
+      emailToUse = session.user.email || "";
+      if (!userId && emailToUse) {
+        const dbUser = await User.findOne({ email: emailToUse });
+        if (dbUser) {
+          userId = dbUser._id.toString();
+        }
       }
+    } else {
+      // Guest Checkout
+      emailToUse = shippingAddress.email || `guest_${shippingAddress.phone}@guest.vivasayaulagam.com`;
+
+      // Check if user exists with this email
+      let dbUser = await User.findOne({ email: emailToUse });
+      if (!dbUser) {
+        // Create guest profile
+        dbUser = await User.create({
+          name: shippingAddress.fullName || 'Guest User',
+          email: emailToUse,
+          phone: shippingAddress.phone || '',
+          addresses: [{
+            label: 'Shipping',
+            line1: shippingAddress.address || '',
+            line2: shippingAddress.city || ''
+          }]
+        });
+      }
+      userId = dbUser._id.toString();
     }
 
     if (!userId) {
-      return NextResponse.json({ error: 'Invalid Session: User not found in database matching email' }, { status: 400 });
+      return NextResponse.json({ error: 'Failed to resolve user for checkout' }, { status: 400 });
     }
 
     // Retrieve active product prices and info from the database
@@ -93,6 +118,15 @@ export async function POST(req: Request) {
       return defaultUnit === 'g' ? defaultWeight / 1000 : defaultWeight;
     };
 
+    const productIds = items.map((item: any) => String(item.id || item.productId || '').split('-')[0]);
+    if (productIds.some((id: string) => !id)) {
+      return NextResponse.json({ error: 'Missing product ID in order items' }, { status: 400 });
+    }
+    const orderProducts = await Product.find({ _id: { $in: [...new Set(productIds)] } })
+      .select('title images price status variants trackInventory quantity weight weightUnit isPhysical')
+      .lean();
+    const productsById = new Map(orderProducts.map((product: any) => [String(product._id), product]));
+
     for (const item of items) {
       const pId = item.id || item.productId;
       if (!pId) {
@@ -102,7 +136,7 @@ export async function POST(req: Request) {
       const [mongoId, ...variantParts] = pId.split('-');
       const variantValue = variantParts.join('-'); // e.g., '500g'
 
-      const product = await Product.findById(mongoId);
+      const product: any = productsById.get(mongoId);
       if (!product) {
         return NextResponse.json({ error: `Product not found: ${item.name || 'Unknown'}` }, { status: 404 });
       }
@@ -141,6 +175,10 @@ export async function POST(req: Request) {
         itemWeightUnit = 'kg';
       }
 
+      if (product.isPhysical && itemWeight <= 0) {
+        return NextResponse.json({ error: `Weight is not set for product: ${product.title}. Please contact support.` }, { status: 400 });
+      }
+
       totalWeightKg += itemWeight * orderQty;
       
       formattedItems.push({
@@ -155,16 +193,66 @@ export async function POST(req: Request) {
 
     const computedSubtotal = formattedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-    // Fetch courier rates
-    const courierSetting = await Setting.findOne({ key: 'courier_charges' });
-    const rates = courierSetting?.value || { charge_250g: 40, charge_500g: 60, charge_1kg: 80, charge_above: 120 };
-    
+    // Calculate custom courier fee matching database rules
+    const state = shippingAddress?.state?.trim() || '';
+    const pincode = shippingAddress?.postalCode?.trim() || '';
+
+    const activeRules = await CourierCharge.find({ status: 'active' }).lean();
+
+    let matchingRule: any = null;
+
+    // Exact pincode match
+    if (pincode) {
+      matchingRule = activeRules.find((r: any) => r.pincode && r.pincode.trim() === pincode);
+    }
+
+    // Pincode range match
+    if (!matchingRule && pincode) {
+      const pinNum = parseInt(pincode, 10);
+      if (Number.isInteger(pinNum)) {
+        matchingRule = activeRules.find((r: any) => 
+          r.pincode_start !== undefined && 
+          r.pincode_end !== undefined && 
+          pinNum >= r.pincode_start && 
+          pinNum <= r.pincode_end
+        );
+      }
+    }
+
+    // State match
+    if (!matchingRule && state) {
+      matchingRule = activeRules.find((r: any) => 
+        (r.state_name && r.state_name.toLowerCase() === state.toLowerCase()) ||
+        (r.state_code && r.state_code.toLowerCase() === state.toLowerCase())
+      );
+    }
+
     let deliveryFee = 0;
-    if (computedSubtotal > 0) {
-      if (totalWeightKg <= 0.25) deliveryFee = Number(rates.charge_250g || 40);
-      else if (totalWeightKg <= 0.5) deliveryFee = Number(rates.charge_500g || 60);
-      else if (totalWeightKg <= 1.0) deliveryFee = Number(rates.charge_1kg || 80);
-      else deliveryFee = Number(rates.charge_above || 120);
+    let appliedRate = 0;
+
+    if (matchingRule && computedSubtotal >= (matchingRule.minimum_order_value || 0)) {
+      appliedRate = matchingRule.courier_charge;
+      if (matchingRule.free_shipping_above !== null && matchingRule.free_shipping_above !== undefined && computedSubtotal >= matchingRule.free_shipping_above) {
+        deliveryFee = 0;
+      } else {
+        deliveryFee = Number((totalWeightKg * appliedRate).toFixed(2));
+      }
+    } else {
+      const courierSetting = await Setting.findOne({ key: 'courier_charges' });
+      const globalRates = courierSetting?.value || { rate_per_kg: 100 };
+      appliedRate = globalRates.rate_per_kg ?? 100;
+      deliveryFee = Number((totalWeightKg * appliedRate).toFixed(2));
+    }
+
+    if (deliveryFee <= 0 && totalWeightKg > 0) {
+      const isFreeShipping = matchingRule && 
+        matchingRule.free_shipping_above !== null && 
+        matchingRule.free_shipping_above !== undefined && 
+        computedSubtotal >= matchingRule.free_shipping_above;
+      
+      if (!isFreeShipping && appliedRate <= 0) {
+        return NextResponse.json({ error: 'Courier rate is missing for your shipping location. Please contact support.' }, { status: 400 });
+      }
     }
 
     const computedTotal = computedSubtotal + deliveryFee;
@@ -184,6 +272,7 @@ export async function POST(req: Request) {
         subtotalAmount: computedSubtotal,
         deliveryFee,
         totalWeightKg,
+        courierRate: appliedRate,
         totalAmount: computedTotal,
         shippingAddress,
         status: 'processing',
@@ -193,24 +282,21 @@ export async function POST(req: Request) {
 
       const populatedOrder = await Order.findById(newOrder._id).populate('user');
 
-      // Send Emails
+      // Send Emails (Fire-and-forget)
       if (populatedOrder) {
-        try {
-          await sendAdminNotification(
-            `New COD Order Placed - ${newOrder.orderId}`,
-            `<h1>New COD Order Received!</h1><p>Order ID: ${newOrder.orderId}</p><p>Amount: ₹${computedTotal} (To be collected on delivery)</p>`
-          );
+        sendAdminNotification(
+          `New COD Order Placed - ${newOrder.orderId}`,
+          `<h1>New COD Order Received!</h1><p>Order ID: ${newOrder.orderId}</p><p>Amount: ₹${computedTotal} (To be collected on delivery)</p>`
+        ).catch(emailErr => console.error("Failed to send COD admin email:", emailErr));
 
-          const populatedUser = populatedOrder.user as { email?: string } | null;
-          if (populatedUser?.email) {
-            await sendEmail(
-              populatedUser.email,
-              'Order Confirmation - Vivasaya Ulagam',
-              `<h1>Thank you for your order!</h1><p>Your Cash on Delivery order (ID: ${newOrder.orderId}) has been received and is now processing.</p><p>Amount to pay on delivery: ₹${computedTotal}</p>`
-            );
-          }
-        } catch (emailErr) {
-          console.error("Failed to send COD order emails:", emailErr);
+        const populatedUser = populatedOrder.user as { email?: string } | null;
+        const orderEmail = shippingAddress?.email || populatedUser?.email;
+        if (orderEmail && !orderEmail.includes("@guest.vivasayaulagam.com")) {
+          sendEmail(
+            orderEmail,
+            'Order Confirmation - Vivasaya Ulagam',
+            `<h1>Thank you for your order!</h1><p>Your Cash on Delivery order (ID: ${newOrder.orderId}) has been received and is now processing.</p><p>Amount to pay on delivery: ₹${computedTotal}</p>`
+          ).catch(emailErr => console.error("Failed to send COD customer email:", emailErr));
         }
       }
 
@@ -221,10 +307,18 @@ export async function POST(req: Request) {
       });
     } else {
       // Check if Razorpay keys are properly configured or placeholders
-      const isRazorpayConfigured = 
+      let isRazorpayConfigured = 
         process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID && 
         !process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID.includes("your_key_id") && 
         !process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID.includes("dummy");
+
+      // Safety check: force simulation if using a live key in development environment to avoid accidental charges
+      const isLiveKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID?.startsWith("rzp_live_");
+      const isDevMode = process.env.NODE_ENV !== 'production';
+      if (isLiveKey && isDevMode && process.env.ALLOW_LIVE_IN_DEV !== 'true') {
+        console.warn("⚠️ Live Razorpay key detected in development mode. Forcing simulated transaction for safety.");
+        isRazorpayConfigured = false;
+      }
 
       let razorpayOrderId = "";
       let razorpayAmount = Math.round(computedTotal * 100);
@@ -250,6 +344,7 @@ export async function POST(req: Request) {
         subtotalAmount: computedSubtotal,
         deliveryFee,
         totalWeightKg,
+        courierRate: appliedRate,
         totalAmount: computedTotal,
         shippingAddress,
         status: 'pending',

@@ -13,6 +13,7 @@ const ProductSchema = new mongoose.Schema(
     title: { type: String, required: true, trim: true },
     description: { type: String, default: '' },
     images: [{ type: String }],
+    images360: [{ type: String }],
     category: { type: String, default: '' },
     categories: [{ type: String }],
 
@@ -36,6 +37,12 @@ const ProductSchema = new mongoose.Schema(
     weightUnit: { type: String, default: 'kg' },
     countryOrigin: { type: String, default: '' },
     hsCode: { type: String, default: '' },
+    courierRates: {
+      charge_250g: { type: Number },
+      charge_500g: { type: Number },
+      charge_1kg: { type: Number },
+      charge_above: { type: Number },
+    },
 
     // Variants
     variants: [VariantSchema],
@@ -52,8 +59,16 @@ const ProductSchema = new mongoose.Schema(
     collections: [{ type: String }],
     tags: [{ type: String }],
     themeTemplate: { type: String, default: 'default' },
+
+    // Reviews (Calculated from approved customer reviews)
+    rating: { type: Number, default: 0 },
+    reviewCount: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
+
+ProductSchema.index({ seoSlug: 1 }, { sparse: true });
+ProductSchema.index({ status: 1, createdAt: -1 });
+ProductSchema.index({ category: 1, status: 1 });
 
 export default mongoose.models.Product || mongoose.model('Product', ProductSchema);

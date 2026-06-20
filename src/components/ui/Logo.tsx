@@ -33,9 +33,14 @@ export default function Logo({
   return (
     <div className="flex items-center">
       {!imgError ? (
-        <img
+        <Image
           src={logoPath}
           alt="Vivasaya Ulagam Logo"
+          width={190}
+          height={120}
+          sizes="(max-width: 1023px) 120px, 190px"
+          quality={80}
+          loading="eager"
           className={className}
           onError={() => setImgError(true)}
         />

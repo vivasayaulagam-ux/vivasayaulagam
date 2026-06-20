@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
 import OrdersStatsBar from "./OrdersStatsBar";
 import OrdersToolbar, { type OrderFilters } from "./OrdersToolbar";
@@ -9,7 +9,12 @@ import OrdersTable from "./OrdersTable";
 interface Props { orders: any[]; }
 
 const DEFAULT_FILTERS: OrderFilters = {
-  search: "", status: "all", payment: "all", sort: "date_desc",
+  search: "",
+  status: "all",
+  payment: "all",
+  sort: "date_desc",
+  startDate: "",
+  endDate: "",
 };
 
 // CSV export helper
@@ -24,7 +29,7 @@ function exportToCSV(orders: any[], selectedIds: Set<string>) {
       new Date(o.createdAt).toLocaleDateString("en-IN"),
       o.isPaid ? "Paid" : "COD",
       o.status,
-      (o.totalAmount / 100).toFixed(2),
+      Number(o.totalAmount || 0).toFixed(2),
     ]),
   ];
   const csv = rows.map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
@@ -36,16 +41,27 @@ function exportToCSV(orders: any[], selectedIds: Set<string>) {
 }
 
 export default function OrdersClient({ orders }: Props) {
+  const [localOrders, setLocalOrders] = useState<any[]>(orders);
   const [filters, setFilters]       = useState<OrderFilters>(DEFAULT_FILTERS);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const handleExport = useCallback(() => exportToCSV(orders, selectedIds), [orders, selectedIds]);
+  useEffect(() => {
+    setLocalOrders(orders);
+  }, [orders]);
+
+  const handleOrderUpdate = useCallback((dbId: string, updatedFields: any) => {
+    setLocalOrders((prev) =>
+      prev.map((o) => (o._id === dbId ? { ...o, ...updatedFields } : o))
+    );
+  }, []);
+
+  const handleExport = useCallback(() => exportToCSV(localOrders, selectedIds), [localOrders, selectedIds]);
   const handleClearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
   return (
     <div>
       {/* Stats bar */}
-      <OrdersStatsBar orders={orders} />
+      <OrdersStatsBar orders={localOrders} />
 
       {/* Card wrapper */}
       <motion.div
@@ -61,7 +77,7 @@ export default function OrdersClient({ orders }: Props) {
             filters={filters}
             onFiltersChange={setFilters}
             selectedCount={selectedIds.size}
-            totalCount={orders.length}
+            totalCount={localOrders.length}
             onBulkExport={handleExport}
             onClearSelection={handleClearSelection}
           />
@@ -69,10 +85,11 @@ export default function OrdersClient({ orders }: Props) {
 
         {/* Table */}
         <OrdersTable
-          orders={orders}
+          orders={localOrders}
           filters={filters}
           selectedIds={selectedIds}
           onSelectionChange={setSelectedIds}
+          onOrderUpdate={handleOrderUpdate}
         />
       </motion.div>
     </div>

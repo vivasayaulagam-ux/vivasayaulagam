@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import Image from "next/image";
 import { formatPrice } from "@/lib/utils";
 import { Minus, Plus, Trash2, ArrowRight } from "lucide-react";
 import Link from "next/link";
@@ -18,6 +19,7 @@ import {
   type CourierRates,
 } from "@/lib/shipping";
 
+
 type CartSettings = {
   cart_banner_enabled?: boolean;
   cart_banner_image?: string;
@@ -32,6 +34,9 @@ export default function CartPage() {
   const [loading, setLoading] = useState(true);
   const [couponCode, setCouponCode] = useState("");
   const [couponMessage, setCouponMessage] = useState("");
+  const [deliveryFee, setDeliveryFee] = useState(0);
+  const [appliedRate, setAppliedRate] = useState(0);
+
 
   useEffect(() => {
     async function loadSettings() {
@@ -50,16 +55,20 @@ export default function CartPage() {
     loadSettings();
   }, []);
 
+
+
+  const fetchedOnMountRef = useRef(false);
+
   useEffect(() => {
     if (!hasHydrated || items.length === 0) return;
+    if (fetchedOnMountRef.current) return;
+    fetchedOnMountRef.current = true;
 
     let cancelled = false;
-    const missingWeightItems = items.filter((item) => toWeightKg(item.weight, item.weightUnit || "kg") <= 0);
-    if (missingWeightItems.length === 0) return;
 
-    async function loadMissingWeights() {
+    async function checkCartStockAndWeight() {
       await Promise.all(
-        missingWeightItems.map(async (item) => {
+        items.map(async (item) => {
           const [productId, ...variantParts] = item.id.split("-");
           if (!productId || productId === "video") return;
 
@@ -70,35 +79,74 @@ export default function CartPage() {
 
             const product = data.product;
             const variantValue = variantParts.join("-");
+            
+            // Check if variant or product is out of stock
+            let resolvedOutOfStock = false;
+            if (variantValue) {
+              const variant = product.variants?.find((v: any) => v.value === variantValue);
+              if (variant) {
+                resolvedOutOfStock = product.trackInventory && (variant.stock <= 0);
+              }
+            } else {
+              resolvedOutOfStock = 
+                product.is_out_of_stock === true || 
+                product.stock_status === "Out of Stock" || 
+                product.quantity === 0 || 
+                product.stock_quantity === 0 ||
+                (product.trackInventory && (product.quantity ?? 0) <= 0);
+            }
+
             const resolvedWeight = variantValue
               ? parseWeightLabelToKg(variantValue, product.weight, product.weightUnit || "kg")
               : toWeightKg(product.weight, product.weightUnit || "kg");
 
-            if (resolvedWeight > 0) {
-              updateItemMetadata(item.id, {
-                weight: resolvedWeight,
-                weightUnit: "kg",
-              });
-            }
+            updateItemMetadata(item.id, {
+              isOutOfStock: resolvedOutOfStock,
+              weight: resolvedWeight > 0 ? resolvedWeight : item.weight,
+              weightUnit: "kg",
+            });
           } catch (err) {
-            console.error("Failed to load cart item weight:", err);
+            console.error("Failed to load cart item info:", err);
           }
         })
       );
     }
 
-    loadMissingWeights();
+    checkCartStockAndWeight();
     return () => {
       cancelled = true;
     };
-  }, [hasHydrated, items, updateItemMetadata]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasHydrated]);
 
   const subtotal = totalPrice();
   const totalWeight = items.reduce((sum, item) => sum + toWeightKg(item.weight, item.weightUnit || "kg") * item.quantity, 0);
-  const courierRates = settings.courier_charges || DEFAULT_COURIER_RATES;
-  const deliveryFee = getCourierFee(totalWeight, subtotal, courierRates);
-  const courierBracket = getCourierBracketLabel(totalWeight);
   const hasMissingWeight = items.some((item) => toWeightKg(item.weight, item.weightUnit || "kg") <= 0);
+  const anyOutOfStock = items.some((item) => item.isOutOfStock);
+
+  useEffect(() => {
+    if (!hasHydrated || items.length === 0) {
+      const timer = setTimeout(() => {
+        setDeliveryFee(prev => prev === 0 ? prev : 0);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+    const queryParams = new URLSearchParams({
+      subtotal: String(subtotal),
+      weight: String(totalWeight),
+      items: JSON.stringify(items.map(i => ({ productId: i.id.split("-")[0], quantity: i.quantity, price: i.price, weightKg: toWeightKg(i.weight, i.weightUnit || "kg") })))
+    });
+    fetch(`/api/shipping/calculate?${queryParams.toString()}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setDeliveryFee(data.courier_charge);
+          setAppliedRate(data.rate_per_kg || 0);
+        }
+      })
+      .catch(err => console.error("Failed to calculate shipping in cart:", err));
+  }, [items, subtotal, totalWeight, hasHydrated]);
+
   const total = subtotal + deliveryFee;
 
   const handleApplyCoupon = () => {
@@ -112,12 +160,13 @@ export default function CartPage() {
       <main className="pt-[calc(var(--navbar-height)+1rem)] pb-16 bg-[#f9fafb] min-h-screen">
         {settings.cart_banner_enabled !== false && !loading && (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-8">
-            <div className="relative w-full h-[160px] md:h-[220px] bg-gradient-to-r from-green-800 to-[#1F6B3B] overflow-hidden flex items-center justify-center text-center px-4 shadow-inner rounded-3xl border border-primary/10">
+            <div className="relative w-full h-[160px] md:h-[220px] bg-gradient-to-r from-green-800 to-[#34a121] overflow-hidden flex items-center justify-center text-center px-4 shadow-inner rounded-3xl border border-primary/10">
               {settings.cart_banner_image ? (
                 <>
-                  <img
+                  <Image
                     src={settings.cart_banner_image}
                     alt="Cart Banner"
+                    fill
                     className="absolute inset-0 w-full h-full object-cover"
                   />
                   <div className="absolute inset-0 bg-black/35 pointer-events-none" />
@@ -151,7 +200,7 @@ export default function CartPage() {
           ) : items.length === 0 ? (
             <div className="text-center py-20">
               <h2 className="text-2xl font-heading font-bold text-gray-500 mb-4">Your cart is empty</h2>
-              <Link href="/" className="inline-block bg-primary text-white px-8 py-3 rounded-none font-bold hover:bg-primary-dark transition-colors">
+              <Link href="/shop" className="inline-block bg-primary text-white px-8 py-3 rounded-none font-bold hover:bg-primary-dark transition-colors">
                 Continue Shopping
               </Link>
             </div>
@@ -181,11 +230,13 @@ export default function CartPage() {
                     {/* Desktop View Tabular Columns */}
                     <div className="hidden md:contents">
                       <div className="col-span-6 flex items-center gap-4 w-full">
-                        <div className="w-20 h-20 rounded-md bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden border border-gray-100">
+                        <div className="relative w-20 h-20 rounded-md bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden border border-gray-100">
                           {(item.image?.startsWith("data:") || item.image?.startsWith("/") || item.image?.startsWith("http")) ? (
-                            <img
+                            <Image
                               src={item.image}
                               alt={item.name}
+                              fill
+                              unoptimized={item.image?.startsWith("http")}
                               className="w-full h-full object-cover"
                             />
                           ) : (
@@ -200,6 +251,11 @@ export default function CartPage() {
                               ? ` x ${item.quantity} = ${formatWeightKg(toWeightKg(item.weight, item.weightUnit || "kg") * item.quantity)}`
                               : ""}
                           </p>
+                          {item.isOutOfStock && (
+                            <span className="inline-block bg-rose-100 text-rose-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider mt-1.5 border border-rose-200">
+                              Out of Stock
+                            </span>
+                          )}
                           <button onClick={() => removeItem(item.id)} className="text-alert-red text-xs flex items-center gap-1 mt-2 hover:underline bg-transparent border-0 p-0 cursor-pointer">
                             <Trash2 size={12} /> Remove
                           </button>
@@ -243,11 +299,13 @@ export default function CartPage() {
                     {/* Mobile View Responsive Split Layout */}
                     <div className="md:hidden flex gap-4 w-full items-start">
                       {/* Left: Product Thumbnail */}
-                      <div className="w-20 h-20 rounded-xl bg-gray-50 flex items-center justify-center shrink-0 overflow-hidden border border-gray-150">
+                      <div className="relative w-20 h-20 rounded-xl bg-gray-50 flex items-center justify-center shrink-0 overflow-hidden border border-gray-150">
                         {(item.image?.startsWith("data:") || item.image?.startsWith("/") || item.image?.startsWith("http")) ? (
-                          <img
+                          <Image
                             src={item.image}
                             alt={item.name}
+                            fill
+                            unoptimized={item.image?.startsWith("http")}
                             className="w-full h-full object-cover"
                           />
                         ) : (
@@ -271,6 +329,12 @@ export default function CartPage() {
                           </button>
                         </div>
 
+                        {item.isOutOfStock && (
+                          <span className="inline-block bg-rose-100 text-rose-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider border border-rose-200">
+                            Out of Stock
+                          </span>
+                        )}
+
                         {/* Price block */}
                         <div className="text-xs font-semibold text-text-muted">
                           Unit Price: <span className="font-heading font-bold text-text-dark">{formatPrice(item.price)}</span>
@@ -278,6 +342,7 @@ export default function CartPage() {
                         <div className="text-xs font-semibold text-text-muted">
                           Weight: <span className="font-heading font-bold text-text-dark">{formatWeightKg(toWeightKg(item.weight, item.weightUnit || "kg"))}</span>
                         </div>
+
 
                         {/* Quantity and subtotal row */}
                         <div className="flex items-center justify-between pt-1 gap-2">
@@ -319,7 +384,7 @@ export default function CartPage() {
                 </AnimatePresence>
 
                 <div className="flex justify-between items-center mt-6">
-                  <Link href="/" className="text-sm font-body font-semibold text-text-dark hover:text-primary border-b border-text-dark hover:border-primary pb-0.5 transition-colors">
+                  <Link href="/shop" className="text-sm font-body font-semibold text-text-dark hover:text-primary border-b border-text-dark hover:border-primary pb-0.5 transition-colors">
                     ← Continue Shopping
                   </Link>
                   <button onClick={clearCart} className="text-sm font-body font-semibold text-alert-red hover:underline">
@@ -342,10 +407,12 @@ export default function CartPage() {
                       <span>Total Weight</span>
                       <span className="font-heading font-semibold text-text-dark">{formatWeightKg(totalWeight)}</span>
                     </div>
-                    <div className="flex justify-between text-text-muted">
-                      <span>Courier Slab</span>
-                      <span className="font-heading font-semibold text-text-dark">{courierBracket}</span>
-                    </div>
+                    {appliedRate > 0 && (
+                      <div className="flex justify-between text-text-muted">
+                        <span>Courier Rate</span>
+                        <span className="font-heading font-semibold text-text-dark">₹{appliedRate} / kg</span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-text-muted">
                       <span>Courier Charges</span>
                       <span className="font-heading font-semibold text-text-dark">{formatPrice(deliveryFee)}</span>
@@ -361,12 +428,26 @@ export default function CartPage() {
                     </div>
                   </div>
 
-                  <Link
-                    href="/checkout"
-                    className="w-full bg-black text-white py-3.5 rounded-none flex items-center justify-center gap-2 font-bold tracking-wider text-sm hover:bg-gray-800 transition-colors shadow-md"
-                  >
-                    PROCEED TO CHECKOUT <ArrowRight size={16} />
-                  </Link>
+                  {anyOutOfStock ? (
+                    <div className="space-y-3">
+                      <p className="rounded-lg bg-rose-50 px-3 py-2.5 text-xs font-bold leading-relaxed text-rose-600 border border-rose-100 text-center">
+                        Remove out of stock items to continue checkout.
+                      </p>
+                      <button
+                        disabled
+                        className="w-full bg-gray-400 text-white py-3.5 rounded-none flex items-center justify-center gap-2 font-bold tracking-wider text-sm cursor-not-allowed opacity-60 shadow-none border-0"
+                      >
+                        PROCEED TO CHECKOUT <ArrowRight size={16} />
+                      </button>
+                    </div>
+                  ) : (
+                    <Link
+                      href="/checkout"
+                      className="w-full bg-black text-white py-3.5 rounded-none flex items-center justify-center gap-2 font-bold tracking-wider text-sm hover:bg-gray-800 transition-colors shadow-md"
+                    >
+                      PROCEED TO CHECKOUT <ArrowRight size={16} />
+                    </Link>
+                  )}
 
                   <div className="mt-6">
                     <h4 className="text-xs font-bold text-text-dark mb-2">Have a coupon code?</h4>

@@ -35,6 +35,10 @@ const OrderSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    courierRate: {
+      type: Number,
+      default: 0,
+    },
     totalAmount: {
       type: Number,
       required: true,
@@ -57,9 +61,11 @@ const OrderSchema = new mongoose.Schema(
       fullName: String,
       address: String,
       city: String,
+      state: String,
       postalCode: String,
       country: String,
       phone: String,
+      email: String,
     },
     isPaid: {
       type: Boolean,
@@ -88,5 +94,8 @@ OrderSchema.pre('save', async function () {
     }
   }
 });
+
+OrderSchema.index({ createdAt: -1 });
+OrderSchema.index({ user: 1, createdAt: -1 });
 
 export default mongoose.models.Order || mongoose.model('Order', OrderSchema);

@@ -18,6 +18,8 @@ export interface OrderFilters {
   status: string;
   payment: string;
   sort: string;
+  startDate: string;
+  endDate: string;
 }
 
 interface Props {
@@ -47,10 +49,21 @@ export default function OrdersToolbar({
     onFiltersChange({ ...filters, ...patch });
 
   const hasActiveFilters =
-    filters.status !== "all" || filters.payment !== "all" || filters.search;
+    filters.status !== "all" ||
+    filters.payment !== "all" ||
+    filters.search ||
+    filters.startDate ||
+    filters.endDate;
 
   const clearAll = () =>
-    onFiltersChange({ search: "", status: "all", payment: "all", sort: "date_desc" });
+    onFiltersChange({
+      search: "",
+      status: "all",
+      payment: "all",
+      sort: "date_desc",
+      startDate: "",
+      endDate: "",
+    });
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -78,7 +91,7 @@ export default function OrdersToolbar({
             placeholder="Search orders, customers..."
             value={filters.search}
             onChange={(e) => update({ search: e.target.value })}
-            className="w-full pl-9 pr-8 py-2 text-sm bg-white border border-[#e5e5e5] rounded-[10px] outline-none focus:ring-2 focus:ring-[#1F6B3B]/20 focus:border-[#1F6B3B] transition-all placeholder:text-gray-400"
+            className="w-full pl-9 pr-8 py-2 text-sm bg-white border border-[#e5e5e5] rounded-[10px] outline-none focus:ring-2 focus:ring-[#34a121]/20 focus:border-[#34a121] transition-all placeholder:text-gray-400"
           />
           {filters.search && (
             <button
@@ -95,7 +108,7 @@ export default function OrdersToolbar({
           onClick={() => setShowFilters((v) => !v)}
           className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium border rounded-[10px] transition-all ${
             showFilters || hasActiveFilters
-              ? "bg-[#1F6B3B] text-white border-[#1F6B3B]"
+              ? "bg-[#34a121] text-white border-[#34a121]"
               : "bg-white text-gray-600 border-[#e5e5e5] hover:border-gray-300"
           }`}
         >
@@ -113,7 +126,7 @@ export default function OrdersToolbar({
           <select
             value={filters.sort}
             onChange={(e) => update({ sort: e.target.value })}
-            className="appearance-none pl-3 pr-8 py-2 text-sm bg-white border border-[#e5e5e5] rounded-[10px] text-gray-600 outline-none focus:ring-2 focus:ring-[#1F6B3B]/20 focus:border-[#1F6B3B] cursor-pointer transition-all"
+            className="appearance-none pl-3 pr-8 py-2 text-sm bg-white border border-[#e5e5e5] rounded-[10px] text-gray-600 outline-none focus:ring-2 focus:ring-[#34a121]/20 focus:border-[#34a121] cursor-pointer transition-all"
           >
             {SORT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
@@ -200,7 +213,7 @@ export default function OrdersToolbar({
                     onClick={() => update({ status: s })}
                     className={`px-3 py-1 rounded-full text-xs font-semibold capitalize transition-all ${
                       filters.status === s
-                        ? "bg-[#1F6B3B] text-white"
+                        ? "bg-[#34a121] text-white"
                         : "bg-white border border-[#e5e5e5] text-gray-600 hover:border-gray-400"
                     }`}
                   >
@@ -220,13 +233,32 @@ export default function OrdersToolbar({
                     onClick={() => update({ payment: p })}
                     className={`px-3 py-1 rounded-full text-xs font-semibold capitalize transition-all ${
                       filters.payment === p
-                        ? "bg-[#1F6B3B] text-white"
+                        ? "bg-[#34a121] text-white"
                         : "bg-white border border-[#e5e5e5] text-gray-600 hover:border-gray-400"
                     }`}
                   >
                     {p === "cod" ? "COD" : p}
                   </button>
                 ))}
+              </div>
+              <div className="h-6 w-px bg-gray-200 self-center mx-1 hidden lg:block" />
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  Date:
+                </span>
+                <input
+                  type="date"
+                  value={filters.startDate}
+                  onChange={(e) => update({ startDate: e.target.value })}
+                  className="px-2.5 py-1.5 text-xs bg-white border border-[#e5e5e5] rounded-[10px] text-gray-600 outline-none focus:ring-2 focus:ring-[#34a121]/20 focus:border-[#34a121] transition-all"
+                />
+                <span className="text-xs text-gray-400">to</span>
+                <input
+                  type="date"
+                  value={filters.endDate}
+                  onChange={(e) => update({ endDate: e.target.value })}
+                  className="px-2.5 py-1.5 text-xs bg-white border border-[#e5e5e5] rounded-[10px] text-gray-600 outline-none focus:ring-2 focus:ring-[#34a121]/20 focus:border-[#34a121] transition-all"
+                />
               </div>
               {hasActiveFilters && (
                 <button
@@ -249,15 +281,15 @@ export default function OrdersToolbar({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.2 }}
-            className="flex items-center gap-3 px-4 py-2.5 bg-[#1F6B3B]/8 border border-[#1F6B3B]/20 rounded-[10px]"
+            className="flex items-center gap-3 px-4 py-2.5 bg-[#34a121]/8 border border-[#34a121]/20 rounded-[10px]"
           >
-            <span className="text-sm font-semibold text-[#1F6B3B]">
+            <span className="text-sm font-semibold text-[#34a121]">
               {selectedCount} of {totalCount} selected
             </span>
             <div className="flex-1" />
             <button
               onClick={onBulkExport}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-[#1F6B3B] text-white rounded-lg hover:bg-[#124A26] transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-[#34a121] text-white rounded-lg hover:bg-[#124A26] transition-colors"
             >
               <Download size={13} /> Export
             </button>

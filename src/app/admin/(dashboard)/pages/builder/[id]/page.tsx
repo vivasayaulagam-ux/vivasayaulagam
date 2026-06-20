@@ -24,7 +24,7 @@ const SECTION_TEMPLATES: Array<{
   icon: LucideIcon;
   defaults: Record<string, SectionSettingValue>;
 }> = [
-  { type: 'hero_banner', label: 'Hero Banner', icon: ImageIcon, defaults: { title: 'Fresh Organic Harvest', subtitle: 'Straight from local fields to your family kitchen', ctaText: 'Shop Now', ctaLink: '/shop', bgGradient: 'from-[#1F6B3B] to-[#154a28]' } },
+  { type: 'hero_banner', label: 'Hero Banner', icon: ImageIcon, defaults: { title: 'Fresh Organic Harvest', subtitle: 'Straight from local fields to your family kitchen', ctaText: 'Shop Now', ctaLink: '/shop', bgGradient: 'from-[#34a121] to-[#154a28]' } },
   { type: 'heading', label: 'Section Heading', icon: Type, defaults: { text: 'Our Bestsellers', alignment: 'center', color: '#111827', size: 'text-3xl' } },
   { type: 'text_block', label: 'Rich Text Paragraph', icon: FileText, defaults: { text: 'Vivasaya Ullagam is committed to bringing back clean eating. We partner with over 40+ certified organic farms to source wholesome items.', color: '#4b5563', alignment: 'left' } },
   { type: 'product_grid', label: 'Product Grid', icon: Grid, defaults: { limit: 4, category: 'Millets', title: 'Featured Products' } },
@@ -175,7 +175,7 @@ export default function PageBuilder() {
   if (loading) {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-3 bg-[#111] text-gray-300">
-        <Loader2 size={28} className="animate-spin text-[#1F6B3B]" />
+        <Loader2 size={28} className="animate-spin text-[#34a121]" />
         <p className="text-sm font-semibold">Loading page builder...</p>
       </div>
     );
@@ -218,7 +218,7 @@ export default function PageBuilder() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center gap-1.5 bg-[#1F6B3B] text-white px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-sm hover:bg-[#154a28] disabled:opacity-60 transition-all"
+            className="flex items-center gap-1.5 bg-[#34a121] text-white px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-sm hover:bg-[#154a28] disabled:opacity-60 transition-all"
           >
             {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
             {saving ? 'Saving...' : 'Save Draft'}
@@ -240,7 +240,7 @@ export default function PageBuilder() {
                   <button
                     key={t.type}
                     onClick={() => handleAddSection(t.type)}
-                    className="flex flex-col items-center justify-center p-3 rounded-xl bg-neutral-950 border border-neutral-800 hover:border-[#1F6B3B] hover:bg-neutral-900 transition-all text-neutral-300 hover:text-white"
+                    className="flex flex-col items-center justify-center p-3 rounded-xl bg-neutral-950 border border-neutral-800 hover:border-[#34a121] hover:bg-neutral-900 transition-all text-neutral-300 hover:text-white"
                   >
                     <Icon size={18} className="text-neutral-500 mb-1.5" />
                     <span className="text-[10px] font-bold text-center">{t.label}</span>
@@ -265,7 +265,7 @@ export default function PageBuilder() {
                       onClick={() => setSelectedSectionId(sec.id)}
                       className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
                         selectedSectionId === sec.id
-                          ? 'border-[#1F6B3B] bg-neutral-950/80 text-white shadow-sm'
+                          ? 'border-[#34a121] bg-neutral-950/80 text-white shadow-sm'
                           : 'border-neutral-800 bg-neutral-950 text-neutral-400 hover:border-neutral-700'
                       }`}
                     >
@@ -319,7 +319,7 @@ export default function PageBuilder() {
                       key={sec.id}
                       onClick={() => setSelectedSectionId(sec.id)}
                       className={`relative group cursor-pointer transition-all border-2 ${
-                        selectedSectionId === sec.id ? 'border-[#1F6B3B]' : 'border-transparent hover:border-dashed hover:border-gray-300'
+                        selectedSectionId === sec.id ? 'border-[#34a121]' : 'border-transparent hover:border-dashed hover:border-gray-300'
                       }`}
                     >
                       {/* Section mock renderers */}
@@ -361,7 +361,7 @@ export default function PageBuilder() {
                                 <div className="w-full aspect-square bg-gray-200 rounded-lg flex items-center justify-center text-xl">🌾</div>
                                 <div className="space-y-0.5 text-center">
                                   <p className="text-xs font-bold text-gray-700">Millet Crop Pack</p>
-                                  <p className="text-[10px] font-bold text-[#1F6B3B]">₹180</p>
+                                  <p className="text-[10px] font-bold text-[#34a121]">₹180</p>
                                 </div>
                               </div>
                             ))}
@@ -391,7 +391,7 @@ export default function PageBuilder() {
                           <p className="text-sm font-bold">{s.title}</p>
                           <div className="flex max-w-xs mx-auto gap-2">
                             <input type="email" placeholder="Enter your email" disabled className="text-xs px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg flex-1" />
-                            <button className="bg-[#1F6B3B] text-white text-[10px] font-bold px-3 py-1.5 rounded-lg">{s.buttonText}</button>
+                            <button className="bg-[#34a121] text-white text-[10px] font-bold px-3 py-1.5 rounded-lg">{s.buttonText}</button>
                           </div>
                         </div>
                       )}
@@ -407,7 +407,7 @@ export default function PageBuilder() {
         <aside className="w-[300px] shrink-0 bg-neutral-900 border-l border-neutral-800 flex flex-col overflow-y-auto">
           <div className="p-4 border-b border-neutral-800">
             <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-              <Settings size={14} className="text-[#1F6B3B]" />
+              <Settings size={14} className="text-[#34a121]" />
               Module Inspector
             </h3>
             <p className="text-[10px] text-neutral-500">Configure parameters for the selected canvas row.</p>
@@ -429,7 +429,7 @@ export default function PageBuilder() {
                       type="text"
                       value={selectedSection.settings.title || ''}
                       onChange={e => handleUpdateSetting(selectedSection.id, 'title', e.target.value)}
-                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#1F6B3B] focus:outline-none"
+                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#34a121] focus:outline-none"
                     />
                   </div>
                   <div>
@@ -438,7 +438,7 @@ export default function PageBuilder() {
                       rows={2}
                       value={selectedSection.settings.subtitle || ''}
                       onChange={e => handleUpdateSetting(selectedSection.id, 'subtitle', e.target.value)}
-                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#1F6B3B] focus:outline-none resize-none"
+                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#34a121] focus:outline-none resize-none"
                     />
                   </div>
                   <div>
@@ -447,7 +447,7 @@ export default function PageBuilder() {
                       type="text"
                       value={selectedSection.settings.ctaText || ''}
                       onChange={e => handleUpdateSetting(selectedSection.id, 'ctaText', e.target.value)}
-                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#1F6B3B] focus:outline-none"
+                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#34a121] focus:outline-none"
                     />
                   </div>
                   <div>
@@ -456,7 +456,7 @@ export default function PageBuilder() {
                       type="text"
                       value={selectedSection.settings.bgGradient || ''}
                       onChange={e => handleUpdateSetting(selectedSection.id, 'bgGradient', e.target.value)}
-                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#1F6B3B] focus:outline-none"
+                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#34a121] focus:outline-none"
                     />
                   </div>
                 </div>
@@ -470,7 +470,7 @@ export default function PageBuilder() {
                       type="text"
                       value={selectedSection.settings.text || ''}
                       onChange={e => handleUpdateSetting(selectedSection.id, 'text', e.target.value)}
-                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#1F6B3B] focus:outline-none"
+                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#34a121] focus:outline-none"
                     />
                   </div>
                   <div>
@@ -478,7 +478,7 @@ export default function PageBuilder() {
                     <select
                       value={selectedSection.settings.size || 'text-3xl'}
                       onChange={e => handleUpdateSetting(selectedSection.id, 'size', e.target.value)}
-                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#1F6B3B] focus:outline-none text-gray-300"
+                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#34a121] focus:outline-none text-gray-300"
                     >
                       <option value="text-xl">Small (text-xl)</option>
                       <option value="text-2xl">Medium (text-2xl)</option>
@@ -506,7 +506,7 @@ export default function PageBuilder() {
                       rows={4}
                       value={selectedSection.settings.text || ''}
                       onChange={e => handleUpdateSetting(selectedSection.id, 'text', e.target.value)}
-                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#1F6B3B] focus:outline-none resize-none"
+                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#34a121] focus:outline-none resize-none"
                     />
                   </div>
                   <div>
@@ -514,7 +514,7 @@ export default function PageBuilder() {
                     <select
                       value={selectedSection.settings.alignment || 'left'}
                       onChange={e => handleUpdateSetting(selectedSection.id, 'alignment', e.target.value)}
-                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#1F6B3B] focus:outline-none text-gray-300"
+                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#34a121] focus:outline-none text-gray-300"
                     >
                       <option value="left">Left</option>
                       <option value="center">Center</option>
@@ -542,7 +542,7 @@ export default function PageBuilder() {
                       value={selectedSection.settings.category || ''}
                       onChange={e => handleUpdateSetting(selectedSection.id, 'category', e.target.value)}
                       placeholder="e.g. Millets, Honey"
-                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#1F6B3B] focus:outline-none"
+                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#34a121] focus:outline-none"
                     />
                   </div>
                   <div>
@@ -551,7 +551,7 @@ export default function PageBuilder() {
                       type="number"
                       value={selectedSection.settings.limit || 4}
                       onChange={e => handleUpdateSetting(selectedSection.id, 'limit', Number(e.target.value))}
-                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#1F6B3B] focus:outline-none"
+                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#34a121] focus:outline-none"
                     />
                   </div>
                 </div>
@@ -565,7 +565,7 @@ export default function PageBuilder() {
                       type="text"
                       value={selectedSection.settings.question || ''}
                       onChange={e => handleUpdateSetting(selectedSection.id, 'question', e.target.value)}
-                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#1F6B3B] focus:outline-none"
+                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#34a121] focus:outline-none"
                     />
                   </div>
                   <div>
@@ -574,7 +574,7 @@ export default function PageBuilder() {
                       rows={3}
                       value={selectedSection.settings.answer || ''}
                       onChange={e => handleUpdateSetting(selectedSection.id, 'answer', e.target.value)}
-                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#1F6B3B] focus:outline-none resize-none"
+                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#34a121] focus:outline-none resize-none"
                     />
                   </div>
                 </div>
@@ -588,7 +588,7 @@ export default function PageBuilder() {
                       rows={3}
                       value={selectedSection.settings.text || ''}
                       onChange={e => handleUpdateSetting(selectedSection.id, 'text', e.target.value)}
-                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#1F6B3B] focus:outline-none resize-none"
+                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#34a121] focus:outline-none resize-none"
                     />
                   </div>
                   <div>
@@ -597,7 +597,7 @@ export default function PageBuilder() {
                       type="text"
                       value={selectedSection.settings.author || ''}
                       onChange={e => handleUpdateSetting(selectedSection.id, 'author', e.target.value)}
-                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#1F6B3B] focus:outline-none"
+                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#34a121] focus:outline-none"
                     />
                   </div>
                   <div>
@@ -606,7 +606,7 @@ export default function PageBuilder() {
                       type="text"
                       value={selectedSection.settings.role || ''}
                       onChange={e => handleUpdateSetting(selectedSection.id, 'role', e.target.value)}
-                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#1F6B3B] focus:outline-none"
+                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#34a121] focus:outline-none"
                     />
                   </div>
                 </div>
@@ -620,7 +620,7 @@ export default function PageBuilder() {
                       type="text"
                       value={selectedSection.settings.title || ''}
                       onChange={e => handleUpdateSetting(selectedSection.id, 'title', e.target.value)}
-                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#1F6B3B] focus:outline-none"
+                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#34a121] focus:outline-none"
                     />
                   </div>
                   <div>
@@ -629,7 +629,7 @@ export default function PageBuilder() {
                       type="text"
                       value={selectedSection.settings.buttonText || ''}
                       onChange={e => handleUpdateSetting(selectedSection.id, 'buttonText', e.target.value)}
-                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#1F6B3B] focus:outline-none"
+                      className="w-full text-xs px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg focus:border-[#34a121] focus:outline-none"
                     />
                   </div>
                 </div>

@@ -2,6 +2,8 @@
 
 import { motion } from "framer-motion";
 import SectionTitle from "@/components/ui/SectionTitle";
+import Image from "next/image";
+import { IMAGE_BLUR_DATA_URL } from "@/lib/image";
 
 const certs = [
   {
@@ -76,10 +78,17 @@ export default function Certifications({ settings }: { settings?: CertificationS
               className="group flex cursor-pointer flex-col items-center gap-4 border border-[#eaeaea] bg-white p-6 rounded-xl text-center transition-all duration-300 hover:border-primary/50 hover:shadow-[0_10px_25px_rgba(0,0,0,0.04)]"
             >
               {/* Centered logo container with fixed height */}
-              <div className="h-20 w-full flex items-center justify-center">
-                <img 
+              <div className="relative h-20 w-full flex items-center justify-center">
+                <Image 
                   src={cert.logo} 
                   alt={cert.name} 
+                  width={130}
+                  height={80}
+                  loading="lazy"
+                  sizes="130px"
+                  quality={75}
+                  placeholder="blur"
+                  blurDataURL={IMAGE_BLUR_DATA_URL}
                   className="h-full w-auto max-w-[130px] object-contain transition-transform duration-500 group-hover:scale-105"
                 />
               </div>

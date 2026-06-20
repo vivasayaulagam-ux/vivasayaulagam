@@ -5,6 +5,16 @@ import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle, ChevronLeft, ChevronRight, ExternalLink, Play, ShoppingBag, X } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
 import { toWeightKg } from "@/lib/shipping";
+import Image from "next/image";
+import { IMAGE_BLUR_DATA_URL } from "@/lib/image";
+
+const getPlayableVideoUrl = (url: string) => {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("/") || url.startsWith("data:")) {
+    return url;
+  }
+  return `/uploads/${url}`;
+};
 
 export default function ShopByVideos() {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -70,6 +80,26 @@ export default function ShopByVideos() {
     setTimeout(() => setToastId(null), 2000);
   };
 
+  const handlePrevVideo = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!activeVideo) return;
+    const currentIndex = videos.findIndex(v => (v._id || v.id) === (activeVideo._id || activeVideo.id));
+    if (currentIndex !== -1) {
+      const prevIndex = (currentIndex - 1 + videos.length) % videos.length;
+      setActiveVideo(videos[prevIndex]);
+    }
+  };
+
+  const handleNextVideo = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!activeVideo) return;
+    const currentIndex = videos.findIndex(v => (v._id || v.id) === (activeVideo._id || activeVideo.id));
+    if (currentIndex !== -1) {
+      const nextIndex = (currentIndex + 1) % videos.length;
+      setActiveVideo(videos[nextIndex]);
+    }
+  };
+
   const scroll = (direction: "left" | "right") => {
     scrollRef.current?.scrollBy({
       left: direction === "left" ? -300 : 300,
@@ -113,7 +143,7 @@ export default function ShopByVideos() {
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.35, delay: index * 0.05 }}
-                className="group/card relative h-[430px] min-w-[270px] flex-shrink-0 snap-start overflow-hidden rounded-2xl border border-gray-100 bg-[#FAF9F5] shadow-sm md:h-[450px]"
+                className="group/card relative h-[285px] min-w-[160px] sm:h-[400px] sm:min-w-[225px] md:h-[450px] md:min-w-[260px] flex-shrink-0 snap-start overflow-hidden rounded-[20px] bg-neutral-100 shadow-[0_8px_30px_rgb(0,0,0,0.12)]"
               >
                 <button
                   type="button"
@@ -122,10 +152,11 @@ export default function ShopByVideos() {
                   aria-label={`Play ${finalTitle}`}
                 >
                   <video
-                    src={vid.videoUrl}
+                    src={getPlayableVideoUrl(vid.videoUrl)}
+                    poster={getPlayableVideoUrl(finalImage)}
                     className="h-full w-full object-cover"
                     autoPlay
-                    muted
+                    muted={true}
                     loop
                     playsInline
                     preload="metadata"
@@ -136,17 +167,17 @@ export default function ShopByVideos() {
                 <button
                   type="button"
                   onClick={() => setActiveVideo(vid)}
-                  className="absolute left-1/2 top-1/2 z-10 flex h-[52px] w-[52px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/80 bg-black/25 text-white backdrop-blur-[2px] transition-transform group-hover/card:scale-105 cursor-pointer outline-none"
+                  className="absolute left-1/2 top-1/2 z-10 flex h-[52px] w-[52px] sm:h-[58px] sm:w-[58px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-[2px] border-white bg-black/30 text-white transition-all duration-300 group-hover/card:scale-105 hover:bg-black/45 cursor-pointer outline-none shadow-[0_4px_12px_rgba(0,0,0,0.25)]"
                   aria-label={`Open ${finalTitle} video`}
                 >
-                  <Play className="ml-0.5 fill-current" size={22} />
+                  <Play className="ml-0.5 fill-white text-white" size={20} />
                 </button>
 
                 {/* Hover overlay product details card */}
-                <div className="absolute bottom-[16px] left-[14px] right-[14px] z-20 flex items-center gap-2.5 rounded-xl bg-white p-3 shadow-md border border-gray-100 transition-all">
+                <div className="absolute bottom-[16px] left-[14px] right-[14px] z-20 hidden md:flex items-center gap-2.5 rounded-xl bg-white p-3 shadow-md border border-gray-100 transition-all">
                   <div className="relative h-11 w-11 rounded-lg overflow-hidden bg-gray-50 shrink-0 border border-gray-150 flex items-center justify-center">
-                    {finalImage && (finalImage.startsWith("/") || finalImage.startsWith("http")) ? (
-                      <img src={finalImage} alt="" className="h-full w-full object-cover" />
+                    {finalImage && (finalImage.startsWith("/") || finalImage.startsWith("http") || finalImage.startsWith("data:") || finalImage.includes(".")) ? (
+                      <Image src={getPlayableVideoUrl(finalImage)} alt="" fill loading="lazy" sizes="44px" quality={75} placeholder="blur" blurDataURL={IMAGE_BLUR_DATA_URL} className="h-full w-full object-cover" />
                     ) : (
                       <span className="text-xl">{finalImage || "🌿"}</span>
                     )}
@@ -212,65 +243,105 @@ export default function ShopByVideos() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4"
+              className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 p-4"
               onClick={() => setActiveVideo(null)}
             >
-              <div 
-                className="relative aspect-[9/16] w-full max-w-sm overflow-hidden rounded-2xl bg-black shadow-2xl border border-white/5 flex flex-col justify-end"
-                onClick={(e) => e.stopPropagation()}
+              {/* Close Button outside to avoid native controls event interception */}
+              <button
+                onClick={() => setActiveVideo(null)}
+                className="absolute right-6 top-6 z-50 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors border-0 cursor-pointer backdrop-blur-[4px]"
+                aria-label="Close video"
               >
-                {/* Close Button */}
-                <button
-                  onClick={() => setActiveVideo(null)}
-                  className="absolute right-4 top-4 z-30 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors border-0 cursor-pointer backdrop-blur-[2px]"
-                  aria-label="Close video"
-                >
-                  <X size={18} />
-                </button>
-                
-                {/* HTML5 Native Video Tag */}
-                <video
-                  src={activeVideo.videoUrl}
-                  className="absolute inset-0 h-full w-full object-cover z-10"
-                  autoPlay
-                  loop
-                  controls={false}
-                  playsInline
-                />
+                <X size={22} />
+              </button>
 
-                {/* Floating Tagged Product Overlay at the bottom */}
-                <div className="relative z-20 m-4 p-3 bg-white/95 backdrop-blur-[4px] rounded-xl border border-white/20 shadow-xl flex items-center gap-3">
-                  <div className="relative h-12 w-12 rounded-lg overflow-hidden bg-gray-50 border border-gray-150 shrink-0 flex items-center justify-center">
-                    {finalImage && (finalImage.startsWith("/") || finalImage.startsWith("http")) ? (
-                      <img src={finalImage} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <span className="text-2xl">{finalImage || "🌿"}</span>
-                    )}
-                  </div>
-                  
-                  <div className="min-w-0 flex-1">
-                    <span className="text-[9px] font-black uppercase text-primary tracking-widest block mb-0.5">Tagged Product</span>
-                    <h4 className="truncate text-xs font-extrabold text-[#111]">{finalTitle}</h4>
-                    <p className="text-xs font-black text-primary mt-0.5">{finalPrice}</p>
-                  </div>
-                  
-                  <button
-                    onClick={() => handleAddToCart(activeVideo, true)}
-                    className="bg-[#1F6B3B] hover:bg-[#154b29] text-white text-[11px] font-bold py-2 px-3 rounded-lg border-0 cursor-pointer transition-colors flex items-center gap-1 shadow-sm shrink-0"
-                  >
-                    <AnimatePresence mode="wait">
-                      {toastId === (activeVideo._id || String(activeVideo.id)) ? (
-                        <motion.span key="check" initial={{ scale: 0 }} animate={{ scale: 1 }} className="flex items-center gap-0.5">
-                          <CheckCircle size={11} /> ADDED
-                        </motion.span>
+              {/* Navigation and Video wrapper */}
+              <div className="relative w-full max-w-sm flex items-center justify-center">
+                {/* Previous Video Button (Desktop) */}
+                <button
+                  onClick={handlePrevVideo}
+                  className="absolute -left-16 top-1/2 -translate-y-1/2 z-50 hidden md:flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors border-0 cursor-pointer backdrop-blur-[2px]"
+                  aria-label="Previous video"
+                >
+                  <ChevronLeft size={24} />
+                </button>
+
+                {/* Previous Video Button (Mobile overlayed) */}
+                <button
+                  onClick={handlePrevVideo}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 z-50 flex md:hidden h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors border-0 cursor-pointer backdrop-blur-[2px]"
+                  aria-label="Previous video"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+
+                <div 
+                  className="relative aspect-[9/16] w-full overflow-hidden rounded-2xl bg-black shadow-2xl border border-white/5 flex flex-col justify-end"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* HTML5 Native Video Tag */}
+                  <video
+                    src={getPlayableVideoUrl(activeVideo.videoUrl)}
+                    poster={getPlayableVideoUrl(finalImage)}
+                    className="absolute inset-0 h-full w-full object-cover z-10"
+                    autoPlay
+                    loop
+                    controls={true}
+                    playsInline
+                  />
+
+                  {/* Floating Tagged Product Overlay at the bottom */}
+                  <div className="relative z-20 m-4 p-3 bg-white/95 backdrop-blur-[4px] rounded-xl border border-white/20 shadow-xl flex items-center gap-3">
+                    <div className="relative h-12 w-12 rounded-lg overflow-hidden bg-gray-50 border border-gray-150 shrink-0 flex items-center justify-center">
+                      {finalImage && (finalImage.startsWith("/") || finalImage.startsWith("http") || finalImage.startsWith("data:") || finalImage.includes(".")) ? (
+                        <Image src={getPlayableVideoUrl(finalImage)} alt="" fill loading="lazy" sizes="48px" quality={75} placeholder="blur" blurDataURL={IMAGE_BLUR_DATA_URL} className="h-full w-full object-cover" />
                       ) : (
-                        <motion.span key="bag" initial={{ scale: 0 }} animate={{ scale: 1 }} className="flex items-center gap-0.5">
-                          <ShoppingBag size={11} /> ADD TO CART
-                        </motion.span>
+                        <span className="text-2xl">{finalImage || "🌿"}</span>
                       )}
-                    </AnimatePresence>
-                  </button>
+                    </div>
+                    
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[9px] font-black uppercase text-primary tracking-widest block mb-0.5">Tagged Product</span>
+                      <h4 className="truncate text-xs font-extrabold text-[#111]">{finalTitle}</h4>
+                      <p className="text-xs font-black text-primary mt-0.5">{finalPrice}</p>
+                    </div>
+                    
+                    <button
+                      onClick={() => handleAddToCart(activeVideo, true)}
+                      className="bg-[#34a121] hover:bg-[#154b29] text-white text-[11px] font-bold py-2 px-3 rounded-lg border-0 cursor-pointer transition-colors flex items-center gap-1 shadow-sm shrink-0"
+                    >
+                      <AnimatePresence mode="wait">
+                        {toastId === (activeVideo._id || String(activeVideo.id)) ? (
+                          <motion.span key="check" initial={{ scale: 0 }} animate={{ scale: 1 }} className="flex items-center gap-0.5">
+                            <CheckCircle size={11} /> ADDED
+                          </motion.span>
+                        ) : (
+                          <motion.span key="bag" initial={{ scale: 0 }} animate={{ scale: 1 }} className="flex items-center gap-0.5">
+                            <ShoppingBag size={11} /> ADD TO CART
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                    </button>
+                  </div>
                 </div>
+
+                {/* Next Video Button (Desktop) */}
+                <button
+                  onClick={handleNextVideo}
+                  className="absolute -right-16 top-1/2 -translate-y-1/2 z-50 hidden md:flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors border-0 cursor-pointer backdrop-blur-[2px]"
+                  aria-label="Next video"
+                >
+                  <ChevronRight size={24} />
+                </button>
+
+                {/* Next Video Button (Mobile overlayed) */}
+                <button
+                  onClick={handleNextVideo}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 z-50 flex md:hidden h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors border-0 cursor-pointer backdrop-blur-[2px]"
+                  aria-label="Next video"
+                >
+                  <ChevronRight size={20} />
+                </button>
               </div>
             </motion.div>
           );

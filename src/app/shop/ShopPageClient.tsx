@@ -185,12 +185,12 @@ export default function ShopPageClient({ products }: ShopPageClientProps) {
   return (
     <div className="w-full min-h-screen bg-secondary">
       {/* ── TOP SECTION: Category navigation bar ── */}
-      <div style={{ top: "var(--navbar-height)" }} className="border-b border-gray-100 bg-white sticky z-30 select-none shadow-[0_1px_3px_rgba(0,0,0,0.01)] transition-all">
+      <div style={{ top: 0 }} className="border-b border-gray-100 bg-white sticky z-30 select-none shadow-[0_1px_3px_rgba(0,0,0,0.01)] transition-all">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center relative py-2">
           {/* Left Arrow Button */}
           <button
             onClick={() => scrollTabs("left")}
-            className="absolute left-1 lg:left-4 z-10 p-1.5 rounded-full border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 shadow-sm flex items-center justify-center transition-all cursor-pointer active:scale-95"
+            className="absolute left-1 z-10 hidden p-1.5 rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm transition-all cursor-pointer active:scale-95 hover:bg-gray-50 md:flex md:items-center md:justify-center lg:left-4"
             aria-label="Scroll categories left"
           >
             <ChevronLeft size={15} strokeWidth={2.5} />
@@ -199,7 +199,7 @@ export default function ShopPageClient({ products }: ShopPageClientProps) {
           {/* Categories Tab Scroll Container */}
           <div
             ref={tabsRef}
-            className="flex-1 overflow-x-auto hide-scrollbar flex items-center justify-start gap-5 lg:gap-8 px-8 py-1 scroll-smooth"
+            className="flex w-full flex-wrap items-center justify-center gap-x-4 gap-y-2 py-1 md:flex-1 md:flex-nowrap md:justify-start md:gap-5 md:overflow-x-auto md:px-8 md:scroll-smooth md:hide-scrollbar lg:gap-8"
           >
             {categoryTabs.map((tab) => {
               const isActive = activeSlug === tab.slug;
@@ -207,10 +207,10 @@ export default function ShopPageClient({ products }: ShopPageClientProps) {
                 <button
                   key={tab.slug}
                   onClick={() => handleCategoryChange(tab.slug)}
-                  className={`whitespace-nowrap py-2 text-xs sm:text-sm font-semibold tracking-wider transition-all duration-200 border-b-2 outline-none cursor-pointer ${
-                    isActive
-                      ? "border-primary text-primary scale-105"
-                      : "border-transparent text-gray-500 hover:text-gray-800"
+                    className={`whitespace-nowrap border-b-2 py-2 text-xs font-semibold tracking-wider transition-all duration-200 outline-none cursor-pointer sm:text-sm ${
+                      isActive
+                        ? "border-primary text-primary scale-105"
+                        : "border-transparent text-gray-500 hover:text-gray-800"
                   }`}
                 >
                   {tab.name}
@@ -222,7 +222,7 @@ export default function ShopPageClient({ products }: ShopPageClientProps) {
           {/* Right Arrow Button */}
           <button
             onClick={() => scrollTabs("right")}
-            className="absolute right-1 lg:right-4 z-10 p-1.5 rounded-full border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 shadow-sm flex items-center justify-center transition-all cursor-pointer active:scale-95"
+            className="absolute right-1 z-10 hidden p-1.5 rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm transition-all cursor-pointer active:scale-95 hover:bg-gray-50 md:flex md:items-center md:justify-center lg:right-4"
             aria-label="Scroll categories right"
           >
             <ChevronRight size={15} strokeWidth={2.5} />
@@ -231,21 +231,21 @@ export default function ShopPageClient({ products }: ShopPageClientProps) {
       </div>
 
       {/* ── MAIN CONTENT AREA ── */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-12">
         {/* Centered Collection Title */}
-        <div className="text-center mb-10">
-          <h1 className="font-heading font-extrabold text-3xl sm:text-4xl text-gray-900 tracking-tight">
+        <div className="mb-7 text-center md:mb-10">
+          <h1 className="font-heading text-2xl font-extrabold tracking-tight text-gray-900 sm:text-3xl md:text-4xl">
             {pageTitle}
           </h1>
           <div className="w-12 h-[2px] bg-primary mx-auto mt-3"></div>
         </div>
 
         {/* Toolbar: Filters toggle & Sort Dropdown */}
-        <div className="flex items-center justify-between border-b border-gray-100 pb-5 mb-8 text-xs font-semibold text-gray-800">
+        <div className="mb-7 flex flex-col items-stretch gap-3 border-b border-gray-100 pb-5 text-xs font-semibold text-gray-800 sm:flex-row sm:items-center sm:justify-between md:mb-8">
           {/* Left: Filter Toggle Button */}
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-full border transition-all cursor-pointer hover:bg-gray-50 hover:border-gray-400 select-none ${
+            className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-full border transition-all cursor-pointer hover:bg-gray-50 hover:border-gray-400 select-none sm:justify-start ${
               showFilters ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-800 bg-white"
             }`}
           >
@@ -257,7 +257,7 @@ export default function ShopPageClient({ products }: ShopPageClientProps) {
           <div className="relative">
             <button
               onClick={() => setSortOpen(!sortOpen)}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-gray-200 bg-white hover:bg-gray-50 text-gray-800 transition-all cursor-pointer select-none"
+              className="flex w-full items-center justify-between gap-2 rounded-full border border-gray-200 bg-white px-5 py-2.5 text-gray-800 transition-all hover:bg-gray-50 cursor-pointer select-none sm:w-auto"
             >
               <span>Sort by: {sortBy}</span>
               <ChevronDown size={13} className={`transition-transform duration-200 ${sortOpen ? "rotate-180" : ""}`} />
@@ -342,7 +342,7 @@ export default function ShopPageClient({ products }: ShopPageClientProps) {
 
         {/* ── 4-COLUMN RESPONSIVE PRODUCT GRID ── */}
         {showSkeleton ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-7 sm:grid-cols-2 sm:gap-6 md:gap-8 lg:grid-cols-4">
             {Array.from({ length: 8 }).map((_, index) => (
               <div key={index} className="rounded-[18px] border border-primary/10 bg-white p-3 shadow-card">
                 <div className="skeleton-shimmer aspect-square rounded-[14px]" />
@@ -360,7 +360,7 @@ export default function ShopPageClient({ products }: ShopPageClientProps) {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-7 sm:grid-cols-2 sm:gap-6 md:gap-8 lg:grid-cols-4">
             {sortedProducts.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}

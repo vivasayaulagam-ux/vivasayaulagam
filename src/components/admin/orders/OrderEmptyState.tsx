@@ -14,11 +14,11 @@ export default function OrderEmptyState() {
       {/* Illustration */}
       <div className="relative mb-8">
         {/* Outer glow rings */}
-        <div className="absolute inset-0 rounded-full bg-[#1F6B3B]/5 scale-150 animate-pulse" />
-        <div className="absolute inset-0 rounded-full bg-[#1F6B3B]/8 scale-125" />
+        <div className="absolute inset-0 rounded-full bg-[#34a121]/5 scale-150 animate-pulse" />
+        <div className="absolute inset-0 rounded-full bg-[#34a121]/8 scale-125" />
 
         {/* Icon container */}
-        <div className="relative w-28 h-28 rounded-full bg-gradient-to-br from-[#f0fdf4] to-[#dcfce7] border-2 border-[#1F6B3B]/15 flex items-center justify-center">
+        <div className="relative w-28 h-28 rounded-full bg-gradient-to-br from-[#f0fdf4] to-[#dcfce7] border-2 border-[#34a121]/15 flex items-center justify-center">
           {/* Decorative floating dots */}
           <motion.div
             animate={{ y: [-4, 4, -4] }}
@@ -28,7 +28,7 @@ export default function OrderEmptyState() {
           <motion.div
             animate={{ y: [4, -4, 4] }}
             transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
-            className="absolute -bottom-1 -left-3 w-3.5 h-3.5 bg-[#1F6B3B] rounded-full opacity-40"
+            className="absolute -bottom-1 -left-3 w-3.5 h-3.5 bg-[#34a121] rounded-full opacity-40"
           />
           <motion.div
             animate={{ y: [-3, 3, -3] }}
@@ -36,7 +36,7 @@ export default function OrderEmptyState() {
             className="absolute top-2 -left-4 w-2.5 h-2.5 bg-[#2563eb] rounded-full opacity-30"
           />
 
-          <ShoppingBag size={44} className="text-[#1F6B3B]" strokeWidth={1.5} />
+          <ShoppingBag size={44} className="text-[#34a121]" strokeWidth={1.5} />
         </div>
 
         {/* Small package boxes around */}
@@ -94,9 +94,9 @@ export default function OrderEmptyState() {
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.55 + i * 0.1 }}
-              className="flex items-center gap-2.5 p-3 bg-gray-50/80 border border-dashed border-gray-200 rounded-xl text-sm text-gray-500 group hover:bg-white hover:border-[#1F6B3B]/30 hover:text-[#1F6B3B] transition-all cursor-default"
+              className="flex items-center gap-2.5 p-3 bg-gray-50/80 border border-dashed border-gray-200 rounded-xl text-sm text-gray-500 group hover:bg-white hover:border-[#34a121]/30 hover:text-[#34a121] transition-all cursor-default"
             >
-              <span className="w-5 h-5 flex items-center justify-center bg-gray-100 group-hover:bg-[#1F6B3B]/10 rounded-full text-[11px] font-bold text-gray-400 group-hover:text-[#1F6B3B] transition-colors">
+              <span className="w-5 h-5 flex items-center justify-center bg-gray-100 group-hover:bg-[#34a121]/10 rounded-full text-[11px] font-bold text-gray-400 group-hover:text-[#34a121] transition-colors">
                 {i + 1}
               </span>
               {tip}

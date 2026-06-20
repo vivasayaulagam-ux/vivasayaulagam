@@ -59,7 +59,7 @@ export default function MediaLibraryPage() {
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={handleUpload}
-          className="flex items-center gap-2 bg-[#1F6B3B] text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:bg-[#154a28] transition-all"
+          className="flex items-center gap-2 bg-[#34a121] text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:bg-[#154a28] transition-all"
         >
           <Upload size={16} />
           Upload Files
@@ -76,7 +76,7 @@ export default function MediaLibraryPage() {
               placeholder="Search file assets..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full text-sm pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:border-[#1F6B3B] focus:outline-none transition-colors"
+              className="w-full text-sm pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:outline-none transition-colors"
             />
           </div>
         </div>

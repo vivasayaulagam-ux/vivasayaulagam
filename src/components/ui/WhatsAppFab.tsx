@@ -17,7 +17,7 @@ const WhatsAppIcon = () => (
 export default function WhatsAppFab() {
   return (
     <motion.a
-      href="https://wa.me/919876543210"
+      href="https://wa.me/917708631801"
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat on WhatsApp"
@@ -26,7 +26,7 @@ export default function WhatsAppFab() {
       whileHover={{ scale: 1.1 }}
       whileTap={{ scale: 0.9 }}
       transition={{ type: "spring", stiffness: 260, damping: 20 }}
-      className="fixed bottom-6 right-6 z-50 bg-[#25D366] text-white w-14 h-14 rounded-full flex items-center justify-center shadow-xl hover:shadow-2xl transition-shadow"
+      className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-xl transition-shadow hover:shadow-2xl md:bottom-6 md:right-6"
     >
       <WhatsAppIcon />
     </motion.a>

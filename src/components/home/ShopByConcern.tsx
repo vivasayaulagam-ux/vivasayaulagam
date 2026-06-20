@@ -4,6 +4,8 @@ import { motion } from "framer-motion";
 import { concerns } from "@/data/concerns";
 import SectionTitle from "@/components/ui/SectionTitle";
 import Link from "next/link";
+import Image from "next/image";
+import { IMAGE_BLUR_DATA_URL } from "@/lib/image";
 
 export default function ShopByConcern() {
   const getConcernImage = (id: number) => {
@@ -58,9 +60,15 @@ export default function ShopByConcern() {
               aria-label={`Shop ${concern.name}`}
             >
               {/* Main Visual Focus: Photography image background */}
-              <img
+              <Image
                 src={getConcernImage(concern.id)}
                 alt={concern.name}
+                fill
+                loading="lazy"
+                sizes="(max-width: 767px) 50vw, 25vw"
+                quality={75}
+                placeholder="blur"
+                blurDataURL={IMAGE_BLUR_DATA_URL}
                 className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
               />
 

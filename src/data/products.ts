@@ -18,6 +18,11 @@ export interface Product {
   weight?: number;
   weightUnit?: string;
   variants?: { type: string; value: string; price?: number; additionalPrice?: number; stock?: number }[];
+  trackInventory?: boolean;
+  quantity?: number;
+  stock_quantity?: number;
+  stock_status?: string;
+  is_out_of_stock?: boolean;
 }
 
 export const products: Product[] = [];

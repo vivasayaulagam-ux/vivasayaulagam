@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { Product } from './ProductsClient';
 import { format } from 'date-fns';
+import { getFullImageUrl } from '@/lib/utils';
 
 type Props = {
   products: Product[];
@@ -142,8 +143,8 @@ export default function ProductsTable({
                   {/* Product Image */}
                   <td className="px-3 py-3.5">
                     <div className="relative group flex-shrink-0">
-                      {p.images[0]
-                        ? <img src={p.images[0]} alt={p.title}
+                      {p.images && p.images[0]
+                        ? <img src={getFullImageUrl(p.images[0])} alt={p.title}
                             className="w-11 h-11 object-cover rounded-lg border border-gray-200 group-hover:scale-105 transition-transform duration-200" />
                         : <div className="w-11 h-11 rounded-lg border border-gray-200 bg-gray-100 flex items-center justify-center">
                             <Package size={16} className="text-gray-400" />
@@ -156,7 +157,7 @@ export default function ProductsTable({
                   <td className="px-3 py-3.5">
                     <div className="min-w-0">
                       <Link href={`/admin/products/${p._id}/edit`}
-                        className="font-semibold text-gray-900 hover:text-[#1F6B3B] transition-colors truncate block max-w-[240px]">
+                        className="font-semibold text-gray-900 hover:text-[#34a121] transition-colors truncate block max-w-[240px]">
                         {p.title}
                       </Link>
                       {p.sku && <p className="text-[10px] text-gray-400 font-mono mt-0.5">SKU: {p.sku}</p>}
@@ -205,7 +206,7 @@ export default function ProductsTable({
                   {/* Edit */}
                   <td className="px-3 py-3.5">
                     <Link href={`/admin/products/${p._id}/edit`}
-                      className="inline-flex items-center justify-center p-2 rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-200 hover:border-gray-300 text-gray-700 hover:text-[#1F6B3B] transition-all cursor-pointer"
+                      className="inline-flex items-center justify-center p-2 rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-200 hover:border-gray-300 text-gray-700 hover:text-[#34a121] transition-all cursor-pointer"
                       aria-label="Edit Product"
                     >
                       <Edit2 size={14} />

@@ -12,7 +12,7 @@ export default function ThemeEditorPage() {
       </p>
       <Link 
         href="/admin" 
-        className="bg-[#1F6B3B] text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md hover:bg-[#154a28] transition-all duration-200"
+        className="bg-[#34a121] text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md hover:bg-[#154a28] transition-all duration-200"
       >
         Return to Admin Dashboard
       </Link>

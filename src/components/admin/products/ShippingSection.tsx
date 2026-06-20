@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ProductFormData } from '@/app/admin/products/add/page';
+import { ProductFormData } from '@/app/admin/(dashboard)/products/add/page';
 import {
   DEFAULT_COURIER_RATES,
   formatWeightKg,
@@ -14,12 +14,17 @@ import {
 const COUNTRIES = ['India', 'China', 'USA', 'Germany', 'Japan', 'Sri Lanka', 'Nepal', 'Bangladesh', 'Other'];
 const WEIGHT_UNITS = ['kg', 'g', 'lb', 'oz'];
 
-type Props = { form: ProductFormData; update: (f: Partial<ProductFormData>) => void };
+type Props = { 
+  form: ProductFormData; 
+  update: (f: Partial<ProductFormData>) => void;
+  errors?: Partial<Record<keyof ProductFormData, string>>;
+};
 
-export default function ShippingSection({ form, update }: Props) {
+export default function ShippingSection({ form, update, errors }: Props) {
   const [courierRates, setCourierRates] = useState<CourierRates>(DEFAULT_COURIER_RATES);
   const weightKg = form.isPhysical ? toWeightKg(form.weight, form.weightUnit) : 0;
-  const courierPreview = getCourierFee(weightKg, 1, courierRates);
+  const rate = courierRates.rate_per_kg ?? 100;
+  const courierPreview = Number((weightKg * rate).toFixed(2));
 
   useEffect(() => {
     let isMounted = true;
@@ -61,24 +66,25 @@ export default function ShippingSection({ form, update }: Props) {
             <div className="space-y-4 pt-4 border-t border-gray-100">
               {/* Weight */}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1.5">Weight</label>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">Weight *</label>
                 <div className="flex gap-2">
                   <input type="number" min={0} step="0.01" value={form.weight}
                     onChange={e => update({ weight: e.target.value === '' ? '' : parseFloat(e.target.value) })}
-                    className="flex-1 px-3.5 py-2.5 rounded-lg border border-gray-300 text-sm outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400"
+                    className={`flex-1 px-3.5 py-2.5 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 ${errors?.weight ? 'border-red-400 bg-red-50' : 'border-gray-300'}`}
                     placeholder="0.00" />
                   <select value={form.weightUnit} onChange={e => update({ weightUnit: e.target.value })}
                     className="px-3 py-2.5 rounded-lg border border-gray-300 text-sm outline-none focus:ring-2 focus:ring-gray-900/10 bg-white">
                     {WEIGHT_UNITS.map(u => <option key={u}>{u}</option>)}
                   </select>
                 </div>
+                {errors?.weight && <p className="text-xs text-red-500 mt-1">{errors.weight}</p>}
                 
                 <div className="mt-3 bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
                   <div className="bg-green-50 border-b border-green-100 px-3 py-2 text-xs text-green-800">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="font-semibold">Current Courier Preview</span>
                       <span className="font-bold">
-                        {formatWeightKg(weightKg)} / {getCourierBracketLabel(weightKg)} / ₹{courierPreview}
+                        {formatWeightKg(weightKg)} (at ₹{rate}/kg) = ₹{courierPreview}
                       </span>
                     </div>
                     {weightKg <= 0 && (
@@ -86,28 +92,6 @@ export default function ShippingSection({ form, update }: Props) {
                         Set product weight so cart and checkout can calculate courier charges correctly. Note: Weight variants will override this base weight.
                       </p>
                     )}
-                  </div>
-                  
-                  <div className="p-3 bg-white text-xs">
-                    <h4 className="font-semibold text-gray-600 mb-2">Courier Charge Slabs</h4>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-                      <div className="p-2 border border-gray-100 rounded bg-gray-50">
-                        <div className="text-[10px] text-gray-500 font-bold uppercase mb-0.5">Up to 250g</div>
-                        <div className="font-semibold text-gray-800">₹{courierRates.charge_250g}</div>
-                      </div>
-                      <div className="p-2 border border-gray-100 rounded bg-gray-50">
-                        <div className="text-[10px] text-gray-500 font-bold uppercase mb-0.5">Up to 500g</div>
-                        <div className="font-semibold text-gray-800">₹{courierRates.charge_500g}</div>
-                      </div>
-                      <div className="p-2 border border-gray-100 rounded bg-gray-50">
-                        <div className="text-[10px] text-gray-500 font-bold uppercase mb-0.5">Up to 1kg</div>
-                        <div className="font-semibold text-gray-800">₹{courierRates.charge_1kg}</div>
-                      </div>
-                      <div className="p-2 border border-gray-100 rounded bg-gray-50">
-                        <div className="text-[10px] text-gray-500 font-bold uppercase mb-0.5">Above 1kg</div>
-                        <div className="font-semibold text-gray-800">₹{courierRates.charge_above}</div>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>

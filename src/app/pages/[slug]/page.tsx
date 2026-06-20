@@ -64,10 +64,10 @@ export default async function CustomPage({ params }: PageProps) {
 
               {sec.type === 'heading' && (
                 <div className="text-center py-6">
-                  <h2 className={`font-extrabold text-2xl md:text-4xl leading-tight`} style={{ color: s.color || '#1F6B3B' }}>
+                  <h2 className={`font-extrabold text-2xl md:text-4xl leading-tight`} style={{ color: s.color || '#34a121' }}>
                     {s.text}
                   </h2>
-                  <div className="w-16 h-1 bg-[#1F6B3B] mx-auto mt-3 rounded-full" />
+                  <div className="w-16 h-1 bg-[#34a121] mx-auto mt-3 rounded-full" />
                 </div>
               )}
 
@@ -114,7 +114,7 @@ export default async function CustomPage({ params }: PageProps) {
                             <span className="font-extrabold text-gray-900 text-sm">₹{p.price}</span>
                             <Link
                               href={`/product/${p._id}`}
-                              className="text-[10px] bg-[#1F6B3B] text-white px-3 py-1.5 rounded-lg font-bold hover:bg-[#154a28]"
+                              className="text-[10px] bg-[#34a121] text-white px-3 py-1.5 rounded-lg font-bold hover:bg-[#154a28]"
                             >
                               Details
                             </Link>
@@ -128,7 +128,7 @@ export default async function CustomPage({ params }: PageProps) {
               {sec.type === 'faq' && (
                 <div className="max-w-2xl mx-auto border border-gray-150 rounded-2xl p-5 bg-white shadow-sm space-y-3">
                   <h4 className="text-sm md:text-base font-bold text-gray-800 flex items-start gap-2">
-                    <span className="text-[#1F6B3B]">❓</span>
+                    <span className="text-[#34a121]">❓</span>
                     {s.question}
                   </h4>
                   <p className="text-xs md:text-sm text-gray-500 pl-6 leading-relaxed">{s.answer}</p>
@@ -161,11 +161,11 @@ export default async function CustomPage({ params }: PageProps) {
                       name="email"
                       required
                       placeholder="Enter your email address"
-                      className="text-xs px-4 py-2.5 bg-neutral-900 border border-neutral-800 rounded-xl flex-1 focus:border-[#1F6B3B] focus:outline-none"
+                      className="text-xs px-4 py-2.5 bg-neutral-900 border border-neutral-800 rounded-xl flex-1 focus:border-[#34a121] focus:outline-none"
                     />
                     <button
                       type="submit"
-                      className="bg-[#1F6B3B] hover:bg-[#154a28] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all"
+                      className="bg-[#34a121] hover:bg-[#154a28] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all"
                     >
                       {s.buttonText || 'Join Now'}
                     </button>

@@ -11,7 +11,7 @@ const categoryBanners = [
     tagline: "Pure & Raw",
     emoji: "🍯",
     bg: "from-amber-400 to-orange-500",
-    link: "/shop?category=Health & Dairy",
+    link: "/categories?category=health-dairy",
   },
   {
     id: 2,
@@ -19,7 +19,7 @@ const categoryBanners = [
     tagline: "Millet Goodness",
     emoji: "🍜",
     bg: "from-green-500 to-emerald-700",
-    link: "/shop?category=Rice Powders (சோறு பொடி)",
+    link: "/categories?category=rice-powders",
   },
   {
     id: 3,
@@ -27,7 +27,7 @@ const categoryBanners = [
     tagline: "A2 Desi Cow",
     emoji: "🥛",
     bg: "from-yellow-400 to-amber-600",
-    link: "/shop?category=Health & Dairy",
+    link: "/categories?category=health-dairy",
   },
   {
     id: 4,
@@ -35,7 +35,7 @@ const categoryBanners = [
     tagline: "Aromatic Blends",
     emoji: "🌶️",
     bg: "from-red-400 to-rose-700",
-    link: "/shop?category=Masala & Spice Powders",
+    link: "/categories?category=masala-spice-powders",
   },
   {
     id: 5,
@@ -43,7 +43,7 @@ const categoryBanners = [
     tagline: "Cold Pressed",
     emoji: "🫙",
     bg: "from-teal-500 to-cyan-700",
-    link: "/shop?category=Hair & Skin Care",
+    link: "/categories?category=hair-skin-care",
   },
 ];
 

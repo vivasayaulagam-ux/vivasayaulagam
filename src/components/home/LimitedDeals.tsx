@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, Clock } from "lucide-react";
 import ProductCard from "@/components/ui/ProductCard";
-import { limitedDeals } from "@/data/products";
+import { Product } from "@/data/products";
 import Link from "next/link";
 
 const DEAL_TARGET = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
@@ -38,9 +38,97 @@ type LimitedDealsSettings = {
   section_limited_deals_subtitle?: string;
 };
 
+type ProductApiItem = {
+  _id: string;
+  title: string;
+  category?: string;
+  categories?: string[];
+  compareAtPrice?: number;
+  price: number;
+  rating?: number;
+  reviewCount?: number;
+  collections?: string[];
+  images?: string[];
+  status?: string;
+  weight?: number;
+  weightUnit?: string;
+  trackInventory?: boolean;
+  quantity?: number;
+};
+
+function getEmojiAndBg(title: string, category: string) {
+  const cat = (category || "").toLowerCase();
+  const t = (title || "").toLowerCase();
+  if (cat.includes("noodle") || t.includes("noodle")) return { emoji: "🍜", bgColor: "from-emerald-100 to-green-200" };
+  if (cat.includes("honey") || t.includes("honey")) return { emoji: "🍯", bgColor: "from-amber-100 to-yellow-200" };
+  if (cat.includes("sweet") || cat.includes("jaggery") || t.includes("jaggery") || t.includes("sugar")) return { emoji: "🌿", bgColor: "from-orange-100 to-amber-200" };
+  if (cat.includes("millet") || cat.includes("grain") || cat.includes("rice") || t.includes("millet") || t.includes("rice") || cat.includes("seed")) return { emoji: "🌾", bgColor: "from-lime-100 to-green-200" };
+  if (cat.includes("oil") || cat.includes("ghee") || t.includes("oil") || t.includes("ghee")) return { emoji: "🥛", bgColor: "from-yellow-100 to-amber-200" };
+  if (cat.includes("tea") || cat.includes("herbal") || t.includes("tea")) return { emoji: "🍵", bgColor: "from-green-100 to-emerald-200" };
+  return { emoji: "📦", bgColor: "from-gray-100 to-green-50" };
+}
+
 export default function LimitedDeals({ settings }: { settings?: LimitedDealsSettings }) {
   const { days, hours, mins, secs } = useCountdown();
   const pad = (n: number) => String(n).padStart(2, "0");
+  const [deals, setDeals] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadDeals() {
+      try {
+        const res = await fetch("/api/products?view=card&limit=24");
+        const data = (await res.json()) as { success?: boolean; products?: ProductApiItem[] };
+        const apiProducts = data.products ?? [];
+        if (data.success && apiProducts.length > 0) {
+          const activeProds = apiProducts.filter((p) => p.status === "active");
+          // Prefer products tagged as deals, otherwise use any active products
+          const dealsTagged = activeProds.filter(
+            (p) =>
+              p.collections?.includes("Deals") ||
+              p.collections?.includes("Limited Deals") ||
+              p.collections?.includes("Flash Sale")
+          );
+          const source = dealsTagged.length > 0 ? dealsTagged : activeProds;
+
+          const mapped: Product[] = source.slice(0, 4).map((p) => {
+            const compareAtPrice = p.compareAtPrice && p.compareAtPrice > p.price ? p.compareAtPrice : p.price * 1.25;
+            const aesthetics = getEmojiAndBg(p.title, p.category || "");
+            const disc = Math.round(((compareAtPrice - p.price) / compareAtPrice) * 100);
+            return {
+              id: p._id,
+              name: p.title,
+              originalPrice: compareAtPrice,
+              salePrice: p.price,
+              discount: disc || 20,
+              rating: p.rating || 4.7,
+              reviewCount: p.reviewCount || 12,
+              category: p.category || "Organic Goods",
+              categories: p.categories || [],
+              emoji: aesthetics.emoji,
+              bgColor: aesthetics.bgColor,
+              isNew: false,
+              isBestSeller: p.collections?.includes("Best Sellers") || false,
+              image: p.images && p.images.length > 0 ? p.images[0] : undefined,
+              weight: p.weight || 0,
+              weightUnit: p.weightUnit || "kg",
+              trackInventory: p.trackInventory ?? false,
+              quantity: p.quantity ?? 0,
+              stock_quantity: p.quantity ?? 0,
+              stock_status: (p.trackInventory && (p.quantity ?? 0) <= 0) ? 'Out of Stock' : 'In Stock',
+              is_out_of_stock: p.trackInventory && (p.quantity ?? 0) <= 0,
+            };
+          });
+          setDeals(mapped);
+        }
+      } catch (err) {
+        console.error("Failed to load deals:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadDeals();
+  }, []);
 
   return (
     <section id="limited-deals" className="bg-white py-[44px]">
@@ -91,13 +179,28 @@ export default function LimitedDeals({ settings }: { settings?: LimitedDealsSett
           </motion.div>
         </div>
 
-        <div className="-mt-[30px] grid grid-cols-2 md:grid-cols-4">
-          {limitedDeals.map((product) => (
-            <div key={product.id} className="px-[7.5px] pt-[30px] md:px-[15px]">
-              <ProductCard product={product} urgency="Ends in 2 Days" />
-            </div>
-          ))}
-        </div>
+        {loading ? (
+          /* Skeleton loader */
+          <div className="grid grid-cols-2 gap-x-3 gap-y-7 pt-6 md:-mt-[30px] md:grid-cols-4 md:gap-x-0 md:gap-y-0 md:pt-0">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="min-w-0 md:px-[15px] md:pt-[30px]">
+                <div className="animate-pulse">
+                  <div className="aspect-square w-full rounded bg-gray-100" />
+                  <div className="mt-3 h-4 w-3/4 rounded bg-gray-100 mx-auto" />
+                  <div className="mt-2 h-4 w-1/2 rounded bg-gray-100 mx-auto" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : deals.length > 0 ? (
+          <div className="grid grid-cols-2 gap-x-3 gap-y-7 pt-6 md:-mt-[30px] md:grid-cols-4 md:gap-x-0 md:gap-y-0 md:pt-0">
+            {deals.map((product) => (
+              <div key={product.id} className="min-w-0 md:px-[15px] md:pt-[30px]">
+                <ProductCard product={product} urgency="Ends in 2 Days" />
+              </div>
+            ))}
+          </div>
+        ) : null}
 
         <div className="mt-8 text-center">
           <Link href="/shop" className="inline-flex items-center gap-2 btn-outline px-7" aria-label="View all deals">

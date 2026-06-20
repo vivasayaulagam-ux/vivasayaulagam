@@ -8,8 +8,13 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     await dbConnect();
-    const categories = await Category.find().sort({ order: 1, name: 1 }).lean();
-    return NextResponse.json({ success: true, categories });
+    const categories = await Category.find()
+      .select('name emoji slug bgColor isVisible order parentId image redirectUrl')
+      .sort({ order: 1, name: 1 })
+      .lean();
+    return NextResponse.json({ success: true, categories }, {
+      headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=900' },
+    });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message || 'Failed to fetch categories' }, { status: 500 });
   }

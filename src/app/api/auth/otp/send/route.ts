@@ -40,14 +40,14 @@ export async function POST(req: NextRequest) {
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: #ffffff;">
         <div style="text-align: center; margin-bottom: 20px;">
-          <h2 style="color: #1F6B3B; margin: 0;">Vivasaya Ulagam</h2>
+          <h2 style="color: #34a121; margin: 0;">Vivasaya Ulagam</h2>
           <p style="color: #6b7280; font-size: 14px; margin-top: 5px;">Premium Organic Tamil Nadu Products</p>
         </div>
         <hr style="border: 0; border-top: 1px solid #e5e7eb; margin-bottom: 20px;" />
         <p style="font-size: 15px; color: #374151; line-height: 1.5;">Hello,</p>
         <p style="font-size: 15px; color: #374151; line-height: 1.5;">Use the verification code below to sign in or register your account at Vivasaya Ulagam. This code is valid for <strong>5 minutes</strong>.</p>
         <div style="text-align: center; margin: 30px 0;">
-          <span style="display: inline-block; font-size: 32px; font-weight: bold; color: #1F6B3B; letter-spacing: 5px; padding: 12px 30px; background-color: #f3f4f6; border-radius: 6px;">${otp}</span>
+          <span style="display: inline-block; font-size: 32px; font-weight: bold; color: #34a121; letter-spacing: 5px; padding: 12px 30px; background-color: #f3f4f6; border-radius: 6px;">${otp}</span>
         </div>
         <p style="font-size: 13px; color: #9ca3af; line-height: 1.5; text-align: center;">If you did not request this code, you can safely ignore this email.</p>
       </div>

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronDown, Check, Plus } from 'lucide-react';
-import { ProductFormData } from '@/app/admin/products/add/page';
+import { ProductFormData } from '@/app/admin/(dashboard)/products/add/page';
 
 const FALLBACK_CATEGORIES = [
   'Herbal Supplements', 'Organic Foods', 'Cold Pressed Oils', 'Herbal Teas',
@@ -95,7 +95,7 @@ export default function CategorySelect({ form, update }: Props) {
                     className="w-full flex items-center justify-between px-4 py-2.5 text-sm hover:bg-gray-50 text-gray-700 transition-colors"
                   >
                     <span>{cat}</span>
-                    {isSelected && <Check size={14} className="text-[#1F6B3B]" />}
+                    {isSelected && <Check size={14} className="text-[#34a121]" />}
                   </button>
                 </li>
               );

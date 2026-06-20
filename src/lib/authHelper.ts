@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { verifyAdminToken } from "@/lib/adminAuth";
 
 export interface AdminSession {
   user: {
@@ -11,6 +12,20 @@ export interface AdminSession {
 }
 
 export async function requireAdmin(): Promise<AdminSession> {
+  // Check custom JWT admin token first
+  const isTokenAdmin = await verifyAdminToken();
+  if (isTokenAdmin) {
+    return {
+      user: {
+        id: "admin",
+        name: "Admin User",
+        email: "admin@vivasayaulagam.com",
+        role: "admin",
+      }
+    };
+  }
+
+  // Fallback to NextAuth session check
   const session = await getServerSession(authOptions);
   if (!session || !session.user) {
     const error = new Error("Unauthorized");
@@ -24,5 +39,5 @@ export async function requireAdmin(): Promise<AdminSession> {
     throw error;
   }
   
-  return session as AdminSession;
+  return session as unknown as AdminSession;
 }

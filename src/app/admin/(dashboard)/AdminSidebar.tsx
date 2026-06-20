@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, ShoppingBag, Package, Users,
   BarChart2, Settings, FileText, LogOut, Store,
-  Layers, Image, Tag, Menu, X
+  Layers, Image, Tag, Menu, X, Truck, Percent, MessageSquare
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -16,9 +16,12 @@ const NAV = [
   { href: "/admin/categories", icon: Tag,             label: "Categories" },
   { href: "/admin/orders",     icon: ShoppingBag,     label: "Orders" },
   { href: "/admin/customers",  icon: Users,           label: "Customers" },
+  { href: "/admin/coupons",    icon: Percent,         label: "Coupons & Offers" },
+  { href: "/admin/courier",    icon: Truck,           label: "Courier Charges" },
   { href: "/admin/pages",      icon: FileText,        label: "Pages" },
   { href: "/admin/cms",        icon: Layers,          label: "Theme Customizer" },
   { href: "/admin/media",      icon: Image,           label: "Media" },
+  { href: "/admin/reviews",    icon: MessageSquare,   label: "Reviews" },
   { href: "/admin/settings",   icon: Settings,        label: "Settings" },
 ];
 
@@ -40,7 +43,7 @@ export default function AdminSidebar() {
     <>
       <div className="px-5 py-5 border-b border-[#e5e5e5]">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-[#1F6B3B] flex items-center justify-center shadow-sm">
+          <div className="w-8 h-8 rounded-xl bg-[#34a121] flex items-center justify-center shadow-sm">
             <Store size={16} strokeWidth={1.75} className="text-white" />
           </div>
           <div>
@@ -62,7 +65,7 @@ export default function AdminSidebar() {
                 isActive ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:bg-white hover:text-gray-900 hover:shadow-sm"
               }`}
             >
-              <Icon size={18} strokeWidth={1.75} className={`transition-all duration-250 shrink-0 ${isActive ? "text-[#1F6B3B]" : "text-gray-400 group-hover:text-[#1F6B3B] group-hover:scale-105"}`} />
+              <Icon size={18} strokeWidth={1.75} className={`transition-all duration-250 shrink-0 ${isActive ? "text-[#34a121]" : "text-gray-400 group-hover:text-[#34a121] group-hover:scale-105"}`} />
               {label}
             </Link>
           );
@@ -93,7 +96,7 @@ export default function AdminSidebar() {
       {/* Mobile Top Bar */}
       <div className="md:hidden fixed top-0 left-0 right-0 h-14 bg-[#efefef] border-b border-[#e5e5e5] z-30 flex items-center justify-between px-4">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-[#1F6B3B] flex items-center justify-center shadow-sm">
+          <div className="w-7 h-7 rounded-lg bg-[#34a121] flex items-center justify-center shadow-sm">
             <Store size={14} strokeWidth={2} className="text-white" />
           </div>
           <span className="text-xs font-bold text-gray-800">Admin Panel</span>

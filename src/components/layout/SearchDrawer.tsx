@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, X, ShoppingBag, ArrowRight, ChevronDown } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
+import { IMAGE_BLUR_DATA_URL } from "@/lib/image";
 import { categories } from "@/data/categories";
 
 interface SearchDrawerProps {
@@ -24,7 +26,7 @@ interface Product {
   slug?: string;
 }
 
-const quickSearchTerms = ["Rice", "Millets", "Ghee", "Honey", "Spices", "Oil", "Snacks"];
+
 
 export default function SearchDrawer({ isOpen, onClose }: SearchDrawerProps) {
   const [query, setQuery] = useState("");
@@ -46,7 +48,7 @@ export default function SearchDrawer({ isOpen, onClose }: SearchDrawerProps) {
       document.body.style.overflow = "hidden";
       
       if (!productsLoaded) {
-        fetch("/api/products")
+        fetch("/api/products?view=search&limit=100")
           .then((res) => res.json() as Promise<{ success?: boolean; products?: Product[] }>)
           .then((data) => {
             if (isMounted && data.success && data.products) {
@@ -97,9 +99,7 @@ export default function SearchDrawer({ isOpen, onClose }: SearchDrawerProps) {
     return filtered.slice(0, 5);
   }, [query, selectedCategory, products]);
 
-  const handleTagClick = (tag: string) => {
-    setQuery(tag);
-  };
+
 
   const hasSearch = query.trim() !== "" || selectedCategory !== "";
   const loading = hasSearch && !productsLoaded;
@@ -123,7 +123,7 @@ export default function SearchDrawer({ isOpen, onClose }: SearchDrawerProps) {
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="fixed top-0 right-0 h-screen w-full md:w-[430px] bg-white z-[1060] shadow-[0_0_50px_rgba(0,0,0,0.15)] flex flex-col font-body"
+            className="fixed top-0 right-0 h-screen w-full md:w-[380px] bg-white z-[1060] shadow-[0_0_50px_rgba(0,0,0,0.15)] flex flex-col font-body"
           >
             {/* Header: Exact same look with borderless X button */}
             <div className="h-[72px] border-b border-gray-150 px-[26px] flex items-center justify-between">
@@ -179,21 +179,7 @@ export default function SearchDrawer({ isOpen, onClose }: SearchDrawerProps) {
                   </div>
                 </div>
 
-                {/* Quick Search Suggestions */}
-                <div className="text-xs text-gray-500 font-medium font-body leading-relaxed">
-                  <span className="text-[#222222] font-semibold">Quick search: </span>
-                  {quickSearchTerms.map((term, idx) => (
-                    <span key={term}>
-                      <button
-                        onClick={() => handleTagClick(term)}
-                        className="hover:text-primary hover:underline bg-transparent border-0 p-0 cursor-pointer font-semibold text-[#222222]"
-                      >
-                        {term}
-                      </button>
-                      {idx < quickSearchTerms.length - 1 && ", "}
-                    </span>
-                  ))}
-                </div>
+
 
               </div>
 
@@ -221,9 +207,15 @@ export default function SearchDrawer({ isOpen, onClose }: SearchDrawerProps) {
                             className="flex items-center gap-4 py-3 group cursor-pointer transition-all duration-200"
                           >
                             <div className="w-[60px] h-[60px] relative overflow-hidden bg-gray-50 border border-gray-100 flex-shrink-0 rounded-none">
-                              <img
+                              <Image
                                 src={productImg}
                                 alt={productName}
+                                fill
+                                loading="lazy"
+                                sizes="60px"
+                                quality={75}
+                                placeholder="blur"
+                                blurDataURL={IMAGE_BLUR_DATA_URL}
                                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                               />
                             </div>
@@ -270,7 +262,7 @@ export default function SearchDrawer({ isOpen, onClose }: SearchDrawerProps) {
               <Link
                 href="/shop"
                 onClick={onClose}
-                className="w-full bg-[#1F6B3B] hover:bg-[#113F25] text-white h-[50px] rounded-none flex items-center justify-center gap-2 font-bold tracking-wider text-sm shadow-sm transition-all duration-200"
+                className="w-full bg-[#34a121] hover:bg-[#113F25] text-white h-[50px] rounded-none flex items-center justify-center gap-2 font-bold tracking-wider text-sm shadow-sm transition-all duration-200"
               >
                 <ShoppingBag size={18} />
                 Explore All Products

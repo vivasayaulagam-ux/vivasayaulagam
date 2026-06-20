@@ -19,6 +19,7 @@ import {
   toWeightKg,
 } from "@/lib/shipping";
 
+
 type RazorpayPaymentResponse = {
   razorpay_order_id: string;
   razorpay_payment_id: string;
@@ -42,11 +43,52 @@ type CheckoutSettings = {
   courier_charges?: CourierRates;
 };
 
+type PaymentSuccess = { orderId: string };
+
 declare global {
   interface Window {
     Razorpay?: RazorpayConstructor;
   }
 }
+
+const INDIAN_STATES = [
+  { code: "AN", name: "Andaman and Nicobar Islands" },
+  { code: "AP", name: "Andhra Pradesh" },
+  { code: "AR", name: "Arunachal Pradesh" },
+  { code: "AS", name: "Assam" },
+  { code: "BR", name: "Bihar" },
+  { code: "CH", name: "Chandigarh" },
+  { code: "CT", name: "Chhattisgarh" },
+  { code: "DN", name: "Dadra and Nagar Haveli and Daman and Diu" },
+  { code: "DL", name: "Delhi" },
+  { code: "GA", name: "Goa" },
+  { code: "GJ", name: "Gujarat" },
+  { code: "HR", name: "Haryana" },
+  { code: "HP", name: "Himachal Pradesh" },
+  { code: "JK", name: "Jammu and Kashmir" },
+  { code: "JH", name: "Jharkhand" },
+  { code: "KA", name: "Karnataka" },
+  { code: "KL", name: "Kerala" },
+  { code: "LA", name: "Ladakh" },
+  { code: "LD", name: "Lakshadweep" },
+  { code: "MP", name: "Madhya Pradesh" },
+  { code: "MH", name: "Maharashtra" },
+  { code: "MN", name: "Manipur" },
+  { code: "ML", name: "Meghalaya" },
+  { code: "MZ", name: "Mizoram" },
+  { code: "NL", name: "Nagaland" },
+  { code: "OR", name: "Odisha" },
+  { code: "PY", name: "Puducherry" },
+  { code: "PB", name: "Punjab" },
+  { code: "RJ", name: "Rajasthan" },
+  { code: "SK", name: "Sikkim" },
+  { code: "TN", name: "Tamil Nadu" },
+  { code: "TG", name: "Telangana" },
+  { code: "TR", name: "Tripura" },
+  { code: "UP", name: "Uttar Pradesh" },
+  { code: "UT", name: "Uttarakhand" },
+  { code: "WB", name: "West Bengal" }
+];
 
 export default function CheckoutPage() {
   const { items, totalPrice, updateItemMetadata, clearCart, hasHydrated } = useCartStore();
@@ -57,12 +99,19 @@ export default function CheckoutPage() {
     fullName: "",
     address: "",
     city: "",
+    state: "",
     postalCode: "",
     phone: "",
+    email: "",
   });
   const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("online");
   const [settings, setSettings] = useState<CheckoutSettings>({});
+  const [isPaymentProcessing, setIsPaymentProcessing] = useState(false);
+  
+  // Custom API Courier Fee
+  const [courierFee, setCourierFee] = useState<number | null>(null);
+  const [appliedRate, setAppliedRate] = useState<number>(0);
 
   useEffect(() => {
     fetch("/api/settings")
@@ -73,71 +122,79 @@ export default function CheckoutPage() {
       .catch(err => console.error("Failed to load settings in checkout", err));
   }, []);
 
+  // Autofill session email
   useEffect(() => {
-    if (!hasHydrated || items.length === 0) return;
-
-    let cancelled = false;
-    const missingWeightItems = items.filter((item) => toWeightKg(item.weight, item.weightUnit || "kg") <= 0);
-    if (missingWeightItems.length === 0) return;
-
-    async function loadMissingWeights() {
-      await Promise.all(
-        missingWeightItems.map(async (item) => {
-          const [productId, ...variantParts] = item.id.split("-");
-          if (!productId || productId === "video") return;
-
-          try {
-            const res = await fetch(`/api/products/${productId}`);
-            const data = await res.json();
-            if (cancelled || !data.success || !data.product) return;
-
-            const product = data.product;
-            const variantValue = variantParts.join("-");
-            const resolvedWeight = variantValue
-              ? parseWeightLabelToKg(variantValue, product.weight, product.weightUnit || "kg")
-              : toWeightKg(product.weight, product.weightUnit || "kg");
-
-            if (resolvedWeight > 0) {
-              updateItemMetadata(item.id, {
-                weight: resolvedWeight,
-                weightUnit: "kg",
-              });
-            }
-          } catch (err) {
-            console.error("Failed to load checkout item weight:", err);
-          }
-        })
-      );
+    if (session?.user?.email) {
+      const email = session.user.email;
+      const timer = setTimeout(() => {
+        setShippingAddress(prev => prev.email === email ? prev : { ...prev, email });
+      }, 0);
+      return () => clearTimeout(timer);
     }
+  }, [session]);
 
-    loadMissingWeights();
-    return () => {
-      cancelled = true;
-    };
-  }, [hasHydrated, items, updateItemMetadata]);
+
 
   const subtotal = totalPrice();
   const totalWeight = items.reduce((sum, item) => sum + toWeightKg(item.weight, item.weightUnit || "kg") * item.quantity, 0);
-  const deliveryFee = getCourierFee(totalWeight, subtotal, settings.courier_charges || DEFAULT_COURIER_RATES);
-  const courierBracket = getCourierBracketLabel(totalWeight);
+
+  // Fetch shipping fee dynamically when state or pincode changes
+  useEffect(() => {
+    const delayDebounce = setTimeout(async () => {
+      try {
+        const queryParams = new URLSearchParams({
+          state: shippingAddress.state || "",
+          pincode: shippingAddress.postalCode || "",
+          subtotal: String(subtotal),
+          weight: String(totalWeight),
+          items: JSON.stringify(items.map(i => ({ productId: i.id.split("-")[0], quantity: i.quantity, price: i.price, weightKg: toWeightKg(i.weight, i.weightUnit || "kg") })))
+        });
+        const res = await fetch(`/api/shipping/calculate?${queryParams.toString()}`);
+        const data = await res.json();
+        if (data.success) {
+          setCourierFee(data.courier_charge);
+          setAppliedRate(data.rate_per_kg || 0);
+        } else {
+          setCourierFee(null);
+          setAppliedRate(0);
+        }
+      } catch (err) {
+        console.error("Failed to calculate shipping:", err);
+        setCourierFee(null);
+        setAppliedRate(0);
+      }
+    }, 400);
+
+    return () => clearTimeout(delayDebounce);
+  }, [shippingAddress.state, shippingAddress.postalCode, subtotal, totalWeight, items]);
+
+  const resolvedDeliveryFee = courierFee !== null ? courierFee : 0;
   const hasMissingWeight = items.some((item) => toWeightKg(item.weight, item.weightUnit || "kg") <= 0);
-  const total = subtotal + deliveryFee;
+  const total = subtotal + resolvedDeliveryFee;
 
   useEffect(() => {
-    if (hasHydrated && items.length === 0) {
-      router.replace("/cart");
+    if (hasHydrated && !isPaymentProcessing) {
+      if (items.length === 0) {
+        router.replace("/cart");
+        return;
+      }
+      const hasOutOfStock = items.some((item) => item.isOutOfStock);
+      if (hasOutOfStock) {
+        alert("Please remove out of stock items from your cart before checking out.");
+        router.replace("/cart");
+      }
     }
-  }, [hasHydrated, items.length, router]);
+  }, [hasHydrated, items, isPaymentProcessing, router]);
 
   const handlePayment = async () => {
-    if (!session) {
-      alert("Please login to place an order");
-      router.push("/auth");
+    // Validate optional email if entered
+    if (shippingAddress.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(shippingAddress.email)) {
+      alert("Please enter a valid email address.");
       return;
     }
 
-    if (!shippingAddress.fullName || !shippingAddress.address || !shippingAddress.city || !shippingAddress.postalCode || !shippingAddress.phone) {
-      alert("Please fill all required shipping details");
+    if (!shippingAddress.fullName || !shippingAddress.address || !shippingAddress.city || !shippingAddress.postalCode || !shippingAddress.phone || !shippingAddress.state) {
+      alert("Please fill all required shipping details including Town/City, State, and PIN Code.");
       return;
     }
 
@@ -178,7 +235,12 @@ export default function CheckoutPage() {
 
       // Check if simulated
       if (orderData.isSimulated) {
-        alert("⚠️ Simulated Transaction: Since you are using placeholder Razorpay keys in your .env.local file, we are completing a mock transaction automatically for you so you aren't blocked!");
+        const isLiveKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID?.startsWith("rzp_live_");
+        if (isLiveKey) {
+          alert("⚠️ Simulated Transaction: A live Razorpay Key ID was detected in development mode. To prevent accidental real money charges, we are completing a mock transaction automatically for you. To test with real payments, please use a Razorpay Test Key (rzp_test_...) or deploy to production.");
+        } else {
+          alert("⚠️ Simulated Transaction: Since you are using placeholder Razorpay keys in your .env.local file, we are completing a mock transaction automatically for you so you aren't blocked!");
+        }
         
         const verifyRes = await fetch("/api/orders/verify", {
           method: "POST",
@@ -194,9 +256,7 @@ export default function CheckoutPage() {
         const verifyData = await verifyRes.json();
         if (verifyData.success) {
           clearCart();
-          alert("🎉 Payment simulated successfully! Your order has been placed.\n\nYour invoice will open in a new tab.");
-          window.open(`/api/orders/invoice?orderId=${orderData.dbOrderId}`, '_blank');
-          router.push("/");
+          router.replace(`/payment-success?orderId=${orderData.viuOrderId || orderData.orderId}`);
         } else {
           alert("Failed to verify simulated payment: " + (verifyData.error || "Unknown error"));
         }
@@ -209,38 +269,45 @@ export default function CheckoutPage() {
         amount: orderData.amount,
         currency: "INR",
         name: "Vivasaya Ulagam",
-        description: "Test Transaction",
+        description: "Organic Purchase",
         order_id: orderData.orderId,
         handler: async function (response: RazorpayPaymentResponse) {
-          // 3. Verify payment
-          const verifyRes = await fetch("/api/orders/verify", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-              dbOrderId: orderData.dbOrderId
-            }),
-          });
+          if (isPaymentProcessing) return;
+          setIsPaymentProcessing(true);
+          try {
+            // 3. Verify payment
+            const verifyRes = await fetch("/api/orders/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                dbOrderId: orderData.dbOrderId
+              }),
+            });
 
-          const verifyData = await verifyRes.json();
-          if (verifyData.success) {
-            clearCart();
-            alert("Payment successful! Your order has been placed.\n\nYour invoice will open in a new tab.");
-            window.open(`/api/orders/invoice?orderId=${orderData.dbOrderId}`, '_blank');
-            router.push("/");
-          } else {
-            alert("Payment verification failed");
+            const verifyData = await verifyRes.json();
+            if (verifyData.success) {
+              clearCart();
+              router.replace(`/payment-success?orderId=${orderData.viuOrderId || response.razorpay_order_id}`);
+            } else {
+              alert("Payment verification failed");
+              setIsPaymentProcessing(false);
+            }
+          } catch (error) {
+            console.error("Payment verification error:", error);
+            alert("Payment verification failed. Please contact support if amount was deducted.");
+            setIsPaymentProcessing(false);
           }
         },
         prefill: {
           name: shippingAddress.fullName,
-          email: session.user?.email || "",
+          email: session?.user?.email || shippingAddress.email || "",
           contact: shippingAddress.phone,
         },
         theme: {
-          color: "#1F6B3B",
+          color: "#34a121",
         },
       };
 
@@ -276,6 +343,18 @@ export default function CheckoutPage() {
     );
   }
 
+  if (isPaymentProcessing) {
+    return (
+      <main className="fixed inset-0 z-[9999] flex min-h-[100dvh] w-full items-center justify-center bg-white px-4">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-[#34a121]"></div>
+          <h2 className="text-xl font-bold text-gray-900">Verifying Payment...</h2>
+          <p className="mt-2 text-sm text-gray-500">Please do not close or refresh this page.</p>
+        </div>
+      </main>
+    );
+  }
+
   if (items.length === 0) return null;
 
   return (
@@ -308,6 +387,8 @@ export default function CheckoutPage() {
                 <h2 className="font-heading font-bold text-xl text-text-dark mb-6 border-b pb-4">Shipping Information</h2>
                 
                 <form className="space-y-5 font-body">
+
+
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-text-dark">Full Name *</label>
                     <input 
@@ -331,6 +412,17 @@ export default function CheckoutPage() {
                   </div>
 
                   <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-text-dark">Email Address (Optional)</label>
+                    <input 
+                      type="email" 
+                      value={shippingAddress.email}
+                      onChange={(e) => setShippingAddress({...shippingAddress, email: e.target.value})}
+                      placeholder="Enter your email address"
+                      className="w-full border border-gray-200 rounded-sm px-3 py-2.5 text-sm outline-none focus:border-primary" 
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-text-dark">Street Address *</label>
                     <input 
                       type="text" 
@@ -342,7 +434,7 @@ export default function CheckoutPage() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-text-dark">Town / City *</label>
                       <input 
@@ -352,6 +444,20 @@ export default function CheckoutPage() {
                         required
                         className="w-full border border-gray-200 rounded-sm px-3 py-2.5 text-sm outline-none focus:border-primary" 
                       />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-text-dark">State *</label>
+                      <select
+                        value={shippingAddress.state}
+                        onChange={(e) => setShippingAddress({...shippingAddress, state: e.target.value})}
+                        required
+                        className="w-full border border-gray-200 rounded-sm px-3 py-2.5 text-sm outline-none focus:border-primary bg-white h-[42px]"
+                      >
+                        <option value="">Select State</option>
+                        {INDIAN_STATES.map((st) => (
+                          <option key={st.code} value={st.name}>{st.name}</option>
+                        ))}
+                      </select>
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-text-dark">PIN Code *</label>
@@ -389,14 +495,14 @@ export default function CheckoutPage() {
                           )}
                         </div>
                         <div>
-                          <p className="font-semibold text-text-dark">{item.name}</p>
-                          <p className="text-xs text-text-muted">Qty: {item.quantity}</p>
-                          <p className="text-xs text-text-muted">
+                          <p className="font-semibold text-text-dark text-xs">{item.name}</p>
+                          <p className="text-[11px] text-text-muted">Qty: {item.quantity}</p>
+                          <p className="text-[11px] text-text-muted">
                             Weight: {formatWeightKg(toWeightKg(item.weight, item.weightUnit || "kg"))}
                           </p>
                         </div>
                       </div>
-                      <span className="font-semibold text-text-dark">{formatPrice(item.price * item.quantity)}</span>
+                      <span className="font-semibold text-text-dark text-xs">{formatPrice(item.price * item.quantity)}</span>
                     </div>
                   ))}
 
@@ -408,13 +514,15 @@ export default function CheckoutPage() {
                     <span>Total Weight</span>
                     <span className="font-heading font-semibold text-text-dark">{formatWeightKg(totalWeight)}</span>
                   </div>
-                  <div className="flex justify-between text-text-muted">
-                    <span>Courier Slab</span>
-                    <span className="font-heading font-semibold text-text-dark">{courierBracket}</span>
-                  </div>
+                  {appliedRate > 0 && (
+                    <div className="flex justify-between text-text-muted">
+                      <span>Courier Rate</span>
+                      <span className="font-heading font-semibold text-text-dark">₹{appliedRate} / kg</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-text-muted">
                     <span>Courier Charges</span>
-                    <span className="font-heading font-semibold text-text-dark">{formatPrice(deliveryFee)}</span>
+                    <span className="font-heading font-semibold text-text-dark">{formatPrice(resolvedDeliveryFee)}</span>
                   </div>
                   {hasMissingWeight && (
                     <p className="rounded-lg bg-amber-50 px-3 py-2 text-[11px] font-semibold leading-relaxed text-amber-700">

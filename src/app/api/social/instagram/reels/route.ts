@@ -43,11 +43,17 @@ export async function GET() {
   try {
     await dbConnect();
     
-    let videos = await Video.find().populate('taggedProductId').lean();
+    let videos = await Video.find({ isActive: { $ne: false } })
+      .select('title videoUrl img instagramId taggedProductId price isActive')
+      .populate('taggedProductId', 'title images price status')
+      .lean();
     
     // Seed default videos if empty
     if (videos.length === 0) {
-      const activeProducts = await Product.find({ status: 'active' }).limit(5);
+      const activeProducts = await Product.find({ status: 'active' })
+        .select('_id price')
+        .limit(5)
+        .lean();
       
       const seedData = DEFAULT_REELS.map((item, idx) => {
         const product = activeProducts[idx % activeProducts.length];
@@ -60,10 +66,15 @@ export async function GET() {
       });
       
       await Video.insertMany(seedData);
-      videos = await Video.find().populate('taggedProductId').lean();
+      videos = await Video.find({ isActive: { $ne: false } })
+        .select('title videoUrl img instagramId taggedProductId price isActive')
+        .populate('taggedProductId', 'title images price status')
+        .lean();
     }
     
-    return NextResponse.json({ success: true, videos });
+    return NextResponse.json({ success: true, videos }, {
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' },
+    });
   } catch (error: any) {
     console.error('Fetch reels error:', error);
     return NextResponse.json({ success: false, error: error.message || 'Failed to fetch reels' }, { status: 500 });
