@@ -4,7 +4,7 @@ import React from "react";
 
 import { useState } from "react";
 import { formatPrice } from "@/lib/utils";
-import { ChevronDown, ChevronUp, Loader2, CheckCircle } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, CheckCircle, Copy } from "lucide-react";
 
 const STATUS_STYLES: Record<string, string> = {
   delivered: 'bg-green-100 text-green-700',
@@ -27,6 +27,53 @@ export default function OrderTable({ orders: initialOrders }: { orders: any[] })
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [successId, setSuccessId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopy = (order: any) => {
+    const orderNumber = order.orderId || "—";
+    const customerName = order.shippingAddress?.fullName || order.user?.name || "Not provided";
+    const phone = order.shippingAddress?.phone || "Not provided";
+    const email = order.shippingAddress?.email || order.user?.email || "Not provided";
+    const addressLine1 = order.shippingAddress?.address || "Not provided";
+    const city = order.shippingAddress?.city || "Not provided";
+    const state = order.shippingAddress?.state || "Not provided";
+    const pincode = order.shippingAddress?.postalCode || "Not provided";
+    const totalAmount = Number(order.totalAmount || 0).toFixed(2);
+    const paymentStatus = order.isPaid ? "Paid" : (order.razorpayOrderId ? "Online Pending" : "COD");
+
+    const copiedText = `Order No: ${orderNumber}
+Customer Name: ${customerName}
+Phone: ${phone}
+Email: ${email}
+Address: ${addressLine1}
+City: ${city}
+State: ${state}
+Pincode: ${pincode}
+Total Amount: ₹${totalAmount}
+Payment Status: ${paymentStatus}`;
+
+    navigator.clipboard.writeText(copiedText)
+      .then(() => {
+        setCopiedId(order._id);
+        setTimeout(() => setCopiedId(null), 2000);
+      })
+      .catch((err) => {
+        const textArea = document.createElement("textarea");
+        textArea.value = copiedText;
+        textArea.style.position = "fixed";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+          document.execCommand("copy");
+          setCopiedId(order._id);
+          setTimeout(() => setCopiedId(null), 2000);
+        } catch (e) {
+          console.error("Fallback copy failed", e);
+        }
+        document.body.removeChild(textArea);
+      });
+  };
 
   const toggleOrder = (id: string) => {
     setExpandedOrderId(prev => prev === id ? null : id);
@@ -72,6 +119,7 @@ export default function OrderTable({ orders: initialOrders }: { orders: any[] })
             <th className="p-4 font-semibold">Payment</th>
             <th className="p-4 font-semibold">Status</th>
             <th className="p-4 font-semibold">Date</th>
+            <th className="p-4 font-semibold">Actions</th>
             <th className="p-4 font-semibold"></th>
           </tr>
         </thead>
@@ -92,8 +140,14 @@ export default function OrderTable({ orders: initialOrders }: { orders: any[] })
                 </td>
                 <td className="p-4 font-bold">{formatPrice(order.totalAmount)}</td>
                 <td className="p-4">
-                  <span className={`px-2 py-1 rounded text-[10px] font-bold ${order.isPaid ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                    {order.isPaid ? '✓ PAID' : '💵 COD'}
+                  <span className={`px-2 py-1 rounded text-[10px] font-bold ${
+                    order.isPaid 
+                      ? 'bg-green-100 text-green-700' 
+                      : (order.razorpayOrderId ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700')
+                  }`}>
+                    {order.isPaid 
+                      ? '✓ PAID' 
+                      : (order.razorpayOrderId ? '💳 ONLINE PENDING' : '💵 COD')}
                   </span>
                 </td>
                 <td className="p-4">
@@ -103,6 +157,15 @@ export default function OrderTable({ orders: initialOrders }: { orders: any[] })
                 </td>
                 <td className="p-4 text-gray-500 text-xs">
                   {new Date(order.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                </td>
+                <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    onClick={() => handleCopy(order)}
+                    className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold bg-gray-50 border border-gray-250 hover:border-gray-400 hover:bg-gray-150 rounded-lg text-gray-600 transition-all cursor-pointer whitespace-nowrap border-0"
+                  >
+                    <Copy size={11} />
+                    {copiedId === order._id ? "Copied" : "Copy Details"}
+                  </button>
                 </td>
                 <td className="p-4">
                   {expandedOrderId === order._id
@@ -115,7 +178,7 @@ export default function OrderTable({ orders: initialOrders }: { orders: any[] })
               {/* Expanded Details Row */}
               {expandedOrderId === order._id && (
                 <tr className="bg-gradient-to-b from-gray-50/80 to-white">
-                  <td colSpan={7} className="p-0">
+                  <td colSpan={8} className="p-0">
                     <div className="p-6 border-t border-gray-100 grid grid-cols-1 md:grid-cols-3 gap-8">
                       
                       {/* Column 1: Customer & Status Update */}
@@ -128,6 +191,13 @@ export default function OrderTable({ orders: initialOrders }: { orders: any[] })
                           <p><span className="text-gray-400 text-xs">Address</span><br/>
                             {[order.shippingAddress?.address, order.shippingAddress?.city, order.shippingAddress?.postalCode].filter(Boolean).join(', ') || '—'}
                           </p>
+                          <button
+                            onClick={() => handleCopy(order)}
+                            className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-50 border border-gray-250 hover:border-gray-400 hover:bg-gray-150 text-gray-700 text-xs font-bold rounded-lg transition-all cursor-pointer border-0"
+                          >
+                            <Copy size={13} />
+                            {copiedId === order._id ? "✓ Copied Details" : "Copy Customer Details"}
+                          </button>
                         </div>
                       </div>
 
@@ -247,7 +317,7 @@ export default function OrderTable({ orders: initialOrders }: { orders: any[] })
 
           {orders.length === 0 && (
             <tr>
-              <td colSpan={7} className="p-12 text-center text-gray-400">
+              <td colSpan={8} className="p-12 text-center text-gray-400">
                 <p className="text-4xl mb-3">📦</p>
                 <p className="font-semibold">No orders found.</p>
               </td>

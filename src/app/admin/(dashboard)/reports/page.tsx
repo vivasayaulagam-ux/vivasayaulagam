@@ -37,7 +37,7 @@ export default async function AdminReports({ searchParams }: { searchParams: { s
   const orders = await Order.find(query).sort({ createdAt: -1 }).lean();
   
   const totalRevenue = orders.reduce((sum: number, order: any) => sum + (order.isPaid ? order.totalAmount : 0), 0);
-  const totalCOD = orders.reduce((sum: number, order: any) => sum + (!order.isPaid && order.status !== 'cancelled' ? order.totalAmount : 0), 0);
+  const totalCOD = orders.reduce((sum: number, order: any) => sum + (!order.isPaid && !order.razorpayOrderId && order.status !== 'cancelled' ? order.totalAmount : 0), 0);
   const totalOrders = orders.length;
 
   return (

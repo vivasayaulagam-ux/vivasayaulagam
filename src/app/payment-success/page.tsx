@@ -2,20 +2,50 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 
 function PaymentSuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { data: session } = useSession();
   const [orderId, setOrderId] = useState<string | null>(null);
+  const [dbOrderId, setDbOrderId] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [isCod, setIsCod] = useState(false);
 
   useEffect(() => {
     const id = searchParams.get("orderId");
+    const dbId = searchParams.get("dbOrderId");
+    const tok = searchParams.get("token");
+    const cod = searchParams.get("isCod") === "true";
     if (id) {
       setOrderId(id);
     }
+    if (dbId) {
+      setDbOrderId(dbId);
+    }
+    if (tok) {
+      setToken(tok);
+    }
+    setIsCod(cod);
   }, [searchParams]);
+
+  const handleViewOrder = () => {
+    const targetOrderId = dbOrderId || orderId;
+    if (!targetOrderId) return;
+
+    if (session && session.user) {
+      router.push(`/orders/${targetOrderId}`);
+    } else {
+      let url = `/guest-order/${targetOrderId}`;
+      if (token) {
+        url += `?token=${token}`;
+      }
+      router.push(url);
+    }
+  };
 
   return (
     <main className="flex min-h-[100dvh] w-full items-center justify-center bg-gradient-to-br from-green-50 to-white px-4 py-8">
@@ -23,9 +53,13 @@ function PaymentSuccessContent() {
         <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-green-50 ring-8 ring-green-50/60">
           <CheckCircle2 className="text-[#34a121]" size={48} strokeWidth={2.2} aria-hidden="true" />
         </div>
-        <h1 className="mt-7 font-heading text-2xl font-bold text-[#183b20] sm:text-3xl">Payment Successful</h1>
+        <h1 className="mt-7 font-heading text-2xl font-bold text-[#183b20] sm:text-3xl">
+          {isCod ? "Order Successful" : "Payment Successful"}
+        </h1>
         <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-gray-600 sm:text-base">
-          Thank you! Your order has been placed successfully.
+          {isCod
+            ? "Thank you! Your Cash on Delivery order has been placed successfully."
+            : "Thank you! Your order has been placed successfully."}
         </p>
         {orderId && (
           <div className="mt-6 rounded-xl border border-green-100 bg-green-50/70 px-4 py-3">
@@ -36,10 +70,10 @@ function PaymentSuccessContent() {
         <div className="mt-7 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <button
             type="button"
-            onClick={() => router.push("/orders")}
+            onClick={handleViewOrder}
             className="w-full min-h-[48px] rounded-xl bg-green-700 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-700 focus:ring-offset-2"
           >
-            View My Orders
+            View Order
           </button>
           <button
             type="button"
@@ -70,3 +104,4 @@ export default function PaymentSuccessPage() {
     </Suspense>
   );
 }
+

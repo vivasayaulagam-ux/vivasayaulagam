@@ -78,7 +78,9 @@ const InvoicePDFDocument = ({ order }: { order: any }) => {
             <Text style={pdfStyles.meta}>#{order._id ? order._id.slice(-8).toUpperCase() : "ORDER"}</Text>
             <Text style={pdfStyles.meta}>Date: {invoiceDate}</Text>
             <Text style={{ fontSize: 8, color: "#2f9e24", marginTop: 4, fontWeight: "bold" }}>
-              {order.status === "pending" ? "CASH ON DELIVERY" : "PAID"}
+              {order.isPaid 
+                ? "PAID" 
+                : (order.razorpayOrderId ? "ONLINE PAYMENT PENDING" : "CASH ON DELIVERY")}
             </Text>
           </View>
         </View>
@@ -357,7 +359,11 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
                   </div>
                   <div className="flex flex-col gap-1">
                     <span className="text-gray-400 font-bold uppercase tracking-wider text-[9px]">Payment Method</span>
-                    <span className="text-[#111111] font-bold uppercase">{order.status === "pending" ? "Cash on Delivery" : "Paid Online"}</span>
+                    <span className="text-[#111111] font-bold uppercase">
+                      {order.razorpayOrderId 
+                        ? (order.isPaid ? "Paid Online" : "Online Payment (Pending)") 
+                        : "Cash on Delivery"}
+                    </span>
                   </div>
                 </div>
               </div>

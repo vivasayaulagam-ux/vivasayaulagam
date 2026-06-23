@@ -97,6 +97,7 @@ const desktopNavItems: NavItem[] = [
     badgeLabel: "Offers",
     badgeTone: "red",
   },
+  { label: "About Us", href: "/about-us" },
   { label: "Track Order", href: "/track-order" },
 ];
 
@@ -104,6 +105,7 @@ const drawerLinks: NavItem[] = [
   { label: "Home", href: "/", icon: Home },
   { label: "Shop", href: "/shop", icon: ShoppingBag },
   { label: "Categories", href: "/categories", icon: LayoutGrid },
+  { label: "About Us", href: "/about-us", icon: Info },
   { label: "Offers", href: "/shop?category=combo", icon: Sparkles },
   { label: "Track Order", href: "/track-order", icon: Truck },
 ];
@@ -205,9 +207,27 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [catDropdownOpen, setCatDropdownOpen] = useState(false);
-  const [dbCategories, setDbCategories] = useState<NavCategory[]>([]);
-  const [contactEmail, setContactEmail] = useState("vivasayaulagam@gmail.com");
-  const [contactPhone, setContactPhone] = useState("+91 98765 43210");
+  const [dbCategories, setDbCategories] = useState<NavCategory[]>(() => {
+    if (typeof window !== "undefined") {
+      const cache = (window as any).__vivasayaCategoriesCache;
+      if (cache) return cache;
+    }
+    return [];
+  });
+  const [contactEmail, setContactEmail] = useState(() => {
+    if (typeof window !== "undefined") {
+      const cache = (window as any).__vivasayaSettingsCache;
+      if (cache?.contact_email) return String(cache.contact_email);
+    }
+    return "vivasayaulagam@gmail.com";
+  });
+  const [contactPhone, setContactPhone] = useState(() => {
+    if (typeof window !== "undefined") {
+      const cache = (window as any).__vivasayaSettingsCache;
+      if (cache?.contact_phone) return String(cache.contact_phone);
+    }
+    return "+91 98765 43210";
+  });
   const [mobileSearchVal, setMobileSearchVal] = useState("");
   const [mobileCatsOpen, setMobileCatsOpen] = useState(false);
   const [mobileActiveTab, setMobileActiveTab] = useState<"categories" | "menu">("categories");
@@ -256,11 +276,14 @@ export default function Navbar() {
   useEffect(() => {
     async function loadDbCategories() {
       try {
-        const res = await fetch("/api/categories");
+        const res = await fetch(`/api/categories?t=${Date.now()}`, { cache: "no-store" });
         const data = (await res.json()) as CategoriesResponse;
         const visibleCategories = data.categories?.filter((category) => category.isVisible !== false) ?? [];
         if (data.success && visibleCategories.length > 0) {
           setDbCategories(visibleCategories);
+          if (typeof window !== "undefined") {
+            (window as any).__vivasayaCategoriesCache = visibleCategories;
+          }
         }
       } catch {
         // Keep the static category fallback if the optional CMS request is interrupted.
@@ -273,11 +296,14 @@ export default function Navbar() {
   useEffect(() => {
     async function loadNavbarSettings() {
       try {
-        const res = await fetch("/api/settings");
+        const res = await fetch(`/api/settings?t=${Date.now()}`, { cache: "no-store" });
         const data = (await res.json()) as SettingsResponse;
         if (data.success && data.settings) {
           setContactEmail(String(data.settings.contact_email || "vivasayaulagam@gmail.com"));
           setContactPhone(String(data.settings.contact_phone || "+91 98765 43210"));
+          if (typeof window !== "undefined") {
+            (window as any).__vivasayaSettingsCache = data.settings;
+          }
         }
       } catch {
         // Keep fallback contact details if the optional settings request is interrupted.
@@ -286,6 +312,14 @@ export default function Navbar() {
 
     loadNavbarSettings();
   }, []);
+
+  useEffect(() => {
+    // Reset all temporary navigation states on route transition
+    setMobileOpen(false);
+    setSearchOpen(false);
+    setCatDropdownOpen(false);
+    setMobileCatsOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -613,6 +647,7 @@ export default function Navbar() {
                 {[
                   { label: "Home", href: "/", icon: Home },
                   { label: "All Categories", href: "/categories", icon: LayoutGrid },
+                  { label: "About Us", href: "/about-us", icon: Info },
                   { label: "Track Order", href: "/track-order", icon: Truck },
                   { label: session ? "My Account" : "Login / Register", href: accountHref, icon: User },
                   { label: "Cart", href: "/cart", icon: ShoppingBag, badge: cartCount },
@@ -620,7 +655,7 @@ export default function Navbar() {
                 ].map((item, idx) => {
                   const Icon = item.icon;
                   const isActive = "action" in item ? false : isLinkActive(item.href);
-                  const isLast = idx === 5; // no divider after last
+                  const isLast = idx === 6; // no divider after last
 
                   const inner = (
                     <div

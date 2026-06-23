@@ -27,7 +27,7 @@ function exportToCSV(orders: any[], selectedIds: Set<string>) {
       o.user?.name || "Guest",
       o.user?.email || "—",
       new Date(o.createdAt).toLocaleDateString("en-IN"),
-      o.isPaid ? "Paid" : "COD",
+      o.isPaid ? "Paid" : (o.razorpayOrderId ? "Online" : "COD"),
       o.status,
       Number(o.totalAmount || 0).toFixed(2),
     ]),

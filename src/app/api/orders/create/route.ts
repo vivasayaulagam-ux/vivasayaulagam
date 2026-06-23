@@ -10,6 +10,7 @@ import Product from '@/models/Product';
 import CourierCharge from '@/models/CourierCharge';
 import Setting from '@/models/Setting';
 import { getCourierFee } from '@/lib/shipping';
+import { generateOrderToken } from '@/lib/orderToken';
 
 
 type CheckoutItem = {
@@ -39,7 +40,11 @@ type CreateOrderPayload = {
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    const { items, totalAmount, shippingAddress, isCod } = (await req.json()) as any;
+    const { items, totalAmount, shippingAddress, isCod, paymentMethod, saveAsDefault } = (await req.json()) as any;
+
+    if (isCod === true || paymentMethod === 'COD') {
+      return NextResponse.json({ error: 'Cash on Delivery is no longer supported. Please pay online to place your order.' }, { status: 400 });
+    }
 
     if (!items || items.length === 0) {
       return NextResponse.json({ error: 'No items in order' }, { status: 400 });
@@ -95,6 +100,25 @@ export async function POST(req: Request) {
 
     if (!userId) {
       return NextResponse.json({ error: 'Failed to resolve user for checkout' }, { status: 400 });
+    }
+
+    // Save/update defaultAddress if logged-in customer (unconditionally update with latest confirmed address)
+    if (session && session.user) {
+      const dbUser = await User.findById(userId);
+      if (dbUser) {
+        dbUser.defaultAddress = {
+          fullName: shippingAddress.fullName,
+          phone: shippingAddress.phone,
+          email: shippingAddress.email || dbUser.email || '',
+          addressLine1: shippingAddress.address,
+          addressLine2: shippingAddress.addressLine2 || '',
+          city: shippingAddress.city,
+          state: shippingAddress.state,
+          pincode: shippingAddress.postalCode,
+          country: shippingAddress.country || 'India'
+        };
+        await dbUser.save();
+      }
     }
 
     // Retrieve active product prices and info from the database
@@ -264,103 +288,61 @@ export async function POST(req: Request) {
       }
     }
 
-    if (isCod) {
-      // Cash on Delivery Logic — use new+save to guarantee pre-save hook fires
-      const newOrder = new Order({
-        user: userId,
-        items: formattedItems,
-        subtotalAmount: computedSubtotal,
-        deliveryFee,
-        totalWeightKg,
-        courierRate: appliedRate,
-        totalAmount: computedTotal,
-        shippingAddress,
-        status: 'processing',
-        isPaid: false
-      });
-      await newOrder.save();
+    // Check if Razorpay keys are properly configured or placeholders
+    let isRazorpayConfigured = 
+      process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID && 
+      !process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID.includes("your_key_id") && 
+      !process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID.includes("dummy");
 
-      const populatedOrder = await Order.findById(newOrder._id).populate('user');
-
-      // Send Emails (Fire-and-forget)
-      if (populatedOrder) {
-        sendAdminNotification(
-          `New COD Order Placed - ${newOrder.orderId}`,
-          `<h1>New COD Order Received!</h1><p>Order ID: ${newOrder.orderId}</p><p>Amount: ₹${computedTotal} (To be collected on delivery)</p>`
-        ).catch(emailErr => console.error("Failed to send COD admin email:", emailErr));
-
-        const populatedUser = populatedOrder.user as { email?: string } | null;
-        const orderEmail = shippingAddress?.email || populatedUser?.email;
-        if (orderEmail && !orderEmail.includes("@guest.vivasayaulagam.com")) {
-          sendEmail(
-            orderEmail,
-            'Order Confirmation - Vivasaya Ulagam',
-            `<h1>Thank you for your order!</h1><p>Your Cash on Delivery order (ID: ${newOrder.orderId}) has been received and is now processing.</p><p>Amount to pay on delivery: ₹${computedTotal}</p>`
-          ).catch(emailErr => console.error("Failed to send COD customer email:", emailErr));
-        }
-      }
-
-      return NextResponse.json({
-        success: true,
-        orderId: newOrder.orderId,
-        dbOrderId: newOrder._id
-      });
-    } else {
-      // Check if Razorpay keys are properly configured or placeholders
-      let isRazorpayConfigured = 
-        process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID && 
-        !process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID.includes("your_key_id") && 
-        !process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID.includes("dummy");
-
-      // Safety check: force simulation if using a live key in development environment to avoid accidental charges
-      const isLiveKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID?.startsWith("rzp_live_");
-      const isDevMode = process.env.NODE_ENV !== 'production';
-      if (isLiveKey && isDevMode && process.env.ALLOW_LIVE_IN_DEV !== 'true') {
-        console.warn("⚠️ Live Razorpay key detected in development mode. Forcing simulated transaction for safety.");
-        isRazorpayConfigured = false;
-      }
-
-      let razorpayOrderId = "";
-      let razorpayAmount = Math.round(computedTotal * 100);
-
-      if (!isRazorpayConfigured) {
-        console.warn("⚠️ Razorpay is using placeholder keys. Simulating mock order for local test.");
-        razorpayOrderId = `rzp_mock_${Date.now().toString().slice(-6)}`;
-      } else {
-        const options = {
-          amount: razorpayAmount,
-          currency: "INR",
-          receipt: `receipt_order_${Date.now()}`
-        };
-        const razorpayOrder = await razorpay.orders.create(options);
-        razorpayOrderId = razorpayOrder.id;
-        razorpayAmount = typeof razorpayOrder.amount === 'string' ? parseInt(razorpayOrder.amount, 10) : razorpayOrder.amount;
-      }
-
-      // Use new+save to guarantee pre-save hook fires
-      const newOrder = new Order({
-        user: userId,
-        items: formattedItems,
-        subtotalAmount: computedSubtotal,
-        deliveryFee,
-        totalWeightKg,
-        courierRate: appliedRate,
-        totalAmount: computedTotal,
-        shippingAddress,
-        status: 'pending',
-        razorpayOrderId,
-        isPaid: false
-      });
-      await newOrder.save();
-
-      return NextResponse.json({
-        orderId: razorpayOrderId,
-        viuOrderId: newOrder.orderId,
-        amount: razorpayAmount,
-        dbOrderId: newOrder._id,
-        isSimulated: !isRazorpayConfigured
-      });
+    // Safety check: force simulation if using a live key in development environment to avoid accidental charges
+    const isLiveKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID?.startsWith("rzp_live_");
+    const isDevMode = process.env.NODE_ENV !== 'production';
+    if (isLiveKey && isDevMode && process.env.ALLOW_LIVE_IN_DEV !== 'true') {
+      console.warn("⚠️ Live Razorpay key detected in development mode. Forcing simulated transaction for safety.");
+      isRazorpayConfigured = false;
     }
+
+    let razorpayOrderId = "";
+    let razorpayAmount = Math.round(computedTotal * 100);
+
+    if (!isRazorpayConfigured) {
+      console.warn("⚠️ Razorpay is using placeholder keys. Simulating mock order for local test.");
+      razorpayOrderId = `rzp_mock_${Date.now().toString().slice(-6)}`;
+    } else {
+      const options = {
+        amount: razorpayAmount,
+        currency: "INR",
+        receipt: `receipt_order_${Date.now()}`
+      };
+      const razorpayOrder = await razorpay.orders.create(options);
+      razorpayOrderId = razorpayOrder.id;
+      razorpayAmount = typeof razorpayOrder.amount === 'string' ? parseInt(razorpayOrder.amount, 10) : razorpayOrder.amount;
+    }
+
+    // Use new+save to guarantee pre-save hook fires
+    const newOrder = new Order({
+      user: userId,
+      items: formattedItems,
+      subtotalAmount: computedSubtotal,
+      deliveryFee,
+      totalWeightKg,
+      courierRate: appliedRate,
+      totalAmount: computedTotal,
+      shippingAddress,
+      status: 'pending',
+      razorpayOrderId,
+      isPaid: false
+    });
+    await newOrder.save();
+
+    return NextResponse.json({
+      orderId: razorpayOrderId,
+      viuOrderId: newOrder.orderId,
+      amount: razorpayAmount,
+      dbOrderId: newOrder._id,
+      token: generateOrderToken(newOrder._id.toString()),
+      isSimulated: !isRazorpayConfigured
+    });
 
   } catch (error) {
     console.error('Error creating order:', error);

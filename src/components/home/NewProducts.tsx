@@ -46,7 +46,7 @@ export default function NewProducts({ settings }: { settings?: NewProductsSettin
   useEffect(() => {
     async function loadLiveProducts() {
       try {
-        const res = await fetch("/api/products?view=card&limit=12");
+        const res = await fetch(`/api/products?view=card&limit=12&t=${Date.now()}`, { cache: "no-store" });
         const data = (await res.json()) as { success?: boolean; products?: ProductApiItem[] };
         const apiProducts = data.products ?? [];
         if (data.success && apiProducts.length > 0) {

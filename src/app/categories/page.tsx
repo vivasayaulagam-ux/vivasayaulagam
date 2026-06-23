@@ -67,6 +67,13 @@ function CategoriesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabsRef = useRef<HTMLDivElement>(null);
+  const categoryScrollRef = useRef<HTMLDivElement>(null);
+  const mobileScrollRef = useRef<HTMLDivElement>(null);
+
+  const [showLeftArrowDesktop, setShowLeftArrowDesktop] = useState(false);
+  const [showRightArrowDesktop, setShowRightArrowDesktop] = useState(false);
+  const [showLeftArrowMobile, setShowLeftArrowMobile] = useState(false);
+  const [showRightArrowMobile, setShowRightArrowMobile] = useState(false);
   const skeletonTimer = useRef<number | null>(null);
   const [, startTransition] = useTransition();
 
@@ -76,22 +83,34 @@ function CategoriesPageContent() {
   const [loadingCats, setLoadingCats] = useState(true);
   const [loadingProds, setLoadingProds] = useState(true);
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalProductsCount, setTotalProductsCount] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const isLoadingRef = useRef(false);
+  const [maxProductPriceLimit, setMaxProductPriceLimit] = useState(2000);
+
   // Filter & Sorting States
   const [showFilters, setShowFilters] = useState(false);
   const [showSkeleton, setShowSkeleton] = useState(false);
   const [manualSort, setManualSort] = useState<string | null>(null);
   const [sortOpen, setSortOpen] = useState(false);
-  // Draft price for mobile filter sheet (applied only on "Apply Filter" tap)
+  
+  // Price Slider values (maxPrice is committed, localMaxPrice is during drag)
+  const [maxPrice, setMaxPrice] = useState(2000);
+  const [localMaxPrice, setLocalMaxPrice] = useState(2000);
   const [pendingMaxPrice, setPendingMaxPrice] = useState<number | null>(null);
 
   // Active Category Sync
   const activeSlug = searchParams.get("category") || "all";
+  const sortBy = manualSort ?? "Featured";
 
   // Fetch db categories
   useEffect(() => {
     async function loadDbCategories() {
       try {
-        const res = await fetch("/api/categories");
+        const res = await fetch(`/api/categories?t=${Date.now()}`, { cache: "no-store" });
         const data = (await res.json()) as { success?: boolean; categories?: DbCategory[] };
         const visibleCats = data.categories?.filter((category) => category.isVisible !== false) ?? [];
         if (data.success && visibleCats.length > 0) {
@@ -108,75 +127,93 @@ function CategoriesPageContent() {
 
   const activeCategories = dbCategories.length > 0 ? dbCategories : staticCategories;
 
-  // Fetch db products
+  // Fetch db products dynamically based on filters and page 1
   useEffect(() => {
-    async function loadLiveProducts() {
+    let active = true;
+    async function loadFirstPage() {
+      setLoadingProds(true);
       try {
-        const res = await fetch("/api/products", { cache: "no-store" });
-        const data = (await res.json()) as { success?: boolean; products?: DbProduct[] };
-        const apiProducts = data.products ?? [];
-        if (data.success && apiProducts.length > 0) {
-          const activeDbProds = apiProducts
-            .filter((p) => p.status === "active")
-            .map((p) => {
-              const compareAtPrice = p.compareAtPrice ?? p.price * 1.25;
-              const aesthetics = getEmojiAndBg(p.title, p.category || "");
-              const disc = compareAtPrice > p.price
-                ? Math.round(((compareAtPrice - p.price) / compareAtPrice) * 100)
-                : 0;
+        const params = new URLSearchParams();
+        params.set("page", "1");
+        params.set("limit", "24");
+        params.set("category", activeSlug);
+        params.set("sort", sortBy);
+        if (maxPrice < maxProductPriceLimit) {
+          params.set("maxPrice", String(maxPrice));
+        }
+        params.set("view", "card");
 
-              return {
-                id: p._id.toString(),
-                name: p.title,
-                originalPrice: compareAtPrice,
-                salePrice: p.price,
-                discount: disc || 20,
-                rating: p.rating || 4.7,
-                reviewCount: p.reviewCount || 8,
-                category: p.category || "Organic Goods",
-                categories: p.categories || [],
-                emoji: aesthetics.emoji,
-                bgColor: aesthetics.bgColor,
-                isNew: true,
-                isBestSeller: p.collections?.includes("Best Sellers") || false,
-                image: p.images && p.images.length > 0 ? p.images[0] : undefined,
-                weight: p.weight || 0,
-                weightUnit: p.weightUnit || "kg",
-                trackInventory: p.trackInventory ?? false,
-                quantity: p.quantity ?? 0,
-                stock_quantity: p.quantity ?? 0,
-                stock_status: (p.trackInventory && (p.quantity ?? 0) <= 0) ? 'Out of Stock' : 'In Stock',
-                is_out_of_stock: p.trackInventory && (p.quantity ?? 0) <= 0,
-              };
-            });
-          setDbProducts(activeDbProds);
+        const res = await fetch(`/api/products?${params.toString()}`);
+        const data = await res.json();
+        if (active && data.success && Array.isArray(data.products)) {
+          setDbProducts(data.products);
+          setCurrentPage(1);
+          setTotalPages(data.totalPages || 1);
+          setTotalProductsCount(data.totalProducts || data.products.length);
+          if (data.maxProductPriceLimit) {
+            setMaxProductPriceLimit(data.maxProductPriceLimit);
+            // Sync values if they are at the initial default
+            if (maxPrice === 2000) {
+              setLocalMaxPrice(data.maxProductPriceLimit);
+              setMaxPrice(data.maxProductPriceLimit);
+            }
+          }
         }
       } catch (err) {
-        console.error("Failed to load live database products:", err);
+        console.error("Failed to load products for categories:", err);
       } finally {
-        setLoadingProds(false);
+        if (active) {
+          setLoadingProds(false);
+        }
       }
     }
-    loadLiveProducts();
-  }, []);
+    loadFirstPage();
+    return () => {
+      active = false;
+    };
+  }, [activeSlug, sortBy, maxPrice]);
+
+  const loadMoreProducts = async () => {
+    if (isLoadingRef.current || loadingMore || currentPage >= totalPages) return;
+    isLoadingRef.current = true;
+    setLoadingMore(true);
+    try {
+      const nextPage = currentPage + 1;
+      const params = new URLSearchParams();
+      params.set("page", String(nextPage));
+      params.set("limit", "24");
+      params.set("category", activeSlug);
+      params.set("sort", sortBy);
+      if (maxPrice < maxProductPriceLimit) {
+        params.set("maxPrice", String(maxPrice));
+      }
+      params.set("view", "card");
+
+      const res = await fetch(`/api/products?${params.toString()}`);
+      const data = await res.json();
+      if (res.ok && data.success && Array.isArray(data.products)) {
+        setDbProducts((prev) => {
+          const existingIds = new Set(prev.map(p => String(p.id)));
+          const uniqueNew = data.products.filter((p: any) => !existingIds.has(String(p.id || p._id)));
+          return [...prev, ...uniqueNew];
+        });
+        setCurrentPage(nextPage);
+        if (data.totalPages !== undefined) {
+          setTotalPages(data.totalPages);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load more products:", err);
+    } finally {
+      isLoadingRef.current = false;
+      setLoadingMore(false);
+    }
+  };
 
   const combinedProducts = [...dbProducts, ...staticProducts];
 
-  // Price limit detection
-  const maxProductPrice = combinedProducts.reduce((max, p) => (p.salePrice > max ? p.salePrice : max), 1000);
-  const [maxPrice, setMaxPrice] = useState(1000);
-
-  // Set default max price when products load
-  useEffect(() => {
-    if (combinedProducts.length > 0) {
-      setMaxPrice(maxProductPrice);
-    }
-  }, [loadingProds, maxProductPrice]);
-
-  const sortBy = manualSort ?? "Featured";
-
   // Derived: is price filter active (not at maximum)?
-  const isPriceFiltered = maxPrice < maxProductPrice;
+  const isPriceFiltered = maxPrice < maxProductPriceLimit;
   // Count of active filters (currently only price filter)
   const activeFilterCount = isPriceFiltered ? 1 : 0;
 
@@ -189,13 +226,15 @@ function CategoriesPageContent() {
     if (pendingMaxPrice !== null) {
       flashSkeleton();
       setMaxPrice(pendingMaxPrice);
+      setLocalMaxPrice(pendingMaxPrice);
     }
     setShowFilters(false);
   };
   const clearAllFilters = () => {
     flashSkeleton();
-    setMaxPrice(maxProductPrice);
-    setPendingMaxPrice(maxProductPrice);
+    setMaxPrice(maxProductPriceLimit);
+    setLocalMaxPrice(maxProductPriceLimit);
+    setPendingMaxPrice(maxProductPriceLimit);
     setShowFilters(false);
   };
 
@@ -227,52 +266,77 @@ function CategoriesPageContent() {
     });
   };
 
-  // Horizontal scroll tabs function
-  const scrollTabs = (direction: "left" | "right") => {
-    if (tabsRef.current) {
-      const scrollAmount = direction === "left" ? -240 : 240;
-      tabsRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
+  const updateScrollArrows = () => {
+    // Desktop
+    const dEl = categoryScrollRef.current;
+    if (dEl) {
+      const canScrollLeft = dEl.scrollLeft > 2;
+      const canScrollRight = dEl.scrollLeft < dEl.scrollWidth - dEl.clientWidth - 2;
+      setShowLeftArrowDesktop(canScrollLeft);
+      setShowRightArrowDesktop(canScrollRight);
+    }
+    // Mobile
+    const mEl = mobileScrollRef.current;
+    if (mEl) {
+      const canScrollLeft = mEl.scrollLeft > 2;
+      const canScrollRight = mEl.scrollLeft < mEl.scrollWidth - mEl.clientWidth - 2;
+      setShowLeftArrowMobile(canScrollLeft);
+      setShowRightArrowMobile(canScrollRight);
     }
   };
+
+  // Horizontal scroll tabs function
+  const scrollTabs = (direction: "left" | "right") => {
+    if (categoryScrollRef.current) {
+      const scrollAmount = direction === "left" ? -250 : 250;
+      categoryScrollRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
+    }
+  };
+
+  const scrollMobileTabs = (direction: "left" | "right") => {
+    if (mobileScrollRef.current) {
+      const scrollAmount = direction === "left" ? -250 : 250;
+      mobileScrollRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
+    }
+  };
+
+  useEffect(() => {
+    const dEl = categoryScrollRef.current;
+    const mEl = mobileScrollRef.current;
+
+    if (dEl) {
+      dEl.addEventListener("scroll", updateScrollArrows);
+    }
+    if (mEl) {
+      mEl.addEventListener("scroll", updateScrollArrows);
+    }
+
+    const timer = setTimeout(updateScrollArrows, 100);
+    window.addEventListener("resize", updateScrollArrows);
+
+    return () => {
+      if (dEl) {
+        dEl.removeEventListener("scroll", updateScrollArrows);
+      }
+      if (mEl) {
+        mEl.removeEventListener("scroll", updateScrollArrows);
+      }
+      window.removeEventListener("resize", updateScrollArrows);
+      clearTimeout(timer);
+    };
+  }, [dbCategories, dbProducts]);
 
   // Category Title resolution
   const activeTab = activeCategories.find((t) => t.slug === activeSlug);
   const pageTitle = activeSlug === "all" ? "All Categories" : (activeTab ? activeTab.name : "All Categories");
 
-  // Products filtering
-  const filteredProducts = combinedProducts.filter((product) => {
-    // 1. Category Filter
-    if (activeSlug !== "all") {
-      const pageTitleLower = pageTitle.toLowerCase();
-      const matchesCategory = product.category?.toLowerCase() === pageTitleLower;
-      const matchesCategories = product.categories?.some(
-        (c) => c.toLowerCase() === pageTitleLower || c.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-') === activeSlug
-      );
-      if (!matchesCategory && !matchesCategories) return false;
-    }
-
-    // 2. Price Filter
-    if (product.salePrice > maxPrice) return false;
-
+  // Products filtering (fallback check for local slider dragging)
+  const filteredProducts = dbProducts.filter((product) => {
+    if (product.salePrice > localMaxPrice) return false;
     return true;
   });
 
-  // Products sorting
-  const sortedProducts = [...filteredProducts].sort((a, b) => {
-    if (sortBy === "Price: Low to High") {
-      return a.salePrice - b.salePrice;
-    }
-    if (sortBy === "Price: High to Low") {
-      return b.salePrice - a.salePrice;
-    }
-    if (sortBy === "Newest Arrivals") {
-      return (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0);
-    }
-    if (sortBy === "Best Selling") {
-      return (b.isBestSeller ? 1 : 0) - (a.isBestSeller ? 1 : 0);
-    }
-    return 0; // Default Featured
-  });
+  const sortedProducts = filteredProducts; // Already filtered & sorted on backend!
 
   if (loadingCats || loadingProds) {
     return (
@@ -288,11 +352,22 @@ function CategoriesPageContent() {
       <div style={{ top: 0 }} className="border-b border-gray-100 bg-white sticky z-30 select-none shadow-[0_1px_3px_rgba(0,0,0,0.01)] transition-all">
 
         {/* ── MOBILE CATEGORY CHIP SELECTOR (hidden on md+) ── */}
-        <div className="md:hidden" style={{ padding: "12px 14px" }}>
+        <div className="md:hidden relative" style={{ padding: "12px 14px" }}>
+          {showLeftArrowMobile && (
+            <button
+              type="button"
+              onClick={() => scrollMobileTabs("left")}
+              className="absolute left-1 top-1/2 -translate-y-1/2 z-20 p-1.5 rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm transition-all cursor-pointer active:scale-95 hover:bg-gray-50 flex items-center justify-center pointer-events-auto"
+              aria-label="Scroll categories left"
+            >
+              <ChevronLeft size={13} strokeWidth={2.5} />
+            </button>
+          )}
+
           <div
-            ref={tabsRef}
-            className="flex flex-nowrap overflow-x-auto hide-scrollbar"
-            style={{ gap: "8px" }}
+            ref={mobileScrollRef}
+            className="flex flex-nowrap overflow-x-auto hide-scrollbar scroll-smooth"
+            style={{ gap: "8px", touchAction: "pan-x" }}
           >
             {/* "All Products" chip */}
             <button
@@ -346,22 +421,36 @@ function CategoriesPageContent() {
               );
             })}
           </div>
+          {showRightArrowMobile && (
+            <button
+              type="button"
+              onClick={() => scrollMobileTabs("right")}
+              className="absolute right-1 top-1/2 -translate-y-1/2 z-20 p-1.5 rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm transition-all cursor-pointer active:scale-95 hover:bg-gray-50 flex items-center justify-center pointer-events-auto"
+              aria-label="Scroll categories right"
+            >
+              <ChevronRight size={13} strokeWidth={2.5} />
+            </button>
+          )}
         </div>
 
         {/* ── DESKTOP CATEGORY TEXT TABS (hidden on mobile, shown md+) ── */}
         <div className="hidden md:block">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center relative py-2">
             {/* Left Arrow Button */}
-            <button
-              onClick={() => scrollTabs("left")}
-              className="absolute left-1 z-10 hidden p-1.5 rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm transition-all cursor-pointer active:scale-95 hover:bg-gray-50 md:flex md:items-center md:justify-center lg:left-4"
-              aria-label="Scroll categories left"
-            >
-              <ChevronLeft size={15} strokeWidth={2.5} />
-            </button>
+            {showLeftArrowDesktop && (
+              <button
+                type="button"
+                onClick={() => scrollTabs("left")}
+                className="absolute left-1 z-20 p-1.5 rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm transition-all cursor-pointer active:scale-95 hover:bg-gray-50 flex items-center justify-center lg:left-4 pointer-events-auto"
+                aria-label="Scroll categories left"
+              >
+                <ChevronLeft size={15} strokeWidth={2.5} />
+              </button>
+            )}
 
             {/* Categories Tab Scroll Container */}
             <div
+              ref={categoryScrollRef}
               className="flex w-full flex-nowrap items-center justify-start gap-x-5 py-2 overflow-x-auto scroll-smooth hide-scrollbar px-4 md:flex-1 md:px-8 lg:gap-8"
             >
               <button
@@ -394,13 +483,16 @@ function CategoriesPageContent() {
             </div>
 
             {/* Right Arrow Button */}
-            <button
-              onClick={() => scrollTabs("right")}
-              className="absolute right-1 z-10 hidden p-1.5 rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm transition-all cursor-pointer active:scale-95 hover:bg-gray-50 md:flex md:items-center md:justify-center lg:right-4"
-              aria-label="Scroll categories right"
-            >
-              <ChevronRight size={15} strokeWidth={2.5} />
-            </button>
+            {showRightArrowDesktop && (
+              <button
+                type="button"
+                onClick={() => scrollTabs("right")}
+                className="absolute right-1 z-20 p-1.5 rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm transition-all cursor-pointer active:scale-95 hover:bg-gray-50 flex items-center justify-center lg:right-4 pointer-events-auto"
+                aria-label="Scroll categories right"
+              >
+                <ChevronRight size={15} strokeWidth={2.5} />
+              </button>
+            )}
           </div>
         </div>
 
@@ -530,7 +622,7 @@ function CategoriesPageContent() {
                 margin: 0,
               }}
             >
-              {sortedProducts.length} Products Found
+              {totalProductsCount} Products Found
             </p>
 
             {/* Mobile Sort — Bottom Sheet */}
@@ -620,7 +712,7 @@ function CategoriesPageContent() {
                 <span>Filter</span>
               </button>
               <span className="text-gray-400 font-bold hidden sm:inline">
-                {sortedProducts.length} Products Found
+                {totalProductsCount} Products Found
               </span>
             </div>
 
@@ -683,23 +775,30 @@ function CategoriesPageContent() {
                     <div className="flex justify-between items-center text-xs font-semibold text-gray-700">
                       <span>Max Price</span>
                       <span className="text-primary bg-primary/10 px-2 py-0.5 rounded-full font-mono font-bold">
-                        ₹{maxPrice}
+                        ₹{localMaxPrice}
                       </span>
                     </div>
                     <input
                       type="range"
                       min="50"
-                      max={maxProductPrice}
-                      value={maxPrice}
+                      max={maxProductPriceLimit}
+                      value={localMaxPrice}
                       onChange={(e) => {
+                        setLocalMaxPrice(Number(e.target.value));
+                      }}
+                      onMouseUp={() => {
                         flashSkeleton();
-                        setMaxPrice(Number(e.target.value));
+                        setMaxPrice(localMaxPrice);
+                      }}
+                      onTouchEnd={() => {
+                        flashSkeleton();
+                        setMaxPrice(localMaxPrice);
                       }}
                       className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
                     />
                     <div className="flex justify-between text-[10px] text-gray-400 font-bold">
                       <span>₹50</span>
-                      <span>₹{maxProductPrice}</span>
+                      <span>₹{maxProductPriceLimit}</span>
                     </div>
                   </div>
 
@@ -763,7 +862,7 @@ function CategoriesPageContent() {
                           <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "6px 10px 6px 12px", borderRadius: "999px", background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
                             <span style={{ fontFamily: "var(--font-body)", fontSize: "13px", fontWeight: 500, color: "#2f9e24" }}>Max ₹{maxPrice}</span>
                             <button
-                              onClick={() => { flashSkeleton(); setMaxPrice(maxProductPrice); setPendingMaxPrice(maxProductPrice); }}
+                              onClick={() => { flashSkeleton(); setMaxPrice(maxProductPriceLimit); setPendingMaxPrice(maxProductPriceLimit); setLocalMaxPrice(maxProductPriceLimit); }}
                               style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "18px", height: "18px", borderRadius: "999px", background: "#dcfce7", border: "none", cursor: "pointer", padding: 0, color: "#2f9e24", flexShrink: 0 }}
                               aria-label="Remove price filter"
                             >
@@ -784,14 +883,14 @@ function CategoriesPageContent() {
                       <input
                         type="range"
                         min="50"
-                        max={maxProductPrice}
+                        max={maxProductPriceLimit}
                         value={pendingMaxPrice ?? maxPrice}
                         onChange={(e) => setPendingMaxPrice(Number(e.target.value))}
                         style={{ width: "100%", accentColor: "#2f9e24", cursor: "pointer", height: "6px" }}
                       />
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "#9ca3af", fontWeight: 600, marginTop: "6px" }}>
                         <span>₹50</span>
-                        <span>₹{maxProductPrice}</span>
+                        <span>₹{maxProductPriceLimit}</span>
                       </div>
                     </div>
                   </div>
@@ -863,11 +962,32 @@ function CategoriesPageContent() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-x-3 gap-y-7 sm:grid-cols-2 sm:gap-6 md:gap-8 lg:grid-cols-4">
-              {sortedProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-7 sm:grid-cols-2 sm:gap-6 md:gap-8 lg:grid-cols-4">
+                {sortedProducts.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+              
+              {currentPage < totalPages && (
+                <div className="flex flex-col items-center justify-center mt-10 md:mt-14 gap-4">
+                  {loadingMore ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <Loader2 size={24} className="animate-spin text-primary" />
+                      <span className="text-xs text-gray-400 font-bold">Loading more products...</span>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={loadMoreProducts}
+                      disabled={loadingMore}
+                      className="bg-black hover:bg-gray-800 disabled:bg-gray-400 text-white font-bold text-xs uppercase tracking-wider px-8 py-3.5 shadow-md hover:shadow-lg transition-all rounded-sm cursor-pointer border-0 disabled:cursor-not-allowed"
+                    >
+                      Load More Products
+                    </button>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </main>
     </div>

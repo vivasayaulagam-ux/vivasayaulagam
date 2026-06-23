@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import Product from '@/models/Product';
 import { requireAdmin } from '@/lib/authHelper';
-import { normalizeImageUrl } from '@/lib/utils';
+import { normalizeImageUrl, normalizeProductImage, normalizeSinglePath } from '@/lib/utils';
+import { getProducts } from '@/lib/productService';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,12 +39,30 @@ function normalizeProductPayload(body: any) {
 
 function normalizeProductOutput(p: any) {
   const isOutOfStock = p.trackInventory && (p.quantity ?? 0) <= 0;
+  const primaryImage = normalizeProductImage(p);
+  const compareAtPrice = p.compareAtPrice ?? p.price ?? 0;
+  const salePrice = p.price ?? 0;
+  const disc = compareAtPrice > salePrice 
+    ? Math.round(((compareAtPrice - salePrice) / compareAtPrice) * 100)
+    : 0;
+
   return {
     ...p,
-    images: (p.images || []).map((img: string) => normalizeImageUrl(img)),
+    id: p._id?.toString() || p.id,
+    name: p.title,
+    originalPrice: compareAtPrice,
+    salePrice: salePrice,
+    discount: disc || 20,
+    primaryImage: primaryImage,
+    image: primaryImage,
+    images: (p.images || []).map((img: string) => normalizeSinglePath(img) || primaryImage),
     stock_quantity: p.quantity ?? 0,
     stock_status: isOutOfStock ? 'Out of Stock' : 'In Stock',
     is_out_of_stock: isOutOfStock,
+    averageRating: p.rating ?? p.averageRating ?? 0,
+    reviewCount: p.reviewCount ?? 0,
+    slug: p.seoSlug || '',
+    stock: p.quantity ?? 0,
   };
 }
 
@@ -54,53 +73,35 @@ export async function GET(req: NextRequest) {
     const limitStr = searchParams.get('limit');
     const view = searchParams.get('view');
     const statusToUse = searchParams.get('status') || 'active';
+    const categorySlug = searchParams.get('category');
+    const maxPriceStr = searchParams.get('maxPrice');
+    const sortBy = searchParams.get('sort') || 'Featured';
 
-    await dbConnect();
-    
-    const query: any = {};
-    if (statusToUse !== 'all') {
-      query.status = statusToUse;
-    }
-
-    let products;
-    let total = 0;
-    let pagination = null;
-
-    const projection = view === 'card'
-      ? 'title images category categories price compareAtPrice rating reviewCount collections status weight weightUnit trackInventory quantity createdAt'
-      : view === 'search'
-      ? 'title images category price status'
-      : undefined;
-
-    if (pageStr || limitStr || statusToUse !== 'all') {
-      const page = Math.max(1, parseInt(pageStr || '1', 10));
-      const limit = Math.max(1, Math.min(100, parseInt(limitStr || '24', 10)));
-      const skip = (page - 1) * limit;
-      const [docs, count] = await Promise.all([
-        Product.find(query).select(projection || '').sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-        Product.countDocuments(query),
-      ]);
-      total = count;
-      products = docs.map((p: any) => normalizeProductOutput(p));
-      pagination = {
-        total,
-        page,
-        limit,
-        pages: Math.ceil(total / limit)
-      };
-    } else {
-      const docs = await Product.find(query).select(projection || '').sort({ createdAt: -1 }).lean();
-      products = docs.map((p: any) => normalizeProductOutput(p));
-    }
+    const result = await getProducts({
+      category: categorySlug || undefined,
+      maxPrice: maxPriceStr || undefined,
+      sort: sortBy,
+      page: pageStr || undefined,
+      limit: limitStr || undefined,
+      status: statusToUse,
+      view: view || undefined,
+    });
 
     return NextResponse.json({ 
       success: true, 
-      products,
-      ...(pagination ? { pagination } : {})
+      products: result.products,
+      totalProducts: result.totalProducts,
+      currentPage: result.currentPage,
+      totalPages: result.totalPages,
+      maxProductPriceLimit: result.maxProductPriceLimit,
+      pagination: {
+        totalProducts: result.totalProducts,
+        currentPage: result.currentPage,
+        totalPages: result.totalPages,
+        limit: result.limit
+      }
     }, {
-      headers: statusToUse === 'active'
-        ? { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' }
-        : undefined,
+      headers: { 'Cache-Control': 'no-store, max-age=0, must-revalidate' },
     });
   } catch (error) {
     console.error('Fetch products error:', error);

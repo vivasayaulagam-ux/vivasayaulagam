@@ -4,7 +4,7 @@ import React, { useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronDown, ChevronLeft, ChevronRight,
-  Loader2, CheckCircle, Printer, ArrowUpDown,
+  Loader2, CheckCircle, Printer, ArrowUpDown, Copy,
 } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 import OrderEmptyState from "./OrderEmptyState";
@@ -21,6 +21,7 @@ interface Order {
   deliveryFee?: number;
   totalWeightKg?: number;
   courierRate?: number;
+  razorpayOrderId?: string;
 }
 type OrderSortColumn = "orderId" | "user" | "createdAt" | "status" | "totalAmount";
 
@@ -108,11 +109,15 @@ function OrderDetailPanel({
   onUpdateStatus,
   updatingId,
   successId,
+  onCopy,
+  copiedId,
 }: {
   order: Order;
   onUpdateStatus: (orderId: string, dbId: string, next: string) => void;
   updatingId: string | null;
   successId: string | null;
+  onCopy: (order: Order) => void;
+  copiedId: string | null;
 }) {
   const actions = STATUS_NEXT[order.status] ?? [];
   const allStatuses = ["pending", "processing", "shipped", "delivered", "cancelled"];
@@ -141,6 +146,13 @@ function OrderDetailPanel({
                   <p className="text-gray-700 font-medium leading-tight mt-0.5">{value}</p>
                 </div>
               ))}
+              <button
+                onClick={() => onCopy(order)}
+                className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-50 border border-gray-200 hover:border-gray-400 hover:bg-gray-100 text-gray-700 text-xs font-bold rounded-lg transition-all cursor-pointer border-0"
+              >
+                <Copy size={13} />
+                {copiedId === order._id ? "✓ Copied Details" : "Copy Details"}
+              </button>
             </div>
           </div>
 
@@ -279,10 +291,58 @@ export default function OrdersTable({ orders, filters, loading, selectedIds, onS
   const [expandedId, setExpandedId]   = useState<string | null>(null);
   const [updatingId, setUpdatingId]   = useState<string | null>(null);
   const [successId, setSuccessId]     = useState<string | null>(null);
+  const [copiedId, setCopiedId]       = useState<string | null>(null);
   const [page, setPage]               = useState(1);
   const [pageSize, setPageSize]       = useState(10);
   const [sortCol, setSortCol]         = useState<OrderSortColumn | null>(null);
   const [sortDir, setSortDir]         = useState<"asc" | "desc">("asc");
+
+  const handleCopy = (order: any) => {
+    const orderNumber = order.orderId || "—";
+    const customerName = order.shippingAddress?.fullName || order.user?.name || "Not provided";
+    const phone = order.shippingAddress?.phone || "Not provided";
+    const email = order.shippingAddress?.email || order.user?.email || "Not provided";
+    const addressLine1 = order.shippingAddress?.address || "Not provided";
+    const city = order.shippingAddress?.city || "Not provided";
+    const state = order.shippingAddress?.state || "Not provided";
+    const pincode = order.shippingAddress?.postalCode || "Not provided";
+    const totalAmount = Number(order.totalAmount || 0).toFixed(2);
+    const paymentStatus = order.isPaid ? "Paid" : (order.razorpayOrderId ? "Online Pending" : "COD");
+
+    const copiedText = `Order No: ${orderNumber}
+Customer Name: ${customerName}
+Phone: ${phone}
+Email: ${email}
+Address: ${addressLine1}
+City: ${city}
+State: ${state}
+Pincode: ${pincode}
+Total Amount: ₹${totalAmount}
+Payment Status: ${paymentStatus}`;
+
+    navigator.clipboard.writeText(copiedText)
+      .then(() => {
+        setCopiedId(order._id);
+        setTimeout(() => setCopiedId(null), 2000);
+      })
+      .catch((err) => {
+        // Fallback for older browsers / iframe restrictions
+        const textArea = document.createElement("textarea");
+        textArea.value = copiedText;
+        textArea.style.position = "fixed";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+          document.execCommand("copy");
+          setCopiedId(order._id);
+          setTimeout(() => setCopiedId(null), 2000);
+        } catch (e) {
+          console.error("Fallback copy failed", e);
+        }
+        document.body.removeChild(textArea);
+      });
+  };
 
   // ── Filter ──────────────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -298,7 +358,7 @@ export default function OrdersTable({ orders, filters, loading, selectedIds, onS
     }
     if (filters.status !== "all") list = list.filter((o) => o.status === filters.status);
     if (filters.payment === "paid") list = list.filter((o) => o.isPaid);
-    if (filters.payment === "cod")  list = list.filter((o) => !o.isPaid);
+    if (filters.payment === "cod")  list = list.filter((o) => !o.isPaid && !o.razorpayOrderId);
     if (filters.startDate) {
       const start = new Date(filters.startDate);
       start.setHours(0, 0, 0, 0);
@@ -418,6 +478,7 @@ export default function OrdersTable({ orders, filters, loading, selectedIds, onS
               <ColumnHeader label="Payment" onSort={handleColSort} />
               <ColumnHeader label="Status"      col="status" onSort={handleColSort} />
               <ColumnHeader label="Total"       col="totalAmount" onSort={handleColSort} />
+              <th className="px-2 py-3 w-28 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">Actions</th>
               <th className="px-4 py-3 w-8" />
             </tr>
           </thead>
@@ -472,9 +533,11 @@ export default function OrdersTable({ orders, filters, loading, selectedIds, onS
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border ${
                           order.isPaid
                             ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                            : "bg-amber-50 text-amber-700 border-amber-200"
+                            : (order.razorpayOrderId ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-amber-50 text-amber-700 border-amber-200")
                         }`}>
-                          {order.isPaid ? "✓ Paid" : "COD"}
+                          {order.isPaid 
+                            ? "✓ Paid" 
+                            : (order.razorpayOrderId ? "Online" : "COD")}
                         </span>
                       </td>
 
@@ -486,6 +549,17 @@ export default function OrdersTable({ orders, filters, loading, selectedIds, onS
                       {/* Total */}
                       <td className="px-4 py-3.5 font-bold text-gray-800 text-[13px] whitespace-nowrap">
                         {formatPrice(order.totalAmount)}
+                      </td>
+                      
+                      {/* Copy Details */}
+                      <td className="px-2 py-3.5" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => handleCopy(order)}
+                          className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold bg-gray-50 border border-gray-200 hover:border-gray-400 hover:bg-gray-100 rounded-lg text-gray-600 transition-all cursor-pointer whitespace-nowrap border-0"
+                        >
+                          <Copy size={11} />
+                          {copiedId === order._id ? "Copied" : "Copy Details"}
+                        </button>
                       </td>
 
                       {/* Expand chevron */}
@@ -508,6 +582,8 @@ export default function OrdersTable({ orders, filters, loading, selectedIds, onS
                           onUpdateStatus={updateStatus}
                           updatingId={updatingId}
                           successId={successId}
+                          onCopy={handleCopy}
+                          copiedId={copiedId}
                         />
                       )}
                     </AnimatePresence>

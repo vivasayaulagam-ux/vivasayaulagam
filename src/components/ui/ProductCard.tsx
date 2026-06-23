@@ -1,21 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Check, Loader2 } from "lucide-react";
 import { Product } from "@/data/products";
 import Link from "next/link";
 import Image from "next/image";
-import { formatPrice, normalizeImageUrl } from "@/lib/utils";
+import { formatPrice, normalizeProductImage } from "@/lib/utils";
 import { useCartStore } from "@/store/cartStore";
 import { IMAGE_BLUR_DATA_URL } from "@/lib/image";
 
 interface ProductCardProps {
   product: Product;
   urgency?: string;
+  priority?: boolean;
 }
 
-export default function ProductCard({ product }: ProductCardProps) {
+export default function ProductCard({ product, priority = false }: ProductCardProps) {
+  const [imgSrc, setImgSrc] = useState(() => {
+    const resolved = normalizeProductImage(product);
+    return resolved && resolved.trim() !== "" ? resolved : "/placeholder.svg";
+  });
+
+  useEffect(() => {
+    const resolved = normalizeProductImage(product);
+    setImgSrc(resolved && resolved.trim() !== "" ? resolved : "/placeholder.svg");
+  }, [product]);
+
+  const hasImage = !!(
+    (product.image && typeof product.image === 'string' && product.image.trim() !== "") ||
+    (product.images && product.images.length > 0 && product.images[0] && typeof product.images[0] === 'string' && product.images[0].trim() !== "") ||
+    ((product as any).imageUrl && typeof (product as any).imageUrl === 'string' && (product as any).imageUrl.trim() !== "") ||
+    ((product as any).thumbnail && typeof (product as any).thumbnail === 'string' && (product as any).thumbnail.trim() !== "")
+  );
+
   const isOutOfStock = 
     product.is_out_of_stock === true || 
     product.stock_status === "Out of Stock" || 
@@ -74,23 +92,25 @@ export default function ProductCard({ product }: ProductCardProps) {
 
         <div className="relative aspect-square w-full overflow-hidden bg-white">
           <Link href={`/product/${product.id}`} className="absolute inset-0 z-0 flex items-center justify-center">
-            {product.image ? (
+            {hasImage ? (
             <Image
-              src={normalizeImageUrl(product.image)}
+              src={imgSrc || "/placeholder.svg"}
               alt={product.name}
               fill
-              loading="lazy"
+              priority={priority}
+              loading={priority ? undefined : "lazy"}
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
               quality={75}
               placeholder="blur"
               blurDataURL={IMAGE_BLUR_DATA_URL}
-              unoptimized={normalizeImageUrl(product.image).startsWith("data:")}
+              unoptimized={imgSrc.startsWith("data:")}
+              onError={() => setImgSrc('/placeholder.svg')}
               className={`h-full w-full object-cover object-center transition-transform duration-[2000ms] ease-[cubic-bezier(0,0,0.44,1.18)] group-hover:scale-[1.09] ${isOutOfStock ? 'desaturate opacity-60' : ''}`}
             />
             ) : (
-              <div className={`absolute inset-0 bg-gradient-to-br ${product.bgColor} flex items-center justify-center ${isOutOfStock ? 'opacity-60' : ''}`}>
+              <div className={`absolute inset-0 bg-gradient-to-br ${product.bgColor || 'from-gray-100 to-green-50'} flex items-center justify-center ${isOutOfStock ? 'opacity-60' : ''}`}>
                 <span className="relative text-5xl transition-transform duration-[2000ms] ease-[cubic-bezier(0,0,0.44,1.18)] group-hover:scale-[1.09] sm:text-6xl md:text-7xl">
-                  {product.emoji}
+                  {product.emoji || "🌾"}
                 </span>
               </div>
             )}

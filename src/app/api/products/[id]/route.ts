@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import Product from '@/models/Product';
+import Review from '@/models/Review';
 import { requireAdmin } from '@/lib/authHelper';
-import { normalizeImageUrl } from '@/lib/utils';
+import { normalizeImageUrl, normalizeProductImage, normalizeSinglePath } from '@/lib/utils';
+
 
 function normalizeProductPayload(body: any) {
   const normalizedImages = Array.isArray(body?.images)
@@ -36,12 +38,30 @@ function normalizeProductPayload(body: any) {
 
 function normalizeProductOutput(p: any) {
   const isOutOfStock = p.trackInventory && (p.quantity ?? 0) <= 0;
+  const primaryImage = normalizeProductImage(p);
+  const compareAtPrice = p.compareAtPrice ?? p.price ?? 0;
+  const salePrice = p.price ?? 0;
+  const disc = compareAtPrice > salePrice 
+    ? Math.round(((compareAtPrice - salePrice) / compareAtPrice) * 100)
+    : 0;
+
   return {
     ...p,
-    images: (p.images || []).map((img: string) => normalizeImageUrl(img)),
+    id: p._id?.toString() || p.id,
+    name: p.title,
+    originalPrice: compareAtPrice,
+    salePrice: salePrice,
+    discount: disc || 20,
+    primaryImage: primaryImage,
+    image: primaryImage,
+    images: (p.images || []).map((img: string) => normalizeSinglePath(img) || primaryImage),
     stock_quantity: p.quantity ?? 0,
     stock_status: isOutOfStock ? 'Out of Stock' : 'In Stock',
     is_out_of_stock: isOutOfStock,
+    averageRating: p.rating ?? p.averageRating ?? 0,
+    reviewCount: p.reviewCount ?? 0,
+    slug: p.seoSlug || '',
+    stock: p.quantity ?? 0,
   };
 }
 
@@ -52,7 +72,30 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
     const product = await Product.findById(params.id).lean();
     if (!product) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
     
-    return NextResponse.json({ success: true, product: normalizeProductOutput(product) });
+    // Fetch approved reviews for this product with robust $or matching to prevent ObjectId/string mismatch
+    const reviews = await Review.find({
+      $or: [
+        { product_id: product._id },
+        { product_id: product._id.toString() }
+      ],
+      status: 'approved'
+    }).lean();
+    
+    const reviewCount = reviews.length;
+    let averageRating = 0;
+    if (reviewCount > 0) {
+      const sum = reviews.reduce((acc: number, r: any) => acc + r.rating, 0);
+      averageRating = Number((sum / reviewCount).toFixed(1));
+    }
+    
+    const productOutput = {
+      ...normalizeProductOutput(product),
+      averageRating,
+      reviewCount,
+      reviews
+    };
+    
+    return NextResponse.json({ success: true, product: productOutput });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message || 'Failed to fetch product' }, { status: 500 });
   }

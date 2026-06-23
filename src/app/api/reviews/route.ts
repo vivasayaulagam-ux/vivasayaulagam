@@ -8,14 +8,24 @@ export const dynamic = 'force-dynamic';
 
 async function updateProductRating(productId: any) {
   if (!productId) return;
-  const reviews = await Review.find({ product_id: productId, status: 'approved' });
+  const { default: mongoose } = await import('mongoose');
+  if (!mongoose.Types.ObjectId.isValid(productId)) return;
+  const targetId = typeof productId === 'string' ? new mongoose.Types.ObjectId(productId) : productId;
+
+  const reviews = await Review.find({
+    $or: [
+      { product_id: targetId },
+      { product_id: targetId.toString() }
+    ],
+    status: 'approved'
+  });
   const reviewCount = reviews.length;
   let averageRating = 0;
   if (reviewCount > 0) {
     const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
     averageRating = Number((sum / reviewCount).toFixed(1));
   }
-  await Product.findByIdAndUpdate(productId, {
+  await Product.findByIdAndUpdate(targetId, {
     rating: averageRating,
     reviewCount: reviewCount
   });

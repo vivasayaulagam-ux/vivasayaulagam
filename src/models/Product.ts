@@ -70,5 +70,10 @@ const ProductSchema = new mongoose.Schema(
 ProductSchema.index({ seoSlug: 1 }, { sparse: true });
 ProductSchema.index({ status: 1, createdAt: -1 });
 ProductSchema.index({ category: 1, status: 1 });
+ProductSchema.index({ category: 1, status: 1, createdAt: -1 });
+ProductSchema.index({ status: 1, price: 1 });
+ProductSchema.index({ status: 1, price: -1 });
+ProductSchema.index({ category: 1, status: 1, price: 1 });
+ProductSchema.index({ category: 1, status: 1, price: -1 });
 
 export default mongoose.models.Product || mongoose.model('Product', ProductSchema);

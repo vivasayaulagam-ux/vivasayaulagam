@@ -239,11 +239,10 @@ export default function CategoriesPage() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className={`fixed top-5 right-5 z-[9999] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-lg text-sm font-semibold ${
-              toast.type === 'success'
+            className={`fixed top-5 right-5 z-[9999] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-lg text-sm font-semibold ${toast.type === 'success'
                 ? 'bg-green-600 text-white'
                 : 'bg-red-600 text-white'
-            }`}
+              }`}
           >
             {toast.type === 'success'
               ? <CheckCircle size={18} />
@@ -347,9 +346,17 @@ export default function CategoriesPage() {
                     {/* Parent Row */}
                     <div className="flex items-center justify-between hover:bg-gray-50 p-2 rounded-xl transition-all">
                       <div className="flex items-center gap-3">
-                        <span className="text-2xl w-10 h-10 flex items-center justify-center rounded-xl bg-gray-100">
-                          {cat.emoji}
-                        </span>
+                        {cat.image ? (
+                          <img
+                            src={cat.image}
+                            alt={cat.name}
+                            className="w-10 h-10 object-cover rounded-xl border border-gray-150 shrink-0"
+                          />
+                        ) : (
+                          <span className="text-2xl w-10 h-10 flex items-center justify-center rounded-xl bg-gray-100 shrink-0 select-none">
+                            {cat.emoji || '📦'}
+                          </span>
+                        )}
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="font-semibold text-gray-800 text-sm">{cat.name}</span>
@@ -393,10 +400,18 @@ export default function CategoriesPage() {
                         {subCats.map(sub => (
                           <div key={sub._id} className="flex items-center justify-between hover:bg-gray-50 p-2 rounded-lg pl-3 border-l-2 border-dashed border-gray-200 transition-all">
                             <div className="flex items-center gap-2.5">
-                              <CornerDownRight size={14} className="text-gray-400" />
-                              <span className="text-xl w-7 h-7 flex items-center justify-center rounded-md bg-gray-100">
-                                {sub.emoji}
-                              </span>
+                              <CornerDownRight size={14} className="text-gray-400 shrink-0" />
+                              {sub.image ? (
+                                <img
+                                  src={sub.image}
+                                  alt={sub.name}
+                                  className="w-7 h-7 object-cover rounded-md border border-gray-150 shrink-0"
+                                />
+                              ) : (
+                                <span className="text-xl w-7 h-7 flex items-center justify-center rounded-md bg-gray-100 shrink-0 select-none">
+                                  {sub.emoji || '📦'}
+                                </span>
+                              )}
                               <div className="flex items-center gap-1.5">
                                 <span className="text-xs font-semibold text-gray-700">{sub.name}</span>
                                 <span className="text-[10px] text-gray-400">/{sub.slug}</span>
@@ -470,47 +485,16 @@ export default function CategoriesPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">Emoji / Icon</label>
-                    <input
-                      type="text"
-                      required
-                      value={emoji}
-                      onChange={e => setEmoji(e.target.value)}
-                      placeholder="e.g. 🌾"
-                      className="w-full text-center text-lg py-2 border border-gray-200 rounded-xl focus:border-[#34a121] focus:outline-none transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">Slug</label>
-                    <input
-                      type="text"
-                      required
-                      value={slug}
-                      onChange={e => setSlug(e.target.value)}
-                      placeholder="millet-cereals"
-                      className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:outline-none transition-colors"
-                    />
-                  </div>
-                </div>
-
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">Parent Category (Optional)</label>
-                  <select
-                    value={parentId}
-                    onChange={e => setParentId(e.target.value)}
-                    className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:outline-none bg-white transition-colors"
-                  >
-                    <option value="">None (Root Category)</option>
-                    {categories
-                      .filter(c => !c.parentId && c._id !== editingId)
-                      .map(c => (
-                        <option key={c._id} value={c._id}>
-                          {c.emoji} {c.name}
-                        </option>
-                      ))}
-                  </select>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">Slug</label>
+                  <input
+                    type="text"
+                    required
+                    value={slug}
+                    onChange={e => setSlug(e.target.value)}
+                    placeholder="millet-cereals"
+                    className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:outline-none transition-colors"
+                  />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -528,11 +512,10 @@ export default function CategoriesPage() {
                     <button
                       type="button"
                       onClick={() => setIsVisible(!isVisible)}
-                      className={`w-full flex items-center justify-center gap-2 text-sm py-2.5 border rounded-xl font-medium transition-colors ${
-                        isVisible
+                      className={`w-full flex items-center justify-center gap-2 text-sm py-2.5 border rounded-xl font-medium transition-colors ${isVisible
                           ? 'border-green-200 bg-green-50 text-green-700'
                           : 'border-gray-200 bg-gray-50 text-gray-600'
-                      }`}
+                        }`}
                     >
                       {isVisible ? (
                         <>
@@ -548,55 +531,60 @@ export default function CategoriesPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">Background Gradient (Tailwind Class)</label>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">Category Image</label>
                   <input
-                    type="text"
-                    value={bgColor}
-                    onChange={e => setBgColor(e.target.value)}
-                    placeholder="from-green-50 to-green-100"
-                    className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:outline-none transition-colors"
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageUpload}
                   />
-                </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">Category Image URL (Optional)</label>
-                  <div className="flex gap-2 mb-2">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleImageUpload}
-                    />
+                  {!image ? (
                     <button
                       type="button"
                       disabled={imageUploading}
                       onClick={() => fileInputRef.current?.click()}
-                      className="flex items-center gap-1.5 text-xs px-3 py-2 bg-[#34a121] text-white rounded-xl hover:bg-[#154a28] disabled:opacity-60 cursor-pointer"
+                      className="w-full border-2 border-dashed border-gray-200 hover:border-[#34a121] hover:bg-green-50/10 rounded-2xl p-6 text-center transition-all flex flex-col items-center justify-center gap-2 group cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#34a121]/20"
                     >
-                      {imageUploading ? <Loader2 size={14} className="animate-spin" /> : <ImageIcon size={14} />}
-                      {imageUploading ? 'Uploading...' : 'Upload Image'}
+                      <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-[#34a121]/10 group-hover:text-[#34a121] transition-all">
+                        {imageUploading ? (
+                          <Loader2 size={20} className="animate-spin text-[#34a121]" />
+                        ) : (
+                          <ImageIcon size={20} />
+                        )}
+                      </div>
+                      <div className="text-xs font-semibold text-gray-600 group-hover:text-gray-800">
+                        {imageUploading ? 'Uploading image...' : 'Upload category image'}
+                      </div>
+                      <div className="text-[10px] text-gray-400">JPG, PNG, WEBP or SVG</div>
                     </button>
-                    <span className="text-xs text-gray-400 self-center">or paste URL below</span>
-                  </div>
-                  <input
-                    type="text"
-                    value={image}
-                    onChange={e => setImage(e.target.value)}
-                    placeholder="e.g. /images/rice.jpg"
-                    className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:outline-none transition-colors"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">Redirect URL / Mapping (Optional)</label>
-                  <input
-                    type="text"
-                    value={redirectUrl}
-                    onChange={e => setRedirectUrl(e.target.value)}
-                    placeholder="e.g. /shop?category=millet"
-                    className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:outline-none transition-colors"
-                  />
+                  ) : (
+                    <div className="relative group rounded-2xl overflow-hidden border border-gray-150 bg-gray-50 shadow-sm aspect-video max-h-[180px] flex items-center justify-center">
+                      <img
+                        src={image}
+                        alt="Category preview"
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                      />
+                      {/* Dark overlay on hover */}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center justify-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="p-2 bg-white text-gray-700 hover:text-gray-900 rounded-xl shadow-sm text-xs font-semibold flex items-center gap-1.5 transition-all hover:scale-105"
+                        >
+                          Change
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setImage('')}
+                          className="p-2 bg-red-600 text-white hover:bg-red-700 rounded-xl shadow-sm text-xs font-semibold flex items-center gap-1.5 transition-all hover:scale-105"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex gap-3 pt-3 border-t border-gray-100">

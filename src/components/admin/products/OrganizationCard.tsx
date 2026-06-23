@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Tag, X, ChevronDown } from 'lucide-react';
 import { ProductFormData } from '@/app/admin/(dashboard)/products/add/page';
@@ -11,6 +11,28 @@ const TEMPLATES = ['Default Product', 'Featured Product', 'Sale Product', 'New A
 export default function OrganizationCard({ form, update }: Props) {
   const [tagInput, setTagInput] = useState('');
   const [templateOpen, setTemplateOpen] = useState(false);
+  const [openUpward, setOpenUpward] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const toggleDropdown = () => {
+    if (!templateOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      setOpenUpward(spaceBelow < 200);
+    }
+    setTemplateOpen(o => !o);
+  };
+
+  useEffect(() => {
+    if (!templateOpen) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setTemplateOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [templateOpen]);
 
   const addTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' || e.key === ',') {
@@ -69,15 +91,15 @@ export default function OrganizationCard({ form, update }: Props) {
         {/* Theme template */}
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1.5">Theme Template</label>
-          <div className="relative">
-            <button type="button" onClick={() => setTemplateOpen(o => !o)}
+          <div className="relative" ref={containerRef}>
+            <button type="button" onClick={toggleDropdown}
               className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-gray-300 text-sm bg-white hover:border-gray-400 transition-colors">
               <span className="text-gray-800">{form.themeTemplate}</span>
               <ChevronDown size={14} className={`text-gray-400 transition-transform ${templateOpen ? 'rotate-180' : ''}`} />
             </button>
             {templateOpen && (
-              <motion.ul initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
-                className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+              <motion.ul initial={{ opacity: 0, y: openUpward ? 4 : -4 }} animate={{ opacity: 1, y: 0 }}
+                className={`absolute z-[9999] w-full bg-white border border-gray-200 rounded-xl shadow-lg overflow-y-auto max-h-[200px] left-0 ${openUpward ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
                 {TEMPLATES.map(t => (
                   <li key={t}>
                     <button type="button" onClick={() => { update({ themeTemplate: t }); setTemplateOpen(false); }}
