@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronDown, Check, Plus } from 'lucide-react';
 import { ProductFormData } from '@/app/admin/(dashboard)/products/add/page';
@@ -18,6 +18,18 @@ type Props = {
 export default function CategorySelect({ form, update }: Props) {
   const [open, setOpen] = useState(false);
   const [dbCategories, setDbCategories] = useState<{ _id: string; name: string }[]>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [open]);
 
   useEffect(() => {
     async function fetchDbCategories() {
@@ -65,7 +77,7 @@ export default function CategorySelect({ form, update }: Props) {
     >
       <h2 className="text-sm font-semibold text-gray-700 mb-4">Product Category Assignment</h2>
       
-      <div className="relative">
+      <div className="relative" ref={containerRef}>
         <button 
           type="button" 
           onClick={() => setOpen(o => !o)}
@@ -83,7 +95,7 @@ export default function CategorySelect({ form, update }: Props) {
           <motion.ul 
             initial={{ opacity: 0, y: -6 }} 
             animate={{ opacity: 1, y: 0 }}
-            className="absolute z-20 mt-1.5 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto"
+            className="absolute z-[9999] mt-1.5 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto"
           >
             {activeCategoriesList.map(cat => {
               const isSelected = selectedCategories.includes(cat);

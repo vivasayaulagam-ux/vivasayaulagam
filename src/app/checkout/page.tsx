@@ -122,16 +122,70 @@ export default function CheckoutPage() {
       .catch(err => console.error("Failed to load settings in checkout", err));
   }, []);
 
-  // Autofill session email
+  // Saved Address States
+  const [savedAddress, setSavedAddress] = useState<any>(null);
+  const [useSaved, setUseSaved] = useState<boolean>(false);
+  const [saveAsDefault, setSaveAsDefault] = useState<boolean>(false);
+  const [loadingAddress, setLoadingAddress] = useState(false);
+
+  // Fetch Saved Default Address
   useEffect(() => {
-    if (session?.user?.email) {
-      const email = session.user.email;
-      const timer = setTimeout(() => {
-        setShippingAddress(prev => prev.email === email ? prev : { ...prev, email });
-      }, 0);
-      return () => clearTimeout(timer);
+    if (session?.user) {
+      setLoadingAddress(true);
+      fetch("/api/customer/default-address")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.defaultAddress && data.defaultAddress.fullName && data.defaultAddress.addressLine1) {
+            setSavedAddress(data.defaultAddress);
+            setUseSaved(true);
+            setShippingAddress(prev => ({
+              fullName: prev.fullName || data.defaultAddress.fullName || "",
+              address: prev.address || data.defaultAddress.addressLine1 || "",
+              city: prev.city || data.defaultAddress.city || "",
+              state: prev.state || data.defaultAddress.state || "",
+              postalCode: prev.postalCode || data.defaultAddress.pincode || "",
+              phone: prev.phone || data.defaultAddress.phone || "",
+              email: prev.email || data.defaultAddress.email || session.user?.email || "",
+            }));
+          } else {
+            // Autofill email at least if no saved address is set
+            setShippingAddress(prev => ({ ...prev, email: prev.email || session.user?.email || "" }));
+          }
+        })
+        .catch((err) => console.error("Error loading default address", err))
+        .finally(() => {
+          setLoadingAddress(false);
+        });
     }
   }, [session]);
+
+  const handleUseSavedAddress = () => {
+    setUseSaved(true);
+    if (savedAddress) {
+      setShippingAddress({
+        fullName: savedAddress.fullName || "",
+        address: savedAddress.addressLine1 || "",
+        city: savedAddress.city || "",
+        state: savedAddress.state || "",
+        postalCode: savedAddress.pincode || "",
+        phone: savedAddress.phone || "",
+        email: savedAddress.email || session?.user?.email || "",
+      });
+    }
+  };
+
+  const handleAddNewAddress = () => {
+    setUseSaved(false);
+    setShippingAddress({
+      fullName: "",
+      address: "",
+      city: "",
+      state: "",
+      postalCode: "",
+      phone: "",
+      email: session?.user?.email || "",
+    });
+  };
 
 
 
@@ -215,7 +269,8 @@ export default function CheckoutPage() {
           items,
           totalAmount: total,
           shippingAddress,
-          isCod: paymentMethod === "cod"
+          isCod: false,
+          saveAsDefault: !useSaved && saveAsDefault
         }),
       });
 
@@ -223,15 +278,6 @@ export default function CheckoutPage() {
 
       if (!res.ok) throw new Error(orderData.error);
 
-      if (paymentMethod === "cod") {
-        clearCart();
-        const dbId = orderData.dbOrderId;
-        const viuId = orderData.orderId || "Confirmed";
-        alert(`✅ Order placed successfully!\n\nOrder ID: ${viuId}\n\nSave this ID to track your order.\nYour invoice will open in a new tab.`);
-        window.open(`/api/orders/invoice?orderId=${dbId}`, '_blank');
-        router.push("/");
-        return;
-      }
 
       // Check if simulated
       if (orderData.isSimulated) {
@@ -256,7 +302,7 @@ export default function CheckoutPage() {
         const verifyData = await verifyRes.json();
         if (verifyData.success) {
           clearCart();
-          router.replace(`/payment-success?orderId=${orderData.viuOrderId || orderData.orderId}`);
+          router.replace(`/payment-success?orderId=${orderData.viuOrderId || orderData.orderId}&dbOrderId=${orderData.dbOrderId}&token=${orderData.token || ""}`);
         } else {
           alert("Failed to verify simulated payment: " + (verifyData.error || "Unknown error"));
         }
@@ -290,7 +336,7 @@ export default function CheckoutPage() {
             const verifyData = await verifyRes.json();
             if (verifyData.success) {
               clearCart();
-              router.replace(`/payment-success?orderId=${orderData.viuOrderId || response.razorpay_order_id}`);
+              router.replace(`/payment-success?orderId=${orderData.viuOrderId || response.razorpay_order_id}&dbOrderId=${orderData.dbOrderId}&token=${orderData.token || ""}`);
             } else {
               alert("Payment verification failed");
               setIsPaymentProcessing(false);
@@ -384,11 +430,58 @@ export default function CheckoutPage() {
               </div>
 
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 md:p-8">
-                <h2 className="font-heading font-bold text-xl text-text-dark mb-6 border-b pb-4">Shipping Information</h2>
+                <div className="flex justify-between items-center mb-6 border-b pb-4">
+                  <h2 className="font-heading font-bold text-xl text-text-dark">Shipping Information</h2>
+                  {loadingAddress && (
+                    <span className="text-xs text-[#34a121] flex items-center gap-1.5 font-semibold">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#34a121] animate-pulse"></span>
+                      Loading saved address...
+                    </span>
+                  )}
+                </div>
+
+                {session?.user && savedAddress && (
+                  <div className="mb-6 p-4 rounded-xl border border-[#34a121]/20 bg-[#34a121]/5 space-y-4 font-body">
+                    <h3 className="text-sm font-bold text-text-dark flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#34a121] inline-block"></span>
+                      Saved Shipping Address
+                    </h3>
+                    <div className="text-xs text-text-muted bg-white p-3.5 rounded border border-gray-100 shadow-xs space-y-1">
+                      <p className="font-semibold text-text-dark">{savedAddress.fullName}</p>
+                      <p>{savedAddress.phone}</p>
+                      {savedAddress.email && <p>{savedAddress.email}</p>}
+                      <p>{savedAddress.addressLine1}</p>
+                      {savedAddress.addressLine2 && <p>{savedAddress.addressLine2}</p>}
+                      <p>{savedAddress.city}, {savedAddress.state} - {savedAddress.pincode}</p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <button
+                        type="button"
+                        onClick={handleUseSavedAddress}
+                        className={`flex-1 py-2.5 px-4 rounded text-xs font-bold transition-all border ${
+                          useSaved
+                            ? "bg-black text-white border-black shadow-sm"
+                            : "bg-white text-text-dark border-gray-200 hover:bg-gray-50"
+                        }`}
+                      >
+                        Use Saved Address
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleAddNewAddress}
+                        className={`flex-1 py-2.5 px-4 rounded text-xs font-bold transition-all border ${
+                          !useSaved
+                            ? "bg-black text-white border-black shadow-sm"
+                            : "bg-white text-text-dark border-gray-200 hover:bg-gray-50"
+                        }`}
+                      >
+                        Add New Address
+                      </button>
+                    </div>
+                  </div>
+                )}
                 
                 <form className="space-y-5 font-body">
-
-
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-text-dark">Full Name *</label>
                     <input 
@@ -396,7 +489,7 @@ export default function CheckoutPage() {
                       value={shippingAddress.fullName}
                       onChange={(e) => setShippingAddress({...shippingAddress, fullName: e.target.value})}
                       required
-                      className="w-full border border-gray-200 rounded-sm px-3 py-2.5 text-sm outline-none focus:border-primary" 
+                      className="w-full border border-gray-200 rounded-sm px-3 py-2.5 text-sm outline-none focus:border-[#34a121] bg-white" 
                     />
                   </div>
 
@@ -407,7 +500,7 @@ export default function CheckoutPage() {
                       value={shippingAddress.phone}
                       onChange={(e) => setShippingAddress({...shippingAddress, phone: e.target.value})}
                       required
-                      className="w-full border border-gray-200 rounded-sm px-3 py-2.5 text-sm outline-none focus:border-primary" 
+                      className="w-full border border-gray-200 rounded-sm px-3 py-2.5 text-sm outline-none focus:border-[#34a121] bg-white" 
                     />
                   </div>
 
@@ -418,7 +511,7 @@ export default function CheckoutPage() {
                       value={shippingAddress.email}
                       onChange={(e) => setShippingAddress({...shippingAddress, email: e.target.value})}
                       placeholder="Enter your email address"
-                      className="w-full border border-gray-200 rounded-sm px-3 py-2.5 text-sm outline-none focus:border-primary" 
+                      className="w-full border border-gray-200 rounded-sm px-3 py-2.5 text-sm outline-none focus:border-[#34a121] bg-white" 
                     />
                   </div>
 
@@ -430,7 +523,7 @@ export default function CheckoutPage() {
                       value={shippingAddress.address}
                       onChange={(e) => setShippingAddress({...shippingAddress, address: e.target.value})}
                       required
-                      className="w-full border border-gray-200 rounded-sm px-3 py-2.5 text-sm outline-none focus:border-primary mb-2" 
+                      className="w-full border border-gray-200 rounded-sm px-3 py-2.5 text-sm outline-none focus:border-[#34a121] mb-2 bg-white" 
                     />
                   </div>
 
@@ -442,7 +535,7 @@ export default function CheckoutPage() {
                         value={shippingAddress.city}
                         onChange={(e) => setShippingAddress({...shippingAddress, city: e.target.value})}
                         required
-                        className="w-full border border-gray-200 rounded-sm px-3 py-2.5 text-sm outline-none focus:border-primary" 
+                        className="w-full border border-gray-200 rounded-sm px-3 py-2.5 text-sm outline-none focus:border-[#34a121] bg-white" 
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -451,7 +544,7 @@ export default function CheckoutPage() {
                         value={shippingAddress.state}
                         onChange={(e) => setShippingAddress({...shippingAddress, state: e.target.value})}
                         required
-                        className="w-full border border-gray-200 rounded-sm px-3 py-2.5 text-sm outline-none focus:border-primary bg-white h-[42px]"
+                        className="w-full border border-gray-200 rounded-sm px-3 py-2.5 text-sm outline-none focus:border-[#34a121] h-[42px] bg-white"
                       >
                         <option value="">Select State</option>
                         {INDIAN_STATES.map((st) => (
@@ -466,10 +559,25 @@ export default function CheckoutPage() {
                         value={shippingAddress.postalCode}
                         onChange={(e) => setShippingAddress({...shippingAddress, postalCode: e.target.value})}
                         required
-                        className="w-full border border-gray-200 rounded-sm px-3 py-2.5 text-sm outline-none focus:border-primary" 
+                        className="w-full border border-gray-200 rounded-sm px-3 py-2.5 text-sm outline-none focus:border-[#34a121] bg-white" 
                       />
                     </div>
                   </div>
+
+                  {session?.user && !useSaved && (
+                    <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+                      <input
+                        type="checkbox"
+                        id="saveAsDefault"
+                        checked={saveAsDefault}
+                        onChange={(e) => setSaveAsDefault(e.target.checked)}
+                        className="w-4 h-4 rounded text-[#34a121] focus:ring-[#34a121] border-gray-300 cursor-pointer"
+                      />
+                      <label htmlFor="saveAsDefault" className="text-xs font-semibold text-text-dark cursor-pointer select-none">
+                        Save this as default address
+                      </label>
+                    </div>
+                  )}
                 </form>
               </div>
             </div>
@@ -537,39 +645,13 @@ export default function CheckoutPage() {
 
                 {/* Payment Methods */}
                 <div className="mb-6 border border-gray-200 rounded-sm p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <input 
-                      type="radio" 
-                      id="pay-online" 
-                      name="payment" 
-                      checked={paymentMethod === "online"}
-                      onChange={() => setPaymentMethod("online")}
-                      className="accent-black" 
-                    />
-                    <label htmlFor="pay-online" className="text-sm font-bold text-text-dark">Razorpay (Cards / UPI / NetBanking)</label>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-2 h-2 rounded-full bg-primary inline-block"></span>
+                    <span className="text-sm font-bold text-text-dark">Online Payment / Razorpay</span>
                   </div>
-                  {paymentMethod === "online" && (
-                    <div className="bg-gray-50 p-3 rounded text-xs text-text-muted font-body leading-relaxed mb-3 border border-gray-100">
-                      Pay securely by Credit or Debit card or Internet Banking through Razorpay.
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-2">
-                    <input 
-                      type="radio" 
-                      id="pay-cod" 
-                      name="payment" 
-                      checked={paymentMethod === "cod"}
-                      onChange={() => setPaymentMethod("cod")}
-                      className="accent-black" 
-                    />
-                    <label htmlFor="pay-cod" className="text-sm font-bold text-text-dark">Cash on Delivery</label>
+                  <div className="bg-gray-50 p-3 rounded text-xs text-text-muted font-body leading-relaxed border border-gray-100">
+                    Pay securely using Cards, UPI, NetBanking or Wallets through Razorpay.
                   </div>
-                  {paymentMethod === "cod" && (
-                    <div className="bg-gray-50 p-3 rounded text-xs text-text-muted font-body leading-relaxed mt-3 border border-gray-100">
-                      Pay with cash upon delivery.
-                    </div>
-                  )}
                 </div>
 
                 <button 

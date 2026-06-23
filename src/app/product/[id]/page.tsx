@@ -6,9 +6,10 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import ProductCard from "@/components/ui/ProductCard";
 import { products as staticProducts } from "@/data/products";
-import { Star, Minus, Plus, Share2, Check, ShieldCheck, Truck, Loader2 } from "lucide-react";
+import { Star, Minus, Plus, Share2, Check, ShieldCheck, Truck, Loader2, Calendar, AlertTriangle, XCircle, Package } from "lucide-react";
+import RatingStars from "@/components/ui/RatingStars";
+import { getProductRatingSummary } from "@/lib/utils";
 import { formatPrice } from "@/lib/utils";
-import { getCourierFee, getCourierBracketLabel } from "@/lib/shipping";
 import { useCartStore } from "@/store/cartStore";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -88,6 +89,7 @@ export default function ProductDetailPage() {
             emoji: aesthetics.emoji,
             images360: [],
             categories: found.category ? [found.category] : [],
+            shippingPolicy: (found as any).shippingPolicy || (found as any).shipping_policy || (found as any).shippingDescription || "",
           };
           setProduct(pMapped);
           setActiveImage(pMapped.image || pMapped.emoji || "");
@@ -125,6 +127,7 @@ export default function ProductDetailPage() {
             images: p.images || [],
             images360: p.images360 || [],
             description: p.description || "",
+            shippingPolicy: p.shippingPolicy || p.shipping_policy || p.shippingDescription || "",
             variants: p.variants || [],
             weight: p.weight || 0,
             weightUnit: p.weightUnit || "kg",
@@ -154,10 +157,10 @@ export default function ProductDetailPage() {
     loadProduct();
   }, [productId]);
 
-  const loadReviews = useCallback(async () => {
+  const loadReviews = useCallback(async (isSilent = false) => {
     if (!productId) return;
     try {
-      setLoadingReviews(true);
+      if (!isSilent) setLoadingReviews(true);
       const res = await fetch(`/api/reviews?productId=${productId}`);
       const data = await res.json();
       if (data.success && data.reviews) {
@@ -166,7 +169,7 @@ export default function ProductDetailPage() {
     } catch (err) {
       console.error("Failed to load reviews:", err);
     } finally {
-      setLoadingReviews(false);
+      if (!isSilent) setLoadingReviews(false);
     }
   }, [productId]);
 
@@ -227,7 +230,7 @@ export default function ProductDetailPage() {
         setFormEmail("");
         setFormRating(0);
         setFormComment("");
-        loadReviews();
+        loadReviews(true);
       } else {
         setFormErrorMsg(data.error || "Failed to submit review. Please try again.");
       }
@@ -470,6 +473,8 @@ export default function ProductDetailPage() {
 
   const selectedVariantValue = selectedVariant?.value || (sizeVariants.length > 0 ? sizeVariants[0].value : `${product.weight || 1} ${product.weightUnit || 'kg'}`);
 
+  const { averageRating, reviewCount } = getProductRatingSummary(product, loadingReviews ? undefined : reviews);
+
   return (
     <>
       <Navbar />
@@ -501,7 +506,13 @@ export default function ProductDetailPage() {
                     }`}
                   >
                     {imgUrl.startsWith("/") || imgUrl.startsWith("http") ? (
-                      <img src={imgUrl} alt={`${product.name} thumbnail`} loading="lazy" className="h-full w-full object-cover object-center" />
+                      <img 
+                        src={imgUrl} 
+                        alt={`${product.name} thumbnail`} 
+                        loading="lazy" 
+                        onError={(e) => { e.currentTarget.src = "/placeholder.svg"; }}
+                        className="h-full w-full object-cover object-center" 
+                      />
                     ) : (
                       <div className={`absolute inset-0 bg-gradient-to-br ${product.bgColor} flex items-center justify-center`}>
                         <span className="text-xl select-none">{imgUrl}</span>
@@ -527,6 +538,7 @@ export default function ProductDetailPage() {
                         <img
                           src={activeImage}
                           alt={product.name}
+                          onError={(e) => { e.currentTarget.src = "/placeholder.svg"; }}
                           className="h-full w-full object-contain object-center bg-gray-50/50"
                         />
                       ) : (
@@ -581,13 +593,9 @@ export default function ProductDetailPage() {
                   )}
 
                   <div className="flex items-center gap-2 border-l border-gray-150 pl-4 md:pl-6">
-                    <div className="flex text-[#ffc107]">
-                      {[1,2,3,4,5].map(i => (
-                        <Star key={i} size={15} className={i <= Math.floor(product.rating) ? "fill-current text-[#ffc107]" : "text-gray-200"} />
-                      ))}
-                    </div>
+                    <RatingStars rating={averageRating} size={15} />
                     <span className="text-xs font-semibold text-gray-400">
-                      {product.reviewCount} reviews
+                      {reviewCount} {reviewCount === 1 ? 'review' : 'reviews'}
                     </span>
                   </div>
                 </div>
@@ -727,15 +735,9 @@ export default function ProductDetailPage() {
               <div className="flex w-full md:max-w-[340px] flex-col gap-3 pt-2 text-[13px] font-bold text-[#234229]">
                 <div className="flex items-center gap-3 rounded-xl border border-primary/10 bg-[#f2fcf4] p-3 min-[390px]:p-3.5">
                   <Truck size={20} className="text-[#34a121] shrink-0 animate-bounce" /> 
-                  <div className="flex flex-col">
-                    <span className="leading-tight text-[#34a121] font-bold">Delivery in 3–4 Days</span>
-                    <span className="text-[11px] text-gray-500 font-medium mt-1">
-                      Estimated Courier: <span className="font-bold text-gray-800">₹{
-                        getCourierFee(getWeightInKg(), currentSalePrice * quantity)
-                      }</span> ({getCourierBracketLabel(getWeightInKg())})
-                    </span>
-                    <span className="text-[10px] text-gray-400 font-medium mt-0.5">Calculated based on selected weight</span>
-                  </div>
+                  <span className="leading-tight text-[#234229] font-bold">
+                    The product will be delivered within 6 working days.
+                  </span>
                 </div>
                 <div className="flex items-center gap-3 pl-3.5">
                   <ShieldCheck size={18} className="text-[#34a121] shrink-0" /> 
@@ -752,6 +754,7 @@ export default function ProductDetailPage() {
               {[
                 { id: 'description', label: 'Description' },
                 { id: 'nutrition', label: 'Nutrition' },
+                { id: 'shipping-policy', label: 'Shipping & Return Policy' },
                 { id: 'reviews', label: 'Reviews' }
               ].map(tab => {
                 const isActive = activeTab === tab.id;
@@ -800,6 +803,73 @@ export default function ProductDetailPage() {
                   <p className="text-[#6E6A60]">No preservatives, artificial colors, or flavors added. Carefully sourced and hygienically packed to preserve freshness and nutrition value.</p>
                 </div>
               )}
+              {activeTab === 'shipping-policy' && (
+                <div className="max-w-3xl text-[#2E3737] leading-[1.8] font-body text-[15.5px] space-y-6">
+                  {product.shippingPolicy ? (
+                    <div 
+                      className="leading-[1.8] font-body text-[15.5px] text-[#2E3737]"
+                      dangerouslySetInnerHTML={{ __html: product.shippingPolicy }}
+                    />
+                  ) : (
+                    <div className="space-y-6">
+                      {/* Row 1: All India Shipping */}
+                      <div className="flex gap-4 items-start">
+                        <div className="w-10 h-10 rounded-full bg-[#f2fcf4] flex items-center justify-center text-[#34a121] shrink-0 border border-[#34a121]/10">
+                          <Truck size={18} />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-black text-sm mb-0.5">All India Shipping</h4>
+                          <p className="text-[#6E6A60] text-xs leading-relaxed">All India shipping available.</p>
+                        </div>
+                      </div>
+
+                      {/* Row 2: Delivery Time */}
+                      <div className="flex gap-4 items-start">
+                        <div className="w-10 h-10 rounded-full bg-[#f2fcf4] flex items-center justify-center text-[#34a121] shrink-0 border border-[#34a121]/10">
+                          <Calendar size={18} />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-black text-sm mb-0.5">Delivery Time</h4>
+                          <p className="text-[#6E6A60] text-xs leading-relaxed">The product will be delivered within 6 working days.</p>
+                        </div>
+                      </div>
+
+                      {/* Row 3: Damage Claims */}
+                      <div className="flex gap-4 items-start">
+                        <div className="w-10 h-10 rounded-full bg-[#f2fcf4] flex items-center justify-center text-[#34a121] shrink-0 border border-[#34a121]/10">
+                          <AlertTriangle size={18} />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-black text-sm mb-0.5">Damage Claims</h4>
+                          <p className="text-[#6E6A60] text-xs leading-relaxed">In case of valid damage claims, they must be reported within 24 hours of product delivery. At our discretion, we may offer a replacement, which will be delivered within 4–5 working days.</p>
+                        </div>
+                      </div>
+
+                      {/* Row 4: Returns & Refunds */}
+                      <div className="flex gap-4 items-start">
+                        <div className="w-10 h-10 rounded-full bg-[#f2fcf4] flex items-center justify-center text-[#34a121] shrink-0 border border-[#34a121]/10">
+                          <XCircle size={18} />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-black text-sm mb-0.5">Returns & Refunds</h4>
+                          <p className="text-[#6E6A60] text-xs leading-relaxed">No returns. No refunds.</p>
+                        </div>
+                      </div>
+
+                      {/* Row 5: Packing Disclaimer */}
+                      <div className="flex gap-4 items-start">
+                        <div className="w-10 h-10 rounded-full bg-[#f2fcf4] flex items-center justify-center text-[#34a121] shrink-0 border border-[#34a121]/10">
+                          <Package size={18} />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-black text-sm mb-0.5">Packing Disclaimer</h4>
+                          <p className="text-[#6E6A60] text-xs leading-relaxed">Product packing image shown on the website is only a sample image. You will receive the same product in a different style of packing.</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
               {activeTab === 'reviews' && (
                 <div className="space-y-10">
                   {/* Reviews Summary Header */}
@@ -808,22 +878,15 @@ export default function ProductDetailPage() {
                       <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Average Rating</p>
                       <div className="flex flex-col sm:flex-row items-center gap-3">
                         <span className="text-4xl font-extrabold text-black font-heading leading-none">
-                          {product.rating ? product.rating.toFixed(1) : "0.0"}
+                          {averageRating ? averageRating.toFixed(1) : "0.0"}
                         </span>
                         <div>
                           <div className="flex text-[#ffc107] mb-0.5 justify-center sm:justify-start">
-                            {[1, 2, 3, 4, 5].map((star) => {
-                              const isFilled = star <= Math.round(product.rating || 0);
-                              return (
-                                <Star
-                                  key={star}
-                                  size={16}
-                                  className={isFilled ? "fill-current text-[#ffc107]" : "text-gray-200"}
-                                />
-                              );
-                            })}
+                            <RatingStars rating={averageRating} size={16} />
                           </div>
-                          <p className="text-xs text-gray-400 font-semibold">{product.reviewCount || 0} reviews</p>
+                          <p className="text-xs text-gray-400 font-semibold">
+                            {reviewCount || 0} {reviewCount === 1 ? 'review' : 'reviews'}
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -853,7 +916,7 @@ export default function ProductDetailPage() {
                   {/* Reviews List */}
                   <div className="pt-4">
                     <h2 className="text-xl md:text-2xl font-bold text-[#222] mb-8 font-heading">
-                      {reviews.length} {reviews.length === 1 ? 'review' : 'reviews'} for {product.name}
+                      {reviewCount} {reviewCount === 1 ? 'review' : 'reviews'} for {product.name}
                     </h2>
                     
                     {loadingReviews ? (
@@ -880,11 +943,19 @@ export default function ProductDetailPage() {
                                 <div className="text-[15px]">
                                   <strong className="text-[#222] font-semibold">{rev.customer_name}</strong>
                                   <span className="text-[#999] mx-2">–</span>
-                                  <time className="text-[#999]" dateTime={new Date(rev.createdAt).toISOString()}>
-                                    {new Date(rev.createdAt).toLocaleDateString("en-US", {
-                                      year: 'numeric', month: 'long', day: 'numeric'
-                                    })}
-                                  </time>
+                                  {(() => {
+                                    const dateObj = rev.createdAt ? new Date(rev.createdAt) : null;
+                                    const isValid = dateObj && !isNaN(dateObj.getTime());
+                                    return isValid ? (
+                                      <time className="text-[#999]" dateTime={dateObj.toISOString()}>
+                                        {dateObj.toLocaleDateString("en-US", {
+                                          year: 'numeric', month: 'long', day: 'numeric'
+                                        })}
+                                      </time>
+                                    ) : (
+                                      <span className="text-[#999]">Recently</span>
+                                    );
+                                  })()}
                                 </div>
                                 <div className="flex text-[#ee9e13]">
                                   {[1, 2, 3, 4, 5].map((star) => (

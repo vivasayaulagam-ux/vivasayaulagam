@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowUp } from "lucide-react";
 import dynamic from "next/dynamic";
+import { usePathname } from "next/navigation";
 
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
@@ -62,16 +63,27 @@ type HomeSettings = {
 };
 
 export default function HomePage() {
+  const pathname = usePathname();
   const [showBackTop, setShowBackTop] = useState(false);
-  const [settings, setSettings] = useState<HomeSettings>({});
+  const [settings, setSettings] = useState<HomeSettings>(() => {
+    if (typeof window !== "undefined") {
+      const cache = (window as any).__vivasayaSettingsCache;
+      if (cache) return cache;
+    }
+    return {};
+  });
 
   useEffect(() => {
     async function loadSettings() {
       try {
-        const res = await fetch("/api/settings");
+        const res = await fetch(`/api/settings?t=${Date.now()}`, { cache: "no-store" });
         const data = (await res.json()) as { success?: boolean; settings?: HomeSettings };
         if (data.success) {
-          setSettings(data.settings || {});
+          const settingsData = data.settings || {};
+          setSettings(settingsData);
+          if (typeof window !== "undefined") {
+            (window as any).__vivasayaSettingsCache = settingsData;
+          }
         }
       } catch (err) {
         console.error("Failed to load settings:", err);
@@ -89,7 +101,7 @@ export default function HomePage() {
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
 
   return (
-    <>
+    <div key={pathname}>
       <Navbar />
 
       {/* Spacer so content never hides behind the fixed navbar */}
@@ -143,6 +155,6 @@ export default function HomePage() {
           </motion.button>
         )}
       </AnimatePresence>
-    </>
+    </div>
   );
 }

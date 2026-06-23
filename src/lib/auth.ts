@@ -31,21 +31,23 @@ const authProviders: NextAuthOptions["providers"] = [
       await dbConnect();
       
       const normalizedEmail = credentials.email.toLowerCase().trim();
-      const user = await User.findOne({ email: normalizedEmail }).select("+password");
+      const user = await User.findOne({ email: normalizedEmail }).select("+password +passwordHash");
 
       if (!user) {
         throw new Error("No account found with this email");
       }
 
-      if (!user.password) {
-        throw new Error("Invalid login method. Try passwordless OTP or Google login.");
+      const hash = user.passwordHash || user.password;
+      if (!hash) {
+        throw new Error("Invalid login method. Try Google login.");
       }
 
-      if (user.emailVerified === false) {
+      const isVerified = user.isEmailVerified !== undefined ? user.isEmailVerified : user.emailVerified;
+      if (isVerified === false) {
         throw new Error("Please verify your email before login");
       }
 
-      const isPasswordMatch = await bcrypt.compare(credentials.password, user.password);
+      const isPasswordMatch = await bcrypt.compare(credentials.password, hash);
 
       if (!isPasswordMatch) {
         throw new Error("Incorrect password");
@@ -93,11 +95,13 @@ const authProviders: NextAuthOptions["providers"] = [
       let user = await User.findOne({ email: credentials.email.toLowerCase() });
       if (!user) {
         const defaultName = credentials.email.split("@")[0] || "User";
+        const isPhoneEmail = credentials.email.toLowerCase().endsWith("@vivasayaulagam.com") && /^\d+$/.test(defaultName);
         user = await User.create({
-          name: defaultName,
+          name: isPhoneEmail ? `User ${defaultName}` : defaultName,
           email: credentials.email.toLowerCase(),
           role: "user",
           emailVerified: true,
+          phone: isPhoneEmail ? defaultName : "",
         });
       } else if (user.emailVerified === false) {
         user.emailVerified = true;

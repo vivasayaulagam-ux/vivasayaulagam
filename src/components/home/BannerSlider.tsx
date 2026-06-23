@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { getImageProps } from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 
 export type BannerSlide = {
   id?: string;
@@ -53,8 +53,8 @@ export default function BannerSlider({
   const showDots = settings?.banner_show_dots !== false;
 
   const [current, setCurrent] = useState(0);
-
   const [paused, setPaused] = useState(false);
+  const [resetTimer, setResetTimer] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Touch / swipe state
@@ -62,11 +62,18 @@ export default function BannerSlider({
 
   const next = useCallback(() => {
     setCurrent((prev) => (prev + 1) % slides.length);
+    setResetTimer((prev) => prev + 1);
   }, [slides.length]);
 
   const prev = useCallback(() => {
     setCurrent((prev) => (prev - 1 + slides.length) % slides.length);
+    setResetTimer((prev) => prev + 1);
   }, [slides.length]);
+
+  const handleDotClick = (idx: number) => {
+    setCurrent(idx);
+    setResetTimer((prev) => prev + 1);
+  };
 
   // Auto-play
   useEffect(() => {
@@ -75,7 +82,7 @@ export default function BannerSlider({
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [next, paused, timer, slides.length]);
+  }, [next, paused, timer, slides.length, resetTimer]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -90,33 +97,6 @@ export default function BannerSlider({
     }
     touchStartX.current = null;
   };
-
-  const slide = slides[current];
-
-  if (!slide) return null;
-
-  const desktopImage = slide.desktopImage || slide.image;
-  const mobileImage = slide.mobileImage || desktopImage;
-  const commonImageProps = {
-    alt: slide.headline ?? `Banner slide ${current + 1}`,
-    quality: 80 as const,
-  };
-  const { props: desktopImageProps } = getImageProps({
-    ...commonImageProps,
-    src: desktopImage,
-    width: 1920,
-    height: 800,
-    sizes: "100vw",
-    loading: current === 0 ? "eager" : "lazy",
-    fetchPriority: current === 0 ? "high" : "auto",
-  });
-  const { props: mobileImageProps } = getImageProps({
-    ...commonImageProps,
-    src: mobileImage,
-    width: 1080,
-    height: 1350,
-    sizes: "100vw",
-  });
 
   return (
     <section
@@ -157,70 +137,111 @@ export default function BannerSlider({
         }
       `}</style>
 
-      {/* Slides */}
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.div
-          key={current}
-          initial={{ opacity: 0, scale: 1.035 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.65, ease: "easeInOut" }}
-          className="banner-slide absolute inset-0"
-        >
-          {slide.link ? (
-            <Link
-              href={slide.link}
-              className="banner-slide-link relative block h-full w-full"
-              aria-label={slide.headline ?? `Slide ${current + 1}`}
-            >
-              <picture>
-                <source media="(max-width: 768px)" srcSet={mobileImageProps.srcSet} />
-                <img {...desktopImageProps} alt={commonImageProps.alt} className="absolute inset-0 h-full w-full object-cover object-center" />
-              </picture>
-              {/* Gradient overlay for text readability */}
-              {(slide.headline || slide.subtitle) && (
-                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-              )}
-            </Link>
-          ) : (
-            <div className="relative h-full w-full">
-              <picture>
-                <source media="(max-width: 768px)" srcSet={mobileImageProps.srcSet} />
-                <img {...desktopImageProps} alt={commonImageProps.alt} className="absolute inset-0 h-full w-full object-cover object-center" />
-              </picture>
-              {(slide.headline || slide.subtitle) && (
-                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-              )}
-            </div>
-          )}
+      {/* Slides Container */}
+      <div className="absolute inset-0 w-full h-full">
+        {slides.map((slide, idx) => {
+          const isActive = idx === current;
+          const desktopImage = slide.desktopImage || slide.image;
+          const mobileImage = slide.mobileImage || desktopImage;
+          const commonImageProps = {
+            alt: slide.headline ?? `Banner slide ${idx + 1}`,
+            quality: 80 as const,
+          };
 
-          {/* Headline / subtitle overlay */}
-          {(slide.headline || slide.subtitle) && (
-            <div className="absolute bottom-0 left-0 right-0 px-6 pb-8 pt-20 md:px-16 md:pb-14" style={{ display: "none" }} >
-              {slide.headline && (
-                <motion.h2
-                  initial={{ opacity: 0, y: 18 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2, duration: 0.5 }}
-                  className="text-white text-xl font-bold md:text-3xl lg:text-4xl drop-shadow-lg max-w-2xl leading-tight"
+          const isPreload = idx === 0 || idx === current || idx === (current + 1) % slides.length;
+
+          const { props: desktopImageProps } = getImageProps({
+            ...commonImageProps,
+            src: desktopImage,
+            width: 1920,
+            height: 800,
+            sizes: "100vw",
+            loading: isPreload ? "eager" : "lazy",
+            priority: idx === 0,
+          });
+
+          const { props: mobileImageProps } = getImageProps({
+            ...commonImageProps,
+            src: mobileImage,
+            width: 1080,
+            height: 1350,
+            sizes: "100vw",
+            loading: isPreload ? "eager" : "lazy",
+            priority: idx === 0,
+          });
+
+          return (
+            <motion.div
+              key={idx}
+              initial={{ opacity: 0 }}
+              animate={{ 
+                opacity: isActive ? 1 : 0,
+                scale: isActive ? 1 : 1.025 
+              }}
+              transition={{ duration: 0.65, ease: "easeInOut" }}
+              style={{
+                pointerEvents: isActive ? "auto" : "none",
+                zIndex: isActive ? 10 : 0,
+                willChange: "transform, opacity",
+                backgroundColor: "#f8f8f5", // Fallback color during image load
+              }}
+              className="banner-slide absolute inset-0 w-full h-full"
+            >
+              {slide.link ? (
+                <Link
+                  href={slide.link}
+                  className="banner-slide-link relative block h-full w-full"
+                  aria-label={slide.headline ?? `Slide ${idx + 1}`}
                 >
-                  {slide.headline}
-                </motion.h2>
+                  <picture>
+                    <source media="(max-width: 768px)" srcSet={mobileImageProps.srcSet} />
+                    <img {...desktopImageProps} alt={commonImageProps.alt} className="absolute inset-0 h-full w-full object-cover object-center" />
+                  </picture>
+                  {(slide.headline || slide.subtitle) && (
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent z-10" />
+                  )}
+                </Link>
+              ) : (
+                <div className="relative h-full w-full">
+                  <picture>
+                    <source media="(max-width: 768px)" srcSet={mobileImageProps.srcSet} />
+                    <img {...desktopImageProps} alt={commonImageProps.alt} className="absolute inset-0 h-full w-full object-cover object-center" />
+                  </picture>
+                  {(slide.headline || slide.subtitle) && (
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent z-10" />
+                  )}
+                </div>
               )}
-              {slide.subtitle && (
-                <motion.p
-                  initial={{ opacity: 0, y: 14 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.35, duration: 0.5 }}
-                  className="mt-2 text-white/85 text-sm md:text-base max-w-xl drop-shadow"
-                >
-                  {slide.subtitle}
-                </motion.p>
+
+              {/* Headline / subtitle overlay */}
+              {(slide.headline || slide.subtitle) && (
+                <div className="absolute bottom-0 left-0 right-0 px-6 pb-8 pt-20 md:px-16 md:pb-14 z-20" style={{ display: "none" }}>
+                  {slide.headline && (
+                    <motion.h2
+                      initial={{ opacity: 0, y: 18 }}
+                      animate={{ opacity: isActive ? 1 : 0, y: isActive ? 0 : 18 }}
+                      transition={{ delay: 0.2, duration: 0.5 }}
+                      className="text-white text-xl font-bold md:text-3xl lg:text-4xl drop-shadow-lg max-w-2xl leading-tight"
+                    >
+                      {slide.headline}
+                    </motion.h2>
+                  )}
+                  {slide.subtitle && (
+                    <motion.p
+                      initial={{ opacity: 0, y: 14 }}
+                      animate={{ opacity: isActive ? 1 : 0, y: isActive ? 0 : 14 }}
+                      transition={{ delay: 0.35, duration: 0.5 }}
+                      className="mt-2 text-white/85 text-sm md:text-base max-w-xl drop-shadow"
+                    >
+                      {slide.subtitle}
+                    </motion.p>
+                  )}
+                </div>
               )}
-            </div>
-          )}
-        </motion.div>
-      </AnimatePresence>
+            </motion.div>
+          );
+        })}
+      </div>
 
       {/* Arrow navigation */}
       {showArrows && slides.length > 1 && (
@@ -251,7 +272,7 @@ export default function BannerSlider({
             <button
               key={idx}
               type="button"
-              onClick={() => setCurrent(idx)}
+              onClick={() => handleDotClick(idx)}
               aria-label={`Go to slide ${idx + 1}`}
               className={`transition-all duration-300 rounded-full cursor-pointer ${
                 idx === current
@@ -267,7 +288,7 @@ export default function BannerSlider({
       {slides.length > 1 && !paused && (
         <div className="absolute bottom-0 left-0 right-0 z-20 h-[3px] bg-white/20">
           <motion.div
-            key={`progress-${current}`}
+            key={`progress-${current}-${resetTimer}`}
             initial={{ width: "0%" }}
             animate={{ width: "100%" }}
             transition={{ duration: timer / 1000, ease: "linear" }}

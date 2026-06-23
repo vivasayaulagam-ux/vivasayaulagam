@@ -33,17 +33,26 @@ const mergeWithFallbackCategories = (dbCategories: CategoryCardData[]) => {
 
 export default function CategoryGrid({ settings }: { settings?: CategoryGridSettings }) {
   const [page, setPage] = useState(0);
-  const [dbCategories, setDbCategories] = useState<CategoryCardData[]>([]);
+  const [dbCategories, setDbCategories] = useState<CategoryCardData[]>(() => {
+    if (typeof window !== "undefined") {
+      const cache = (window as any).__vivasayaCategoriesCache;
+      if (cache) return cache;
+    }
+    return [];
+  });
   const [chunkSize, setChunkSize] = useState(6);
 
   useEffect(() => {
     async function fetchCategories() {
       try {
-        const res = await fetch("/api/categories");
+        const res = await fetch(`/api/categories?t=${Date.now()}`, { cache: "no-store" });
         const data = (await res.json()) as CategoryApiResponse;
         const visibleCategories = data.categories?.filter((category) => category.isVisible !== false) ?? [];
         if (data.success && visibleCategories.length > 0) {
           setDbCategories(visibleCategories);
+          if (typeof window !== "undefined") {
+            (window as any).__vivasayaCategoriesCache = visibleCategories;
+          }
         }
       } catch (err) {
         console.error("Failed to fetch database categories:", err);

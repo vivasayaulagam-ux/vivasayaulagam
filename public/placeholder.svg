@@ -1,0 +1,10 @@
+<svg width="400" height="400" viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="400" height="400" fill="#FAF9F6"/>
+  <rect x="2" y="2" width="396" height="396" rx="16" fill="none" stroke="#E5E0D5" stroke-width="2"/>
+  <circle cx="200" cy="170" r="50" fill="#EAE5DA"/>
+  <!-- Decorative leaf design representing agriculture/nature -->
+  <path d="M200 135 C215 150, 225 170, 200 205 C175 170, 185 150, 200 135 Z" fill="#34a121" opacity="0.85"/>
+  <path d="M200 135 V205" stroke="#FAF9F6" stroke-width="2" stroke-linecap="round"/>
+  <text x="200" y="275" fill="#2E3737" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="700" text-anchor="middle">No Product Image</text>
+  <text x="200" y="302" fill="#878787" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="500" text-anchor="middle">Vivasaya Ulagam</text>
+</svg>

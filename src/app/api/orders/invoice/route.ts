@@ -21,6 +21,7 @@ type InvoiceOrder = {
   createdAt: string | Date;
   status: string;
   isPaid?: boolean;
+  razorpayOrderId?: string;
   shippingAddress?: {
     fullName?: string;
     address?: string;
@@ -112,6 +113,7 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
     .payment-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-top: 6px; }
     .paid { background: #dcfce7; color: #15803d; }
     .cod { background: #fef9c3; color: #854d0e; }
+    .pending { background: #dbeafe; color: #1e40af; }
   </style>
 </head>
 <body>
@@ -128,7 +130,7 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
         <h1>INVOICE</h1>
         <p><strong>#${order.orderId}</strong></p>
         <p>Date: ${invoiceDate}</p>
-        <span class="payment-badge ${order.isPaid ? 'paid' : 'cod'}">${order.isPaid ? '✓ PAID' : '💵 CASH ON DELIVERY'}</span>
+        <span class="payment-badge ${order.isPaid ? 'paid' : (order.razorpayOrderId ? 'pending' : 'cod')}">${order.isPaid ? '✓ PAID' : (order.razorpayOrderId ? '💵 ONLINE PENDING' : '💵 CASH ON DELIVERY')}</span>
       </div>
     </div>
     

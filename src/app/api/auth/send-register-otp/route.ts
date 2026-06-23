@@ -79,7 +79,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unable to send OTP. Please try again' }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, message: 'Verification code sent successfully!' });
+    const resPayload: any = { success: true, message: 'Verification code sent successfully!' };
+    if (process.env.NODE_ENV !== 'production') {
+      resPayload.otp = otp;
+    }
+
+    return NextResponse.json(resPayload);
   } catch (error) {
     console.error('Send Register OTP error:', error);
     const message = error instanceof Error ? error.message : 'An unexpected server error occurred';

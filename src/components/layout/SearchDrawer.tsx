@@ -6,7 +6,15 @@ import { Search, X, ShoppingBag, ArrowRight, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { IMAGE_BLUR_DATA_URL } from "@/lib/image";
-import { categories } from "@/data/categories";
+
+const slugify = (text: string) => {
+  return (text || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/[\s_]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+};
 
 interface SearchDrawerProps {
   isOpen: boolean;
@@ -34,6 +42,10 @@ export default function SearchDrawer({ isOpen, onClose }: SearchDrawerProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoaded, setProductsLoaded] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  
+  const [dbCategories, setDbCategories] = useState<{ _id: string; name: string; slug: string; isVisible?: boolean }[]>([]);
+  const [categoryOpen, setCategoryOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Auto-focus input when drawer opens
   useEffect(() => {
@@ -74,6 +86,38 @@ export default function SearchDrawer({ isOpen, onClose }: SearchDrawerProps) {
     };
   }, [isOpen, productsLoaded]);
 
+  // Load visible database categories
+  useEffect(() => {
+    let isMounted = true;
+    if (isOpen) {
+      fetch("/api/categories")
+        .then((res) => res.json())
+        .then((data) => {
+          if (isMounted && data.success && data.categories) {
+            setDbCategories(data.categories.filter((c: any) => c.isVisible !== false));
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to load categories in search drawer", err);
+        });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen]);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    if (!categoryOpen) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setCategoryOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [categoryOpen]);
+
   // Handle client-side search filtering
   const filteredProducts = useMemo(() => {
     if (!query.trim() && !selectedCategory) {
@@ -91,8 +135,8 @@ export default function SearchDrawer({ isOpen, onClose }: SearchDrawerProps) {
         productCategories.some((c: string) => c.toLowerCase().includes(query.toLowerCase()));
         
       const matchesCategory = !selectedCategory ||
-        productCategory.toLowerCase() === selectedCategory.toLowerCase() ||
-        productCategories.some((c: string) => c.toLowerCase() === selectedCategory.toLowerCase());
+        slugify(productCategory) === slugify(selectedCategory) ||
+        productCategories.some((c: string) => slugify(c) === slugify(selectedCategory));
 
       return matchesQuery && matchesCategory;
     });
@@ -145,23 +189,67 @@ export default function SearchDrawer({ isOpen, onClose }: SearchDrawerProps) {
               {/* Inputs Container with a solid bottom border */}
               <div className="p-[26px] border-b border-gray-150 flex flex-col gap-4">
                 
-                {/* Category Dropdown Selector */}
-                <div className="relative w-full">
-                  <select
-                    value={selectedCategory}
-                    onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="w-full h-[50px] px-4 pr-10 border border-gray-200 text-sm focus:outline-none focus:border-black bg-white rounded-none appearance-none font-medium text-[#222222] cursor-pointer"
+                {/* Category Custom Dropdown Selector */}
+                <div className="relative w-full" ref={dropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setCategoryOpen((o) => !o)}
+                    className="w-full h-[50px] px-4 pr-10 border border-gray-200 text-sm focus:outline-none focus:border-black bg-white rounded-none flex items-center justify-between font-medium text-[#222222] cursor-pointer"
                   >
-                    <option value="">All Categories</option>
-                    {categories.map((cat) => (
-                      <option key={cat.id} value={cat.name}>
-                        {cat.name}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                    <ChevronDown size={18} strokeWidth={1.5} />
-                  </div>
+                    <span className="truncate">
+                      {selectedCategory
+                        ? dbCategories.find((c) => c.slug === selectedCategory)?.name || selectedCategory
+                        : "All Categories"}
+                    </span>
+                    <ChevronDown size={18} strokeWidth={1.5} className={`text-gray-400 transition-transform duration-200 shrink-0 ${categoryOpen ? "rotate-180" : ""}`} />
+                  </button>
+
+                  <AnimatePresence>
+                    {categoryOpen && (
+                      <motion.ul
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute left-0 right-0 z-[1070] mt-1 w-full bg-white border border-gray-200 rounded-none shadow-lg max-h-[240px] overflow-y-auto list-none p-0 m-0"
+                      >
+                        <li>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedCategory("");
+                              setCategoryOpen(false);
+                            }}
+                            className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors ${
+                              selectedCategory === "" ? "font-bold text-primary" : "text-[#222222]"
+                            }`}
+                          >
+                            All Categories
+                          </button>
+                        </li>
+                        {dbCategories.map((cat) => {
+                          const isSel = selectedCategory === cat.slug;
+                          return (
+                            <li key={cat._id}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedCategory(cat.slug);
+                                  setCategoryOpen(false);
+                                }}
+                                className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors truncate ${
+                                  isSel ? "font-bold text-primary" : "text-[#222222]"
+                                }`}
+                                title={cat.name}
+                              >
+                                {cat.name}
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </motion.ul>
+                    )}
+                  </AnimatePresence>
                 </div>
 
                 {/* Search Input Box */}

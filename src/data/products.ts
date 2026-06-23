@@ -5,6 +5,7 @@ export interface Product {
   salePrice: number;
   discount: number;
   rating: number;
+  averageRating?: number;
   reviewCount: number;
   category: string;
   categories?: string[];

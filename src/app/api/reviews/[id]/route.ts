@@ -6,8 +6,18 @@ import { requireAdmin } from '@/lib/authHelper';
 
 async function updateProductRating(productId: any) {
   if (!productId) return;
+  const { default: mongoose } = await import('mongoose');
+  if (!mongoose.Types.ObjectId.isValid(productId)) return;
+  const targetId = typeof productId === 'string' ? new mongoose.Types.ObjectId(productId) : productId;
+
   // Fetch all approved reviews for this product
-  const reviews = await Review.find({ product_id: productId, status: 'approved' });
+  const reviews = await Review.find({
+    $or: [
+      { product_id: targetId },
+      { product_id: targetId.toString() }
+    ],
+    status: 'approved'
+  });
   const reviewCount = reviews.length;
   let averageRating = 0;
   if (reviewCount > 0) {
@@ -15,7 +25,7 @@ async function updateProductRating(productId: any) {
     averageRating = Number((sum / reviewCount).toFixed(1)); // round to 1 decimal place
   }
   // Update Product document
-  await Product.findByIdAndUpdate(productId, {
+  await Product.findByIdAndUpdate(targetId, {
     rating: averageRating,
     reviewCount: reviewCount
   });
