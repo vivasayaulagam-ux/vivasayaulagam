@@ -9,7 +9,7 @@ export async function GET() {
   try {
     await dbConnect();
     const categories = await Category.find()
-      .select('name emoji slug bgColor isVisible order parentId image redirectUrl')
+      .select('name emoji slug bgColor isVisible order parentId image redirectUrl updatedAt')
       .sort({ order: 1, name: 1 })
       .lean();
     return NextResponse.json({ success: true, categories }, {

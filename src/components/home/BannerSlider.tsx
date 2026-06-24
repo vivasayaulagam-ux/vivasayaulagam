@@ -30,8 +30,10 @@ const DEFAULT_HEIGHT_DESKTOP = 560;
 
 export default function BannerSlider({
   settings,
+  isLoading = false,
 }: {
   settings?: BannerSliderSettings;
+  isLoading?: boolean;
 }) {
   const slides: BannerSlide[] =
     settings?.banner_slides && settings.banner_slides.length > 0
@@ -47,8 +49,8 @@ export default function BannerSlider({
           },
         ];
 
-  const timer = (settings?.banner_timer ?? DEFAULT_TIMER) * 1000;
   const heightDesktop = settings?.banner_height_desktop ?? DEFAULT_HEIGHT_DESKTOP;
+  const timer = (settings?.banner_timer ?? DEFAULT_TIMER) * 1000;
   const showArrows = settings?.banner_show_arrows !== false;
   const showDots = settings?.banner_show_dots !== false;
 
@@ -77,12 +79,12 @@ export default function BannerSlider({
 
   // Auto-play
   useEffect(() => {
-    if (slides.length <= 1 || paused) return;
+    if (isLoading || slides.length <= 1 || paused) return;
     intervalRef.current = setInterval(next, timer);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [next, paused, timer, slides.length, resetTimer]);
+  }, [next, paused, timer, slides.length, resetTimer, isLoading]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -97,6 +99,46 @@ export default function BannerSlider({
     }
     touchStartX.current = null;
   };
+
+  if (isLoading) {
+    return (
+      <section
+        className="banner-slider-section relative w-full overflow-hidden"
+        aria-label="Loading banner slider"
+        style={{
+          minHeight: `${heightDesktop}px`,
+          height: `${heightDesktop}px`,
+        }}
+      >
+        <style>{`
+          @media (max-width: 768px) {
+            .banner-slider-section {
+              min-height: unset !important;
+              height: auto !important;
+              background-color: #f8f8f5;
+            }
+            .banner-skeleton {
+              aspect-ratio: 16/9;
+              width: 100% !important;
+              height: auto !important;
+              min-height: 280px !important;
+              position: static !important;
+            }
+          }
+          @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+          }
+          .shimmer-bg {
+            background: linear-gradient(90deg, #f8f8f5 25%, #f1f1eb 50%, #f8f8f5 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+          }
+        `}</style>
+        <div className="banner-skeleton absolute inset-0 w-full h-full shimmer-bg" style={{ backgroundColor: "#f8f8f5" }} />
+      </section>
+    );
+  }
 
   return (
     <section
