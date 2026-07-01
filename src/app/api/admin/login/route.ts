@@ -28,10 +28,13 @@ export async function POST(req: NextRequest) {
       .setExpirationTime("24h")
       .sign(SECRET);
 
+    // Determine if connection is HTTPS (either directly or via reverse proxy)
+    const isHttps = req.nextUrl.protocol === "https:" || req.headers.get("x-forwarded-proto") === "https";
+
     const res = NextResponse.json({ success: true });
     res.cookies.set("admin_token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: isHttps,
       sameSite: "lax",
       maxAge: 60 * 60 * 24, // 24 hours
       path: "/",
