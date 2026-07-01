@@ -11,7 +11,6 @@ import MediaUpload from '@/components/admin/products/MediaUpload';
 import CategorySelect from '@/components/admin/products/CategorySelect';
 import PricingSection from '@/components/admin/products/PricingSection';
 import InventorySection from '@/components/admin/products/InventorySection';
-import ShippingSection from '@/components/admin/products/ShippingSection';
 import VariantsSection from '@/components/admin/products/VariantsSection';
 import SeoPreview from '@/components/admin/products/SeoPreview';
 import StatusCard from '@/components/admin/products/StatusCard';
@@ -23,13 +22,6 @@ const defaultForm: ProductFormData = {
   title: '', description: '', images: [], category: '', categories: [],
   price: '', compareAtPrice: '', unitPrice: '', chargeTax: false, costPerItem: '',
   trackInventory: false, quantity: '', sku: '', barcode: '', continueSelling: false,
-  isPhysical: true, weight: '', weightUnit: 'kg', countryOrigin: '', hsCode: '',
-  courierRates: {
-    charge_250g: '',
-    charge_500g: '',
-    charge_1kg: '',
-    charge_above: '',
-  },
   variants: [], seoTitle: '', seoDescription: '', seoSlug: '',
   status: 'draft', productType: '', vendor: '', collections: [], tags: [],
   themeTemplate: 'default',
@@ -77,17 +69,6 @@ export default function EditProductPage() {
             sku: p.sku ?? '',
             barcode: p.barcode ?? '',
             continueSelling: p.continueSelling ?? false,
-            isPhysical: p.isPhysical ?? true,
-            weight: p.weight ?? '',
-            weightUnit: p.weightUnit ?? 'kg',
-            countryOrigin: p.countryOrigin ?? '',
-            hsCode: p.hsCode ?? '',
-            courierRates: {
-              charge_250g: p.courierRates?.charge_250g ?? '',
-              charge_500g: p.courierRates?.charge_500g ?? '',
-              charge_1kg: p.courierRates?.charge_1kg ?? '',
-              charge_above: p.courierRates?.charge_above ?? '',
-            },
             variants: p.variants ?? [],
             seoTitle: p.seoTitle ?? '',
             seoDescription: p.seoDescription ?? '',
@@ -111,9 +92,6 @@ export default function EditProductPage() {
     const e: typeof errors = {};
     if (!form.title.trim()) e.title = 'Title is required';
     if (form.price === '' || Number(form.price) < 0) e.price = 'Valid price is required';
-    if (form.isPhysical && (form.weight === '' || Number(form.weight) <= 0)) {
-      e.weight = 'Weight is required for physical products';
-    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -211,7 +189,6 @@ export default function EditProductPage() {
           <CategorySelect form={form} update={update} />
           <PricingSection form={form} update={update} errors={errors} />
           <InventorySection form={form} update={update} />
-          <ShippingSection form={form} update={update} errors={errors} />
           <VariantsSection form={form} update={update} />
           <SeoPreview form={form} update={update} />
         </div>

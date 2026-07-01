@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     }
 
     const resPayload: any = { success: true, message: 'Password reset code sent to your email!' };
-    if (process.env.NODE_ENV !== 'production' || emailConfigError || !emailSent) {
+    if (process.env.NODE_ENV === 'development') {
       resPayload.otp = otp;
     }
 

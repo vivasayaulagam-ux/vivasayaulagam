@@ -98,8 +98,8 @@ export async function POST(req: NextRequest) {
     }
 
     const resPayload: any = { success: true, message: 'Verification code sent successfully!' };
-    // Include OTP in non-production payload for easier testing
-    if (process.env.NODE_ENV !== 'production' || emailConfigError || !emailSent) {
+    // Include OTP in development payload for easier testing
+    if (process.env.NODE_ENV === 'development') {
       resPayload.otp = otp;
     }
 

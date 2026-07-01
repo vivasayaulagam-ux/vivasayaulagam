@@ -198,17 +198,6 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
           <td style="text-align:right;">${order.totalWeightKg.toFixed(2)} kg</td>
         </tr>
         ` : ''}
-        ${order.courierRate ? `
-        <tr class="subtotal">
-          <td>Courier Rate</td>
-          <td style="text-align:right;">${formatCurrency(order.courierRate)} / kg</td>
-        </tr>
-        ` : (order.deliveryFee && order.totalWeightKg ? `
-        <tr class="subtotal">
-          <td>Courier Rate</td>
-          <td style="text-align:right;">${formatCurrency(order.deliveryFee / order.totalWeightKg)} / kg</td>
-        </tr>
-        ` : '')}
         <tr class="subtotal">
           <td>Delivery Fee</td>
           <td style="text-align:right;">${formatCurrency(Math.max(0, deliveryFee))}</td>

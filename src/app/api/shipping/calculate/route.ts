@@ -3,7 +3,7 @@ import dbConnect from '@/lib/db';
 import CourierCharge from '@/models/CourierCharge';
 import Setting from '@/models/Setting';
 import Product from '@/models/Product';
-import { getCourierFee, DEFAULT_COURIER_RATES } from '@/lib/shipping';
+import { resolveSlabCharge } from '@/lib/shipping';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,21 +53,17 @@ export async function GET(req: NextRequest) {
       if (subtotal >= (matchingRule.minimum_order_value || 0)) {
         // Check free shipping threshold
         if (matchingRule.free_shipping_above !== null && matchingRule.free_shipping_above !== undefined && subtotal >= matchingRule.free_shipping_above) {
-          return NextResponse.json({ success: true, courier_charge: 0, rate_per_kg: matchingRule.courier_charge, ruleUsed: matchingRule });
+          return NextResponse.json({ success: true, courier_charge: 0, rate_per_kg: 0, ruleUsed: matchingRule });
         }
-        const calculatedCharge = Number((weight * matchingRule.courier_charge).toFixed(2));
-        return NextResponse.json({ success: true, courier_charge: calculatedCharge, rate_per_kg: matchingRule.courier_charge, ruleUsed: matchingRule });
+        const calculatedCharge = resolveSlabCharge(weight, state || matchingRule.state_name || '', matchingRule.slabs);
+        return NextResponse.json({ success: true, courier_charge: calculatedCharge, rate_per_kg: 0, ruleUsed: matchingRule });
       }
     }
 
     // 2. Fallback to standard weight calculation
-    const courierSetting = await Setting.findOne({ key: 'courier_charges' });
-    const globalRates = courierSetting?.value || DEFAULT_COURIER_RATES;
-    const globalRate = globalRates.rate_per_kg ?? 100;
+    const courierCharge = resolveSlabCharge(weight, state || '', []);
 
-    const courierCharge = Number((weight * globalRate).toFixed(2));
-
-    return NextResponse.json({ success: true, courier_charge: courierCharge, rate_per_kg: globalRate, fallback: true });
+    return NextResponse.json({ success: true, courier_charge: courierCharge, rate_per_kg: 0, fallback: true });
   } catch (error: any) {
     console.error('Calculate shipping API error:', error);
     return NextResponse.json({ success: false, error: 'Failed to calculate shipping charge' }, { status: 500 });

@@ -108,6 +108,14 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState("online");
   const [settings, setSettings] = useState<CheckoutSettings>({});
   const [isPaymentProcessing, setIsPaymentProcessing] = useState(false);
+
+  const isCodEnabled = settings && Number((settings as any).cod_enabled) === 1;
+
+  useEffect(() => {
+    if (!isCodEnabled && paymentMethod === "COD") {
+      setPaymentMethod("online");
+    }
+  }, [isCodEnabled, paymentMethod]);
   
   // Custom API Courier Fee
   const [courierFee, setCourierFee] = useState<number | null>(null);
@@ -190,7 +198,7 @@ export default function CheckoutPage() {
 
 
   const subtotal = totalPrice();
-  const totalWeight = items.reduce((sum, item) => sum + toWeightKg(item.weight, item.weightUnit || "kg") * item.quantity, 0);
+  const totalWeight = items.reduce((sum, item) => sum + toWeightKg(item.weight, item.weightUnit || "kg", item.name) * item.quantity, 0);
 
   // Fetch shipping fee dynamically when state or pincode changes
   useEffect(() => {
@@ -201,7 +209,7 @@ export default function CheckoutPage() {
           pincode: shippingAddress.postalCode || "",
           subtotal: String(subtotal),
           weight: String(totalWeight),
-          items: JSON.stringify(items.map(i => ({ productId: i.id.split("-")[0], quantity: i.quantity, price: i.price, weightKg: toWeightKg(i.weight, i.weightUnit || "kg") })))
+          items: JSON.stringify(items.map(i => ({ productId: i.id.split("-")[0], quantity: i.quantity, price: i.price, weightKg: toWeightKg(i.weight, i.weightUnit || "kg", i.name) })))
         });
         const res = await fetch(`/api/shipping/calculate?${queryParams.toString()}`);
         const data = await res.json();
@@ -223,7 +231,7 @@ export default function CheckoutPage() {
   }, [shippingAddress.state, shippingAddress.postalCode, subtotal, totalWeight, items]);
 
   const resolvedDeliveryFee = courierFee !== null ? courierFee : 0;
-  const hasMissingWeight = items.some((item) => toWeightKg(item.weight, item.weightUnit || "kg") <= 0);
+  const hasMissingWeight = false;
   const total = subtotal + resolvedDeliveryFee;
 
   useEffect(() => {
@@ -261,7 +269,7 @@ export default function CheckoutPage() {
     setLoading(true);
 
     try {
-      // 1. Create order on our backend (which creates razorpay order)
+      // 1. Create order on our backend (which creates razorpay order or handles COD)
       const res = await fetch("/api/orders/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -269,7 +277,8 @@ export default function CheckoutPage() {
           items,
           totalAmount: total,
           shippingAddress,
-          isCod: false,
+          isCod: paymentMethod === "COD",
+          paymentMethod,
           saveAsDefault: !useSaved && saveAsDefault
         }),
       });
@@ -277,6 +286,13 @@ export default function CheckoutPage() {
       const orderData = await res.json();
 
       if (!res.ok) throw new Error(orderData.error);
+
+      // Check if COD order
+      if (orderData.isCod) {
+        clearCart();
+        router.replace(`/payment-success?orderId=${orderData.viuOrderId || orderData.orderId}&dbOrderId=${orderData.dbOrderId}&token=${orderData.token || ""}&isCod=true`);
+        return;
+      }
 
 
       // Check if simulated
@@ -606,7 +622,7 @@ export default function CheckoutPage() {
                           <p className="font-semibold text-text-dark text-xs">{item.name}</p>
                           <p className="text-[11px] text-text-muted">Qty: {item.quantity}</p>
                           <p className="text-[11px] text-text-muted">
-                            Weight: {formatWeightKg(toWeightKg(item.weight, item.weightUnit || "kg"))}
+                            Weight: {formatWeightKg(toWeightKg(item.weight, item.weightUnit || "kg", item.name))}
                           </p>
                         </div>
                       </div>
@@ -622,12 +638,6 @@ export default function CheckoutPage() {
                     <span>Total Weight</span>
                     <span className="font-heading font-semibold text-text-dark">{formatWeightKg(totalWeight)}</span>
                   </div>
-                  {appliedRate > 0 && (
-                    <div className="flex justify-between text-text-muted">
-                      <span>Courier Rate</span>
-                      <span className="font-heading font-semibold text-text-dark">₹{appliedRate} / kg</span>
-                    </div>
-                  )}
                   <div className="flex justify-between text-text-muted">
                     <span>Courier Charges</span>
                     <span className="font-heading font-semibold text-text-dark">{formatPrice(resolvedDeliveryFee)}</span>
@@ -644,13 +654,47 @@ export default function CheckoutPage() {
                 </div>
 
                 {/* Payment Methods */}
-                <div className="mb-6 border border-gray-200 rounded-sm p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="w-2 h-2 rounded-full bg-primary inline-block"></span>
-                    <span className="text-sm font-bold text-text-dark">Online Payment / Razorpay</span>
-                  </div>
-                  <div className="bg-gray-50 p-3 rounded text-xs text-text-muted font-body leading-relaxed border border-gray-100">
-                    Pay securely using Cards, UPI, NetBanking or Wallets through Razorpay.
+                <div className="space-y-4 mb-6">
+                  <h3 className="text-xs font-bold text-text-dark">Select Payment Method</h3>
+                  
+                  <div className="space-y-3">
+                    {/* Online Payment Option */}
+                    <label className={`block border p-4 rounded-sm cursor-pointer transition-all ${paymentMethod === 'online' ? 'border-[#34a121] bg-[#34a121]/5' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value="online"
+                          checked={paymentMethod === 'online'}
+                          onChange={() => setPaymentMethod('online')}
+                          className="w-4 h-4 text-[#34a121] focus:ring-[#34a121] border-gray-300 mt-0.5 cursor-pointer"
+                        />
+                        <div>
+                          <span className="text-xs font-bold text-text-dark block">Online Payment / Razorpay</span>
+                          <span className="text-[11px] text-text-muted leading-relaxed block mt-0.5">Pay securely using Cards, UPI, NetBanking or Wallets through Razorpay.</span>
+                        </div>
+                      </div>
+                    </label>
+
+                    {/* Cash on Delivery Option (Only if enabled) */}
+                    {isCodEnabled && (
+                      <label className={`block border p-4 rounded-sm cursor-pointer transition-all ${paymentMethod === 'COD' ? 'border-[#34a121] bg-[#34a121]/5' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="radio"
+                            name="paymentMethod"
+                            value="COD"
+                            checked={paymentMethod === 'COD'}
+                            onChange={() => setPaymentMethod('COD')}
+                            className="w-4 h-4 text-[#34a121] focus:ring-[#34a121] border-gray-300 mt-0.5 cursor-pointer"
+                          />
+                          <div>
+                            <span className="text-xs font-bold text-text-dark block">Cash on Delivery (COD)</span>
+                            <span className="text-[11px] text-text-muted leading-relaxed block mt-0.5">Pay with cash upon delivery of your order.</span>
+                          </div>
+                        </div>
+                      </label>
+                    )}
                   </div>
                 </div>
 

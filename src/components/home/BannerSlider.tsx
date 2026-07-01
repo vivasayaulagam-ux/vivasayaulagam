@@ -102,242 +102,300 @@ export default function BannerSlider({
 
   if (isLoading) {
     return (
+      <>
+        {/* DESKTOP SKELETON */}
+        <section
+          className="banner-slider-section hidden md:block relative w-full overflow-hidden"
+          aria-label="Loading banner slider desktop"
+          style={{
+            minHeight: `${heightDesktop}px`,
+            height: `${heightDesktop}px`,
+          }}
+        >
+          <style>{`
+            @keyframes shimmer {
+              0% { background-position: -200% 0; }
+              100% { background-position: 200% 0; }
+            }
+            .shimmer-bg {
+              background: linear-gradient(90deg, #f8f8f5 25%, #f1f1eb 50%, #f8f8f5 75%);
+              background-size: 200% 100%;
+              animation: shimmer 1.5s infinite;
+            }
+          `}</style>
+          <div className="banner-skeleton absolute inset-0 w-full h-full shimmer-bg" style={{ backgroundColor: "#f8f8f5" }} />
+        </section>
+
+        {/* MOBILE SKELETON */}
+        <section
+          className="banner-slider-section md:hidden relative w-full aspect-[16/9] overflow-hidden bg-white"
+          aria-label="Loading banner slider mobile"
+        >
+          <style>{`
+            @keyframes shimmer {
+              0% { background-position: -200% 0; }
+              100% { background-position: 200% 0; }
+            }
+            .shimmer-bg {
+              background: linear-gradient(90deg, #f8f8f5 25%, #f1f1eb 50%, #f8f8f5 75%);
+              background-size: 200% 100%;
+              animation: shimmer 1.5s infinite;
+            }
+          `}</style>
+          <div className="banner-skeleton absolute inset-0 w-full h-full shimmer-bg" style={{ backgroundColor: "#f8f8f5" }} />
+        </section>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {/* DESKTOP BANNER SLIDER */}
       <section
-        className="banner-slider-section relative w-full overflow-hidden"
-        aria-label="Loading banner slider"
+        className="banner-slider-section hidden md:block relative w-full overflow-hidden"
+        aria-label="Banner slider desktop"
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
         style={{
           minHeight: `${heightDesktop}px`,
           height: `${heightDesktop}px`,
         }}
       >
-        <style>{`
-          @media (max-width: 768px) {
-            .banner-slider-section {
-              min-height: unset !important;
-              height: auto !important;
-              background-color: #f8f8f5;
-            }
-            .banner-skeleton {
-              aspect-ratio: 16/9;
-              width: 100% !important;
-              height: auto !important;
-              min-height: 280px !important;
-              position: static !important;
-            }
-          }
-          @keyframes shimmer {
-            0% { background-position: -200% 0; }
-            100% { background-position: 200% 0; }
-          }
-          .shimmer-bg {
-            background: linear-gradient(90deg, #f8f8f5 25%, #f1f1eb 50%, #f8f8f5 75%);
-            background-size: 200% 100%;
-            animation: shimmer 1.5s infinite;
-          }
-        `}</style>
-        <div className="banner-skeleton absolute inset-0 w-full h-full shimmer-bg" style={{ backgroundColor: "#f8f8f5" }} />
-      </section>
-    );
-  }
+        {/* Slides Container */}
+        <div className="absolute inset-0 w-full h-full">
+          {slides.map((slide, idx) => {
+            const isActive = idx === current;
+            const desktopImage = slide.desktopImage || slide.image;
+            const commonImageProps = {
+              alt: slide.headline ?? `Banner slide ${idx + 1}`,
+              quality: 80 as const,
+            };
 
-  return (
-    <section
-      className="banner-slider-section relative w-full overflow-hidden"
-      aria-label="Banner slider"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      style={{
-        minHeight: `${heightDesktop}px`,
-        height: `${heightDesktop}px`,
-      }}
-    >
-      <style>{`
-        @media (max-width: 768px) {
-          .banner-slider-section {
-            min-height: unset !important;
-            height: auto !important;
-            background-color: #f8f8f5;
-          }
-          .banner-slider-section .banner-slide {
-            position: relative !important;
-          }
-          .banner-slider-section .banner-slide-link,
-          .banner-slider-section picture {
-            display: block;
-            height: auto !important;
-            width: 100% !important;
-          }
-          .banner-slider-section img {
-            object-fit: contain !important;
-            object-position: center center !important;
-            width: 100% !important;
-            height: auto !important;
-            position: static !important;
-          }
-        }
-      `}</style>
+            const isPreload = idx === 0 || idx === current || idx === (current + 1) % slides.length;
 
-      {/* Slides Container */}
-      <div className="absolute inset-0 w-full h-full">
-        {slides.map((slide, idx) => {
-          const isActive = idx === current;
-          const desktopImage = slide.desktopImage || slide.image;
-          const mobileImage = slide.mobileImage || desktopImage;
-          const commonImageProps = {
-            alt: slide.headline ?? `Banner slide ${idx + 1}`,
-            quality: 80 as const,
-          };
+            const { props: desktopImageProps } = getImageProps({
+              ...commonImageProps,
+              src: desktopImage,
+              width: 1920,
+              height: 800,
+              sizes: "100vw",
+              loading: isPreload ? "eager" : "lazy",
+              priority: idx === 0,
+            });
 
-          const isPreload = idx === 0 || idx === current || idx === (current + 1) % slides.length;
-
-          const { props: desktopImageProps } = getImageProps({
-            ...commonImageProps,
-            src: desktopImage,
-            width: 1920,
-            height: 800,
-            sizes: "100vw",
-            loading: isPreload ? "eager" : "lazy",
-            priority: idx === 0,
-          });
-
-          const { props: mobileImageProps } = getImageProps({
-            ...commonImageProps,
-            src: mobileImage,
-            width: 1080,
-            height: 1350,
-            sizes: "100vw",
-            loading: isPreload ? "eager" : "lazy",
-            priority: idx === 0,
-          });
-
-          return (
-            <motion.div
-              key={idx}
-              initial={{ opacity: 0 }}
-              animate={{ 
-                opacity: isActive ? 1 : 0,
-                scale: isActive ? 1 : 1.025 
-              }}
-              transition={{ duration: 0.65, ease: "easeInOut" }}
-              style={{
-                pointerEvents: isActive ? "auto" : "none",
-                zIndex: isActive ? 10 : 0,
-                willChange: "transform, opacity",
-                backgroundColor: "#f8f8f5", // Fallback color during image load
-              }}
-              className="banner-slide absolute inset-0 w-full h-full"
-            >
-              {slide.link ? (
-                <Link
-                  href={slide.link}
-                  className="banner-slide-link relative block h-full w-full"
-                  aria-label={slide.headline ?? `Slide ${idx + 1}`}
-                >
-                  <picture>
-                    <source media="(max-width: 768px)" srcSet={mobileImageProps.srcSet} />
+            return (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0 }}
+                animate={{ 
+                  opacity: isActive ? 1 : 0,
+                  scale: isActive ? 1 : 1.025 
+                }}
+                transition={{ duration: 0.65, ease: "easeInOut" }}
+                style={{
+                  pointerEvents: isActive ? "auto" : "none",
+                  zIndex: isActive ? 10 : 0,
+                  willChange: "transform, opacity",
+                  backgroundColor: "#f8f8f5",
+                }}
+                className="banner-slide absolute inset-0 w-full h-full"
+              >
+                {slide.link ? (
+                  <Link
+                    href={slide.link}
+                    className="banner-slide-link relative block h-full w-full"
+                    aria-label={slide.headline ?? `Slide ${idx + 1}`}
+                  >
                     <img {...desktopImageProps} alt={commonImageProps.alt} className="absolute inset-0 h-full w-full object-cover object-center" />
-                  </picture>
-                  {(slide.headline || slide.subtitle) && (
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent z-10" />
-                  )}
-                </Link>
-              ) : (
-                <div className="relative h-full w-full">
-                  <picture>
-                    <source media="(max-width: 768px)" srcSet={mobileImageProps.srcSet} />
+                    {(slide.headline || slide.subtitle) && (
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent z-10" />
+                    )}
+                  </Link>
+                ) : (
+                  <div className="relative h-full w-full">
                     <img {...desktopImageProps} alt={commonImageProps.alt} className="absolute inset-0 h-full w-full object-cover object-center" />
-                  </picture>
-                  {(slide.headline || slide.subtitle) && (
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent z-10" />
-                  )}
-                </div>
-              )}
+                    {(slide.headline || slide.subtitle) && (
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent z-10" />
+                    )}
+                  </div>
+                )}
 
-              {/* Headline / subtitle overlay */}
-              {(slide.headline || slide.subtitle) && (
-                <div className="absolute bottom-0 left-0 right-0 px-6 pb-8 pt-20 md:px-16 md:pb-14 z-20" style={{ display: "none" }}>
-                  {slide.headline && (
-                    <motion.h2
-                      initial={{ opacity: 0, y: 18 }}
-                      animate={{ opacity: isActive ? 1 : 0, y: isActive ? 0 : 18 }}
-                      transition={{ delay: 0.2, duration: 0.5 }}
-                      className="text-white text-xl font-bold md:text-3xl lg:text-4xl drop-shadow-lg max-w-2xl leading-tight"
-                    >
-                      {slide.headline}
-                    </motion.h2>
-                  )}
-                  {slide.subtitle && (
-                    <motion.p
-                      initial={{ opacity: 0, y: 14 }}
-                      animate={{ opacity: isActive ? 1 : 0, y: isActive ? 0 : 14 }}
-                      transition={{ delay: 0.35, duration: 0.5 }}
-                      className="mt-2 text-white/85 text-sm md:text-base max-w-xl drop-shadow"
-                    >
-                      {slide.subtitle}
-                    </motion.p>
-                  )}
-                </div>
-              )}
-            </motion.div>
-          );
-        })}
-      </div>
+                {/* Headline / subtitle overlay */}
+                {(slide.headline || slide.subtitle) && (
+                  <div className="absolute bottom-0 left-0 right-0 px-6 pb-8 pt-20 md:px-16 md:pb-14 z-20" style={{ display: "none" }}>
+                    {slide.headline && (
+                      <motion.h2
+                        initial={{ opacity: 0, y: 18 }}
+                        animate={{ opacity: isActive ? 1 : 0, y: isActive ? 0 : 18 }}
+                        transition={{ delay: 0.2, duration: 0.5 }}
+                        className="text-white text-xl font-bold md:text-3xl lg:text-4xl drop-shadow-lg max-w-2xl leading-tight"
+                      >
+                        {slide.headline}
+                      </motion.h2>
+                    )}
+                    {slide.subtitle && (
+                      <motion.p
+                        initial={{ opacity: 0, y: 14 }}
+                        animate={{ opacity: isActive ? 1 : 0, y: isActive ? 0 : 14 }}
+                        transition={{ delay: 0.35, duration: 0.5 }}
+                        className="mt-2 text-white/85 text-sm md:text-base max-w-xl drop-shadow"
+                      >
+                        {slide.subtitle}
+                      </motion.p>
+                    )}
+                  </div>
+                )}
+              </motion.div>
+            );
+          })}
+        </div>
 
-      {/* Arrow navigation */}
-      {showArrows && slides.length > 1 && (
-        <>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); prev(); }}
-            aria-label="Previous slide"
-            className="absolute left-3 top-1/2 z-20 -translate-y-1/2 flex h-10 w-10 md:h-12 md:w-12 cursor-pointer items-center justify-center rounded-full bg-white/80 text-[#163D14] shadow-lg backdrop-blur-sm transition-all duration-200 hover:bg-white hover:scale-105 md:left-5"
-          >
-            <ChevronLeft size={22} strokeWidth={2.2} />
-          </button>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); next(); }}
-            aria-label="Next slide"
-            className="absolute right-3 top-1/2 z-20 -translate-y-1/2 flex h-10 w-10 md:h-12 md:w-12 cursor-pointer items-center justify-center rounded-full bg-white/80 text-[#163D14] shadow-lg backdrop-blur-sm transition-all duration-200 hover:bg-white hover:scale-105 md:right-5"
-          >
-            <ChevronRight size={22} strokeWidth={2.2} />
-          </button>
-        </>
-      )}
-
-      {/* Dot indicators */}
-      {showDots && slides.length > 1 && (
-        <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 gap-2">
-          {slides.map((_, idx) => (
+        {/* Arrow navigation */}
+        {showArrows && slides.length > 1 && (
+          <>
             <button
-              key={idx}
               type="button"
-              onClick={() => handleDotClick(idx)}
-              aria-label={`Go to slide ${idx + 1}`}
-              className={`transition-all duration-300 rounded-full cursor-pointer ${
-                idx === current
-                  ? "w-7 h-2.5 bg-white shadow-md"
-                  : "w-2.5 h-2.5 bg-white/50 hover:bg-white/80"
-              }`}
-            />
-          ))}
-        </div>
-      )}
+              onClick={(e) => { e.stopPropagation(); prev(); }}
+              aria-label="Previous slide"
+              className="absolute left-3 top-1/2 z-20 -translate-y-1/2 flex h-10 w-10 md:h-12 md:w-12 cursor-pointer items-center justify-center rounded-full bg-white/80 text-[#163D14] shadow-lg backdrop-blur-sm transition-all duration-200 hover:bg-white hover:scale-105 md:left-5"
+            >
+              <ChevronLeft size={22} strokeWidth={2.2} />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); next(); }}
+              aria-label="Next slide"
+              className="absolute right-3 top-1/2 z-20 -translate-y-1/2 flex h-10 w-10 md:h-12 md:w-12 cursor-pointer items-center justify-center rounded-full bg-white/80 text-[#163D14] shadow-lg backdrop-blur-sm transition-all duration-200 hover:bg-white hover:scale-105 md:right-5"
+            >
+              <ChevronRight size={22} strokeWidth={2.2} />
+            </button>
+          </>
+        )}
 
-      {/* Progress bar */}
-      {slides.length > 1 && !paused && (
-        <div className="absolute bottom-0 left-0 right-0 z-20 h-[3px] bg-white/20">
-          <motion.div
-            key={`progress-${current}-${resetTimer}`}
-            initial={{ width: "0%" }}
-            animate={{ width: "100%" }}
-            transition={{ duration: timer / 1000, ease: "linear" }}
-            className="h-full bg-[#3D7A1C]"
-          />
+        {/* Dot indicators */}
+        {showDots && slides.length > 1 && (
+          <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 gap-2">
+            {slides.map((_, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => handleDotClick(idx)}
+                aria-label={`Go to slide ${idx + 1}`}
+                className={`transition-all duration-300 rounded-full cursor-pointer ${
+                  idx === current
+                    ? "w-7 h-2.5 bg-white shadow-md"
+                    : "w-2.5 h-2.5 bg-white/50 hover:bg-white/80"
+                }`}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Progress bar */}
+        {slides.length > 1 && !paused && (
+          <div className="absolute bottom-0 left-0 right-0 z-20 h-[3px] bg-white/20">
+            <motion.div
+              key={`progress-${current}-${resetTimer}`}
+              initial={{ width: "0%" }}
+              animate={{ width: "100%" }}
+              transition={{ duration: timer / 1000, ease: "linear" }}
+              className="h-full bg-[#3D7A1C]"
+            />
+          </div>
+        )}
+      </section>
+
+      {/* MOBILE BANNER SLIDER */}
+      <section
+        className="banner-slider-section md:hidden relative w-full overflow-hidden bg-white"
+        aria-label="Banner slider mobile"
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* Slides Container */}
+        <div className="relative w-full h-auto">
+          {slides.map((slide, idx) => {
+            const isActive = idx === current;
+            const desktopImage = slide.desktopImage || slide.image;
+            const mobileImage = slide.mobileImage || desktopImage;
+            const commonImageProps = {
+              alt: slide.headline ?? `Banner slide ${idx + 1}`,
+            };
+
+            const isPreload = idx === 0 || idx === current || idx === (current + 1) % slides.length;
+
+            return (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0 }}
+                animate={{ 
+                  opacity: isActive ? 1 : 0,
+                  scale: isActive ? 1 : 1.01 
+                }}
+                transition={{ duration: 0.5, ease: "easeInOut" }}
+                style={{
+                  pointerEvents: isActive ? "auto" : "none",
+                  zIndex: isActive ? 10 : 0,
+                  willChange: "opacity",
+                  position: isActive ? "relative" : "absolute",
+                  inset: isActive ? undefined : 0,
+                  width: "100%",
+                  height: isActive ? "auto" : "100%",
+                  backgroundColor: "#f8f8f5",
+                }}
+                className="banner-slide-mobile"
+              >
+                {slide.link ? (
+                  <Link
+                    href={slide.link}
+                    className="banner-slide-link block w-full h-full"
+                    aria-label={slide.headline ?? `Slide ${idx + 1}`}
+                  >
+                    <img
+                      src={mobileImage}
+                      alt={commonImageProps.alt}
+                      loading={isPreload ? "eager" : "lazy"}
+                      className="w-full h-auto object-contain block"
+                    />
+                  </Link>
+                ) : (
+                  <div className="w-full h-full">
+                    <img
+                      src={mobileImage}
+                      alt={commonImageProps.alt}
+                      loading={isPreload ? "eager" : "lazy"}
+                      className="w-full h-auto object-contain block"
+                    />
+                  </div>
+                )}
+              </motion.div>
+            );
+          })}
         </div>
-      )}
-    </section>
+
+        {/* Dot indicators on mobile */}
+        {showDots && slides.length > 1 && (
+          <div className="absolute bottom-2 left-1/2 z-20 flex -translate-x-1/2 gap-1.5">
+            {slides.map((_, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => handleDotClick(idx)}
+                aria-label={`Go to slide ${idx + 1}`}
+                className={`transition-all duration-300 rounded-full cursor-pointer ${
+                  idx === current
+                    ? "w-5 h-1.5 bg-white shadow-md"
+                    : "w-1.5 h-1.5 bg-white/50 hover:bg-white/80"
+                }`}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+    </>
   );
 }

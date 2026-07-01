@@ -78,11 +78,7 @@ export default function AuthPage() {
       if (res.ok && data.success) {
         setOtpSent(true);
         setTimer(60);
-        let successInfo = "Verification code sent to your email!";
-        if (data.otp) {
-          successInfo += ` (Code: ${data.otp})`;
-        }
-        setSuccessMsg(successInfo);
+        setSuccessMsg("Verification code sent successfully. Please check your email.");
       } else {
         setError(data.error || "Unable to register. Please try again");
       }
@@ -110,11 +106,7 @@ export default function AuthPage() {
       if (res.ok && data.success) {
         setOtpSent(true);
         setTimer(300); // 5 minutes expiry for password reset
-        let successInfo = "Verification code sent to your email!";
-        if (data.otp) {
-          successInfo += ` (Code: ${data.otp})`;
-        }
-        setSuccessMsg(successInfo);
+        setSuccessMsg("Verification code sent successfully. Please check your email.");
       } else {
         setError(data.error || "Failed to send reset code");
       }

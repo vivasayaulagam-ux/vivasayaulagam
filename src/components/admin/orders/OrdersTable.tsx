@@ -22,6 +22,10 @@ interface Order {
   totalWeightKg?: number;
   courierRate?: number;
   razorpayOrderId?: string;
+  sync_status?: "Pending" | "Synced" | "Failed";
+  sync_error?: string;
+  oms_order_id?: string;
+  oms_order_number?: string;
 }
 type OrderSortColumn = "orderId" | "user" | "createdAt" | "status" | "totalAmount";
 
@@ -216,6 +220,32 @@ function OrderDetailPanel({
               >
                 <Printer size={13} /> Print / Download Invoice
               </button>
+
+              {/* OMS Sync Status */}
+              <div className="mt-4 pt-3 border-t border-gray-100">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">OMS Sync Status</p>
+                <div className="flex items-center gap-2">
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold border ${
+                    order.sync_status === "Synced" 
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
+                      : order.sync_status === "Failed" 
+                      ? "bg-red-50 text-red-700 border-red-200" 
+                      : "bg-amber-50 text-amber-700 border-amber-200"
+                  }`}>
+                    {order.sync_status || "Pending"}
+                  </span>
+                  {order.oms_order_number && (
+                    <span className="text-xs text-gray-500 font-medium">
+                      No: {order.oms_order_number}
+                    </span>
+                  )}
+                </div>
+                {order.sync_error && (
+                  <p className="mt-1.5 text-[11px] text-red-600 font-medium bg-red-50/50 p-2 rounded-md border border-red-100 break-words leading-relaxed">
+                    <strong>Sync Error:</strong> {order.sync_error}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
@@ -252,12 +282,6 @@ function OrderDetailPanel({
                   <div className="flex justify-between">
                     <span>Total Weight:</span>
                     <span className="font-semibold text-gray-700">{order.totalWeightKg.toFixed(2)} kg</span>
-                  </div>
-                )}
-                {order.courierRate !== undefined && order.courierRate > 0 && (
-                  <div className="flex justify-between">
-                    <span>Courier Rate:</span>
-                    <span className="font-semibold text-gray-700">₹{order.courierRate} / kg</span>
                   </div>
                 )}
                 <div className="flex justify-between">

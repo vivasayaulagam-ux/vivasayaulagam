@@ -43,6 +43,18 @@ const OrderSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    total_weight: {
+      type: Number,
+    },
+    courier_charge: {
+      type: Number,
+    },
+    shipping_charge: {
+      type: Number,
+    },
+    grand_total: {
+      type: Number,
+    },
     status: {
       type: String,
       enum: ['pending', 'processing', 'shipped', 'delivered', 'cancelled'],
@@ -73,6 +85,38 @@ const OrderSchema = new mongoose.Schema(
     },
     paidAt: {
       type: Date,
+    },
+    oms_order_id: {
+      type: String,
+    },
+    oms_order_number: {
+      type: String,
+    },
+    sync_status: {
+      type: String,
+      enum: ['Pending', 'Synced', 'Failed'],
+      default: 'Pending',
+    },
+    sync_at: {
+      type: Date,
+    },
+    oms_response: {
+      type: mongoose.Schema.Types.Mixed,
+    },
+    sync_error: {
+      type: String,
+    },
+    retry_count: {
+      type: Number,
+      default: 0,
+    },
+    last_retry: {
+      type: Date,
+    },
+    paymentMethod: {
+      type: String,
+      enum: ['online', 'COD'],
+      default: 'online',
     },
   },
   { timestamps: true }

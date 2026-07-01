@@ -56,8 +56,6 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
         price: product.salePrice,
         quantity: qty,
         image: product.image || product.emoji,
-        weight: product.weight || 0,
-        weightUnit: product.weightUnit || "kg",
       });
       setCartState("success");
       window.setTimeout(() => setCartState("idle"), 1200);

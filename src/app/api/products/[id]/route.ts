@@ -16,7 +16,6 @@ function normalizeProductPayload(body: any) {
   return {
     ...body,
     images: normalizedImages,
-    weight: body?.weight === '' || body?.weight === undefined ? 0 : Number(body.weight),
     variants: Array.isArray(body?.variants)
       ? body.variants.map((variant: any) => ({
           ...variant,
@@ -25,14 +24,6 @@ function normalizeProductPayload(body: any) {
           stock: variant.stock === '' || variant.stock === undefined ? 0 : Number(variant.stock),
         }))
       : [],
-    courierRates: body?.courierRates
-      ? {
-          charge_250g: body.courierRates.charge_250g === '' || body.courierRates.charge_250g === undefined || body.courierRates.charge_250g === null ? null : Number(body.courierRates.charge_250g),
-          charge_500g: body.courierRates.charge_500g === '' || body.courierRates.charge_500g === undefined || body.courierRates.charge_500g === null ? null : Number(body.courierRates.charge_500g),
-          charge_1kg: body.courierRates.charge_1kg === '' || body.courierRates.charge_1kg === undefined || body.courierRates.charge_1kg === null ? null : Number(body.courierRates.charge_1kg),
-          charge_above: body.courierRates.charge_above === '' || body.courierRates.charge_above === undefined || body.courierRates.charge_above === null ? null : Number(body.courierRates.charge_above),
-        }
-      : null,
   };
 }
 

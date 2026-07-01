@@ -106,8 +106,6 @@ export function normalizeProductOutput(p: any) {
     categories: p.categories || [],
     bgColor: aesthetics.bgColor,
     emoji: aesthetics.emoji,
-    weight: p.weight || 0,
-    weightUnit: p.weightUnit || "kg",
     isNew: true,
     isBestSeller: p.collections?.includes("Best Sellers") || false,
   };

@@ -31,18 +31,7 @@ const ProductSchema = new mongoose.Schema(
     barcode: { type: String, default: '' },
     continueSelling: { type: Boolean, default: false },
 
-    // Shipping
-    isPhysical: { type: Boolean, default: true },
-    weight: { type: Number, default: 0 },
-    weightUnit: { type: String, default: 'kg' },
-    countryOrigin: { type: String, default: '' },
-    hsCode: { type: String, default: '' },
-    courierRates: {
-      charge_250g: { type: Number },
-      charge_500g: { type: Number },
-      charge_1kg: { type: Number },
-      charge_above: { type: Number },
-    },
+
 
     // Variants
     variants: [VariantSchema],

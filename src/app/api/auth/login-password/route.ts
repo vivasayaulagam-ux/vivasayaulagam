@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
 
     const user = await User.findOne({ email: normalizedEmail }).select('+password +passwordHash');
     if (!user) {
-      return NextResponse.json({ success: false, error: 'No account found with this email' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'No account found with this email' }, { status: 401 });
     }
 
     const hash = user.passwordHash || user.password;
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     // Verify password match
     const isPasswordMatch = await bcrypt.compare(password, hash);
     if (!isPasswordMatch) {
-      return NextResponse.json({ success: false, error: 'Incorrect password' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Incorrect password' }, { status: 401 });
     }
 
     // Verify email is verified

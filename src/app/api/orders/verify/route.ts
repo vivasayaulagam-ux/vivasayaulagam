@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import dbConnect from '@/lib/db';
 import Order from '@/models/Order';
 import { sendEmail, sendAdminNotification } from '@/lib/email';
+import { syncOrderToOMS } from '@/lib/services/omsSync';
 
 type VerifyPaymentPayload = {
   razorpay_order_id?: string;
@@ -55,6 +56,21 @@ export async function POST(req: Request) {
     ).populate('user');
 
     if (order) {
+      // Deduct stock for online orders upon payment verification
+      try {
+        const { deductOrderStock } = await import('@/lib/inventory');
+        await deductOrderStock(order.items);
+      } catch (stockErr) {
+        console.error("Failed to deduct stock for online order:", stockErr);
+      }
+
+      // Sync to OMS immediately
+      try {
+        await syncOrderToOMS(order);
+      } catch (omsErr) {
+        console.error("Failed to sync order to OMS synchronously:", omsErr);
+      }
+
       // Fire and forget emails to speed up response
       sendAdminNotification(
         `New Order Placed - ${dbOrderId}`,
