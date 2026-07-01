@@ -122,11 +122,7 @@ export default function CartPage() {
         setModalOtpSent(true);
         setModalOtpTimer(300); // 5 minutes expiry for password reset
         setResolvedEmail(modalEmail.toLowerCase().trim());
-        let successInfo = "Verification code sent to your email!";
-        if (data.otp) {
-          successInfo += ` (Code: ${data.otp})`;
-        }
-        setModalSuccess(successInfo);
+        setModalSuccess("Verification code sent successfully. Please check your email.");
       } else {
         setModalError(data.error || "Failed to send reset code");
       }
@@ -178,12 +174,7 @@ export default function CartPage() {
         setModalOtpSent(true);
         setModalOtpTimer(60);
         setResolvedEmail(emailPayload);
-
-        let successMsg = "Verification code sent!";
-        if (data.otp) {
-          successMsg += ` (Code: ${data.otp})`;
-        }
-        setModalSuccess(successMsg);
+        setModalSuccess("Verification code sent successfully. Please check your email.");
       } else {
         setModalError(data.error || data.message || "Failed to send verification code");
       }
@@ -383,8 +374,8 @@ export default function CartPage() {
             }
 
             const resolvedWeight = variantValue
-              ? parseWeightLabelToKg(variantValue, product.weight, product.weightUnit || "kg")
-              : toWeightKg(product.weight, product.weightUnit || "kg");
+              ? parseWeightLabelToKg(variantValue, 0, "kg")
+              : toWeightKg(undefined, "kg", product.title);
 
             updateItemMetadata(item.id, {
               isOutOfStock: resolvedOutOfStock,
@@ -406,8 +397,8 @@ export default function CartPage() {
   }, [hasHydrated]);
 
   const subtotal = totalPrice();
-  const totalWeight = items.reduce((sum, item) => sum + toWeightKg(item.weight, item.weightUnit || "kg") * item.quantity, 0);
-  const hasMissingWeight = items.some((item) => toWeightKg(item.weight, item.weightUnit || "kg") <= 0);
+  const totalWeight = items.reduce((sum, item) => sum + toWeightKg(item.weight, item.weightUnit || "kg", item.name) * item.quantity, 0);
+  const hasMissingWeight = false;
   const anyOutOfStock = items.some((item) => item.isOutOfStock);
 
   useEffect(() => {
@@ -420,7 +411,7 @@ export default function CartPage() {
     const queryParams = new URLSearchParams({
       subtotal: String(subtotal),
       weight: String(totalWeight),
-      items: JSON.stringify(items.map(i => ({ productId: i.id.split("-")[0], quantity: i.quantity, price: i.price, weightKg: toWeightKg(i.weight, i.weightUnit || "kg") })))
+      items: JSON.stringify(items.map(i => ({ productId: i.id.split("-")[0], quantity: i.quantity, price: i.price, weightKg: toWeightKg(i.weight, i.weightUnit || "kg", i.name) })))
     });
     fetch(`/api/shipping/calculate?${queryParams.toString()}`)
       .then(res => res.json())
@@ -532,9 +523,9 @@ export default function CartPage() {
                           <div>
                             <h3 className="font-body font-semibold text-text-dark text-sm leading-tight mb-1">{item.name}</h3>
                             <p className="text-[11px] font-semibold text-text-muted">
-                              Weight: {formatWeightKg(toWeightKg(item.weight, item.weightUnit || "kg"))}
-                              {toWeightKg(item.weight, item.weightUnit || "kg") > 0 && item.quantity > 1
-                                ? ` x ${item.quantity} = ${formatWeightKg(toWeightKg(item.weight, item.weightUnit || "kg") * item.quantity)}`
+                              Weight: {formatWeightKg(toWeightKg(item.weight, item.weightUnit || "kg", item.name))}
+                              {toWeightKg(item.weight, item.weightUnit || "kg", item.name) > 0 && item.quantity > 1
+                                ? ` x ${item.quantity} = ${formatWeightKg(toWeightKg(item.weight, item.weightUnit || "kg", item.name) * item.quantity)}`
                                 : ""}
                             </p>
                             {item.isOutOfStock && (
@@ -626,7 +617,7 @@ export default function CartPage() {
                             Unit Price: <span className="font-heading font-bold text-text-dark">{formatPrice(item.price)}</span>
                           </div>
                           <div className="text-xs font-semibold text-text-muted">
-                            Weight: <span className="font-heading font-bold text-text-dark">{formatWeightKg(toWeightKg(item.weight, item.weightUnit || "kg"))}</span>
+                            Weight: <span className="font-heading font-bold text-text-dark">{formatWeightKg(toWeightKg(item.weight, item.weightUnit || "kg", item.name))}</span>
                           </div>
 
 
@@ -693,12 +684,6 @@ export default function CartPage() {
                       <span>Total Weight</span>
                       <span className="font-heading font-semibold text-text-dark">{formatWeightKg(totalWeight)}</span>
                     </div>
-                    {appliedRate > 0 && (
-                      <div className="flex justify-between text-text-muted">
-                        <span>Courier Rate</span>
-                        <span className="font-heading font-semibold text-text-dark">₹{appliedRate} / kg</span>
-                      </div>
-                    )}
                     <div className="flex justify-between text-text-muted">
                       <span>Courier Charges</span>
                       <span className="font-heading font-semibold text-text-dark">{formatPrice(deliveryFee)}</span>

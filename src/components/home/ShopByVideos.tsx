@@ -65,7 +65,7 @@ export default function ShopByVideos() {
     const finalName = product ? product.title : vid.title;
     const finalPrice = product ? product.price : (vid.price || 150);
     const finalImage = product ? (product.images?.[0] || vid.img) : vid.img;
-    const finalWeight = product ? toWeightKg(product.weight, product.weightUnit || 'kg') : 0.25;
+    const finalWeight = product ? toWeightKg(product.weight, product.weightUnit || 'kg', product.title) : 0.25;
 
     addItem({
       id: finalId,

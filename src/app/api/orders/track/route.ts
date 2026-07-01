@@ -74,7 +74,7 @@ export async function GET(req: Request) {
       items: order.items?.map((item) => ({ ...item, _id: item._id?.toString() })),
     };
 
-    return NextResponse.json({ order: serialized });
+    return NextResponse.json({ success: true, order: serialized });
 
   } catch (error) {
     console.error('Order tracking error:', error);

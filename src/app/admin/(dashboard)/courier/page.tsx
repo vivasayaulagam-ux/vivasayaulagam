@@ -13,6 +13,7 @@ interface CourierRule {
   pincode_start?: number;
   pincode_end?: number;
   courier_charge: number;
+  slabs?: { weight_start_g: number; weight_end_g: number; charge: number }[];
   minimum_order_value: number;
   free_shipping_above: number | null;
   status: 'active' | 'inactive';
@@ -70,6 +71,7 @@ export default function CourierChargesPage() {
   const [pincodeStart, setPincodeStart] = useState('');
   const [pincodeEnd, setPincodeEnd] = useState('');
   const [courierCharge, setCourierCharge] = useState('');
+  const [slabs, setSlabs] = useState<{ weight_start_g: number; weight_end_g: number; charge: number }[]>([]);
   const [minOrderVal, setMinOrderVal] = useState('0');
   const [freeShippingAbove, setFreeShippingAbove] = useState('');
   const [status, setStatus] = useState<'active' | 'inactive'>('active');
@@ -102,6 +104,7 @@ export default function CourierChargesPage() {
     setPincodeStart('');
     setPincodeEnd('');
     setCourierCharge('');
+    setSlabs([]);
     setMinOrderVal('0');
     setFreeShippingAbove('');
     setStatus('active');
@@ -122,6 +125,7 @@ export default function CourierChargesPage() {
     }
 
     setCourierCharge(rule.courier_charge.toString());
+    setSlabs(rule.slabs || []);
     setMinOrderVal(rule.minimum_order_value.toString());
     setFreeShippingAbove(rule.free_shipping_above !== null ? rule.free_shipping_above.toString() : '');
     setStatus(rule.status);
@@ -146,11 +150,11 @@ export default function CourierChargesPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!courierCharge) return;
     setSaving(true);
 
     const ruleData: any = {
-      courier_charge: Number(courierCharge),
+      courier_charge: Number(courierCharge || 0),
+      slabs,
       minimum_order_value: Number(minOrderVal),
       free_shipping_above: freeShippingAbove ? Number(freeShippingAbove) : null,
       status,
@@ -324,16 +328,81 @@ export default function CourierChargesPage() {
                 )}
 
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-650">Courier Rate Per KG (₹) *</label>
+                  <label className="text-xs font-semibold text-gray-650">Default / Fallback Courier Rate (₹)</label>
                   <input
                     type="number"
-                    required
                     value={courierCharge}
                     onChange={(e) => setCourierCharge(e.target.value)}
                     placeholder="e.g. 100"
                     className="w-full text-xs border border-gray-200 rounded-xl px-3.5 py-3 outline-none focus:border-[#34a121]"
                   />
                 </div>
+              </div>
+
+              {/* Weight Slabs Editor */}
+              <div className="space-y-3 pt-2">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-bold text-gray-700">Weight Slabs Configuration</label>
+                  <button
+                    type="button"
+                    onClick={() => setSlabs([...slabs, { weight_start_g: slabs.length > 0 ? slabs[slabs.length - 1].weight_end_g : 0, weight_end_g: slabs.length > 0 ? slabs[slabs.length - 1].weight_end_g + 1000 : 1000, charge: slabs.length > 0 ? slabs[slabs.length - 1].charge + 50 : 50 }])}
+                    className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-800 px-3 py-1.5 rounded-lg border-0 cursor-pointer"
+                  >
+                    + Add Slab
+                  </button>
+                </div>
+                
+                {slabs.length > 0 ? (
+                  <div className="border border-gray-150 rounded-xl overflow-hidden text-xs bg-gray-50 p-4 space-y-2">
+                    {slabs.map((slab, idx) => (
+                      <div key={idx} className="flex gap-2 items-center">
+                        <span className="text-gray-500 font-semibold w-8 text-center">{idx + 1}.</span>
+                        <input
+                          type="number"
+                          placeholder="Min (g)"
+                          value={slab.weight_start_g}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            setSlabs(slabs.map((s, i) => i === idx ? { ...s, weight_start_g: val } : s));
+                          }}
+                          className="w-24 px-2 py-1.5 border border-gray-200 rounded-lg outline-none focus:border-[#34a121]"
+                        />
+                        <span className="text-gray-400">to</span>
+                        <input
+                          type="number"
+                          placeholder="Max (g)"
+                          value={slab.weight_end_g}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            setSlabs(slabs.map((s, i) => i === idx ? { ...s, weight_end_g: val } : s));
+                          }}
+                          className="w-24 px-2 py-1.5 border border-gray-200 rounded-lg outline-none focus:border-[#34a121]"
+                        />
+                        <span className="text-gray-400">g</span>
+                        <span className="text-gray-400 ml-4">Charge: ₹</span>
+                        <input
+                          type="number"
+                          placeholder="Charge"
+                          value={slab.charge}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            setSlabs(slabs.map((s, i) => i === idx ? { ...s, charge: val } : s));
+                          }}
+                          className="w-24 px-2 py-1.5 border border-gray-200 rounded-lg outline-none focus:border-[#34a121]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setSlabs(slabs.filter((_, i) => i !== idx))}
+                          className="p-1 text-red-500 hover:text-red-700 bg-transparent border-0 cursor-pointer"
+                        >
+                          <X size={15} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-gray-500 italic bg-gray-50 p-4 rounded-xl border border-gray-150">No custom slabs defined. Default weight slabs will be applied during checkout.</p>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -412,7 +481,7 @@ export default function CourierChargesPage() {
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-150 font-heading font-bold text-gray-650 uppercase tracking-wider">
                   <th className="px-5 py-4">Configuration Target</th>
-                  <th className="px-5 py-4">Rate Per KG</th>
+                  <th className="px-5 py-4">Courier Slabs / Rate</th>
                   <th className="px-5 py-4">Min Order Threshold</th>
                   <th className="px-5 py-4">Free Shipping Target</th>
                   <th className="px-5 py-4">Status</th>
@@ -433,7 +502,18 @@ export default function CourierChargesPage() {
                   return (
                     <tr key={rule._id} className="hover:bg-gray-50/50 transition-colors">
                       <td className="px-5 py-4 font-bold text-gray-900">{targetLabel}</td>
-                      <td className="px-5 py-4 text-primary font-bold">{formatPrice(rule.courier_charge)} / kg</td>
+                      <td className="px-5 py-4 text-primary font-bold">
+                        {rule.slabs && rule.slabs.length > 0 ? (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-bold text-[#34a121]">{rule.slabs.length} Slabs Configured</span>
+                            <span className="text-[10px] text-gray-500 font-semibold">
+                              (Min: {formatPrice(rule.slabs[0].charge)} - Max: {formatPrice(rule.slabs[rule.slabs.length - 1].charge)})
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-500 font-semibold">Default Slabs (Fallback: {formatPrice(rule.courier_charge)})</span>
+                        )}
+                      </td>
                       <td className="px-5 py-4 font-medium text-gray-650">{formatPrice(rule.minimum_order_value)}</td>
                       <td className="px-5 py-4 font-medium text-gray-650">
                         {rule.free_shipping_above !== null ? formatPrice(rule.free_shipping_above) : 'N/A'}

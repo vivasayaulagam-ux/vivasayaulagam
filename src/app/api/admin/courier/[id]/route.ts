@@ -19,11 +19,20 @@ export async function PUT(
     const body = await req.json();
 
     // Normalize numeric values
+    const slabs = Array.isArray(body.slabs)
+      ? body.slabs.map((s: any) => ({
+          weight_start_g: Number(s.weight_start_g || 0),
+          weight_end_g: Number(s.weight_end_g || 0),
+          charge: Number(s.charge || 0)
+        }))
+      : [];
+
     const ruleData = {
       ...body,
       pincode_start: body.pincode_start ? Number(body.pincode_start) : undefined,
       pincode_end: body.pincode_end ? Number(body.pincode_end) : undefined,
       courier_charge: Number(body.courier_charge || 0),
+      slabs,
       minimum_order_value: body.minimum_order_value ? Number(body.minimum_order_value) : 0,
       free_shipping_above: body.free_shipping_above ? Number(body.free_shipping_above) : null,
     };

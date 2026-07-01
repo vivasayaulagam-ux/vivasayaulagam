@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { categories } from "@/data/categories";
-import CategoryCard, { CategoryCardData } from "@/components/ui/CategoryCard";
+import CategoryCard, { CategoryCardData, CategoryCardSkeleton } from "@/components/ui/CategoryCard";
 
 // Helper to chunk the categories array into pages
 const chunkArray = <T,>(arr: T[], size: number): T[][] => {
@@ -33,16 +33,19 @@ const mergeWithFallbackCategories = (dbCategories: CategoryCardData[]) => {
 
 export default function CategoryGrid({ settings }: { settings?: CategoryGridSettings }) {
   const [page, setPage] = useState(0);
-  const [dbCategories, setDbCategories] = useState<CategoryCardData[]>(() => {
-    if (typeof window !== "undefined") {
-      const cache = (window as any).__vivasayaCategoriesCache;
-      if (cache) return cache;
-    }
-    return [];
-  });
+  const [dbCategories, setDbCategories] = useState<CategoryCardData[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
   const [chunkSize, setChunkSize] = useState(6);
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const cache = (window as any).__vivasayaCategoriesCache;
+      if (cache) {
+        setDbCategories(cache);
+        setIsLoaded(true);
+      }
+    }
+
     async function fetchCategories() {
       try {
         const res = await fetch(`/api/categories?t=${Date.now()}`, { cache: "no-store" });
@@ -50,12 +53,16 @@ export default function CategoryGrid({ settings }: { settings?: CategoryGridSett
         const visibleCategories = data.categories?.filter((category) => category.isVisible !== false) ?? [];
         if (data.success && visibleCategories.length > 0) {
           setDbCategories(visibleCategories);
+          setIsLoaded(true);
           if (typeof window !== "undefined") {
             (window as any).__vivasayaCategoriesCache = visibleCategories;
           }
+        } else {
+          setIsLoaded(true);
         }
       } catch (err) {
         console.error("Failed to fetch database categories:", err);
+        setIsLoaded(true);
       }
     }
     fetchCategories();
@@ -128,18 +135,26 @@ export default function CategoryGrid({ settings }: { settings?: CategoryGridSett
               transition={{ duration: 0.35, ease: "easeOut", staggerChildren: 0.1 }}
               className="grid w-full grid-cols-3 justify-center justify-items-center gap-x-2 gap-y-7 min-[390px]:gap-x-3 sm:gap-x-[25px] lg:grid-cols-6"
             >
-              {pages[currentPage].map((cat, i) => (
-                <motion.div
-                  key={cat.id || cat._id}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, margin: "-40px" }}
-                  transition={{ duration: 0.5, delay: i * 0.1, ease: "easeOut" }}
-                  className="w-full min-w-0 flex-shrink-0"
-                >
-                  <CategoryCard category={cat} />
-                </motion.div>
-              ))}
+              {!isLoaded ? (
+                Array.from({ length: chunkSize }).map((_, i) => (
+                  <div key={`skeleton-${i}`} className="w-full min-w-0 flex-shrink-0">
+                    <CategoryCardSkeleton />
+                  </div>
+                ))
+              ) : (
+                pages[currentPage].map((cat, i) => (
+                  <motion.div
+                    key={cat.id || cat._id}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, margin: "-40px" }}
+                    transition={{ duration: 0.5, delay: i * 0.1, ease: "easeOut" }}
+                    className="w-full min-w-0 flex-shrink-0"
+                  >
+                    <CategoryCard category={cat} />
+                  </motion.div>
+                ))
+              )}
             </motion.div>
           </AnimatePresence>
         </div>

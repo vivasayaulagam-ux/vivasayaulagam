@@ -11,6 +11,7 @@ import RatingStars from "@/components/ui/RatingStars";
 import { getProductRatingSummary } from "@/lib/utils";
 import { formatPrice } from "@/lib/utils";
 import { useCartStore } from "@/store/cartStore";
+import { parseWeightFromText } from "@/lib/shipping";
 import { motion, AnimatePresence } from "framer-motion";
 
 const getEmojiAndBg = (title: string, category: string) => {
@@ -312,21 +313,7 @@ export default function ProductDetailPage() {
   // Weight calculations for variant
   const getWeightInKg = () => {
     if (!product) return 0;
-    const itemWeight = product.weight || 0;
-    const defaultUnit = product.weightUnit || 'kg';
-    
-    if (selectedVariant) {
-      const match = selectedVariant.value.match(/^([\d.]+)\s*(g|kg|ml|l)$/i);
-      if (match) {
-        const amount = parseFloat(match[1]);
-        const unit = match[2].toLowerCase();
-        if (unit === 'g' || unit === 'ml') {
-          return amount / 1000;
-        }
-        return amount;
-      }
-    }
-    return defaultUnit === 'g' ? itemWeight / 1000 : itemWeight;
+    return parseWeightFromText(selectedVariant?.value || product.title);
   };
 
   const handleAddToCart = () => {
@@ -463,15 +450,23 @@ export default function ProductDetailPage() {
 
   const sizeVariants = product.variants?.filter((v: any) => v.type === 'size') || [];
 
+  const defaultLabel = (() => {
+    const parsedWeight = parseWeightFromText(product.title);
+    if (parsedWeight < 1) {
+      return `${Math.round(parsedWeight * 1000)} g`;
+    }
+    return `${parsedWeight} kg`;
+  })();
+
   // Generate weight/size slabs for the selector
   const slabs = sizeVariants.length > 0 ? sizeVariants : [{
-    value: `${product.weight || 1} ${product.weightUnit || 'kg'}`,
+    value: defaultLabel,
     price: product.salePrice,
     stock: product.quantity,
     isDefault: true
   }];
 
-  const selectedVariantValue = selectedVariant?.value || (sizeVariants.length > 0 ? sizeVariants[0].value : `${product.weight || 1} ${product.weightUnit || 'kg'}`);
+  const selectedVariantValue = selectedVariant?.value || (sizeVariants.length > 0 ? sizeVariants[0].value : defaultLabel);
 
   const { averageRating, reviewCount } = getProductRatingSummary(product, loadingReviews ? undefined : reviews);
 

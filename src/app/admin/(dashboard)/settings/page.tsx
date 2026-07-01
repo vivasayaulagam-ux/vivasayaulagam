@@ -18,6 +18,7 @@ interface BannerSlide {
 interface SettingsResponse {
   success?: boolean;
   settings?: {
+    cod_enabled?: boolean | number;
     social_media_settings?: {
       instagramLink?: string;
       youtubeLink?: string;
@@ -46,10 +47,11 @@ interface SettingsResponse {
 }
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'general' | 'courier' | 'reels' | 'banner'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'payment' | 'courier' | 'reels' | 'banner'>('general');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [codEnabled, setCodEnabled] = useState(true);
 
   // Social Video Settings
   const [instagramLink, setInstagramLink] = useState('https://instagram.com/vivasaya_ullagam');
@@ -184,6 +186,10 @@ export default function SettingsPage() {
           setRatePerKg(courier.rate_per_kg ?? 100);
         }
 
+        if (data.settings.cod_enabled !== undefined) {
+          setCodEnabled(Number(data.settings.cod_enabled) === 1);
+        }
+
         if (data.settings.banner_slides) {
           setBannerSlides(data.settings.banner_slides);
         }
@@ -251,7 +257,8 @@ export default function SettingsPage() {
         charge_1kg: courier1kg === '' ? 80 : Number(courier1kg),
         charge_above: courierAbove === '' ? 120 : Number(courierAbove),
         rate_per_kg: ratePerKg === '' ? 100 : Number(ratePerKg),
-      }
+      },
+      cod_enabled: codEnabled ? 1 : 0
     };
 
     try {
@@ -395,7 +402,7 @@ export default function SettingsPage() {
 
       {/* Tabs */}
       <div className="flex border-b border-gray-200 bg-white rounded-t-xl px-4 pt-2 overflow-x-auto">
-        {(['general', 'banner', 'reels'] as const).map(tab => (
+        {(['general', 'payment', 'banner', 'reels'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -405,7 +412,7 @@ export default function SettingsPage() {
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            {tab === 'general' ? 'General & Social' : tab === 'banner' ? '🖼 Banner Slider' : (tab as string) === 'courier' ? 'Courier Charges' : 'Shoppable Reels'}
+            {tab === 'general' ? 'General & Social' : tab === 'payment' ? '💳 Payment Methods' : tab === 'banner' ? '🖼 Banner Slider' : 'Shoppable Reels'}
           </button>
         ))}
       </div>
@@ -528,6 +535,72 @@ export default function SettingsPage() {
                       placeholder="Enter store location"
                       className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl focus:border-[#34a121] focus:ring-1 focus:ring-[#34a121] focus:outline-none transition-colors resize-none"
                     />
+                  </div>
+                </div>
+              </div>
+
+              {/* Sidebar Save */}
+              <div className="space-y-6">
+                <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4">
+                  <h2 className="text-sm font-semibold text-gray-800">Save Parameters</h2>
+                  <p className="text-xs text-gray-400">All modifications will propagate globally and update visual storefront modules instantly.</p>
+
+                  {success && (
+                    <div className="p-3 bg-green-50 border border-green-200 text-green-700 text-xs font-semibold rounded-xl flex items-center gap-1.5">
+                      <Check size={14} /> Settings saved successfully!
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="w-full flex items-center justify-center gap-2 bg-[#34a121] text-white py-3 rounded-xl font-semibold hover:bg-[#154a28] disabled:opacity-60 transition-colors cursor-pointer"
+                  >
+                    {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                    {saving ? 'Saving...' : 'Save Settings'}
+                  </button>
+                </div>
+              </div>
+            </form>
+          )}
+
+          {/* PAYMENT METHODS TAB */}
+          {activeTab === 'payment' && (
+            <form onSubmit={handleSaveSettings} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 space-y-6">
+                <div className="bg-white border border-gray-200 rounded-b-xl lg:rounded-xl p-6 shadow-sm space-y-5">
+                  <h2 className="text-base font-bold text-gray-800 border-b border-gray-100 pb-3 flex items-center gap-2">
+                    <DollarSign size={18} className="text-[#34a121]" />
+                    Payment Methods
+                  </h2>
+                  <p className="text-xs text-gray-500">
+                    Enable or disable payment options available to customers during checkout.
+                  </p>
+
+                  <div className="flex items-center justify-between bg-gray-50 p-4 rounded-xl">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-700">Cash on Delivery (COD)</h3>
+                      <p className="text-xs text-gray-400">Allow customers to pay with cash upon delivery of their order</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setCodEnabled(!codEnabled)}
+                      className={`flex items-center gap-2 text-xs px-3.5 py-2 border rounded-xl font-semibold transition-colors cursor-pointer ${
+                        codEnabled
+                          ? 'border-green-200 bg-green-50 text-green-700'
+                          : 'border-gray-200 bg-gray-50 text-gray-500'
+                      }`}
+                    >
+                      {codEnabled ? (
+                        <>
+                          <Eye size={14} /> ON (Enabled)
+                        </>
+                      ) : (
+                        <>
+                          <EyeOff size={14} /> OFF (Disabled)
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
               </div>

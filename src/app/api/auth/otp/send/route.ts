@@ -83,7 +83,9 @@ export async function POST(req: NextRequest) {
         emailHtml
       );
     } else {
-      console.log(`[SMS OTP Simulation] Phone: ${phone} -> Code: ${otp}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[SMS OTP Simulation] Phone: ${phone} -> Code: ${otp}`);
+      }
     }
 
     if (!emailSent) {
@@ -92,7 +94,7 @@ export async function POST(req: NextRequest) {
     }
 
     const resPayload: any = { success: true, email: normalizedEmail, message: 'Verification code sent successfully!' };
-    if (process.env.NODE_ENV !== 'production' || isSimulatedEmail) {
+    if (process.env.NODE_ENV === 'development') {
       resPayload.otp = otp;
     }
 

@@ -71,8 +71,6 @@ export default function NewProducts({ settings }: { settings?: NewProductsSettin
               isNew: true,
               isBestSeller: p.collections?.includes("Best Sellers") || false,
               image: p.images && p.images.length > 0 ? p.images[0] : undefined,
-              weight: p.weight || 0,
-              weightUnit: p.weightUnit || "kg",
               trackInventory: p.trackInventory ?? false,
               quantity: p.quantity ?? 0,
               stock_quantity: p.quantity ?? 0,

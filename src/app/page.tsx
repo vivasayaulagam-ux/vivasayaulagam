@@ -65,15 +65,18 @@ type HomeSettings = {
 export default function HomePage() {
   const pathname = usePathname();
   const [showBackTop, setShowBackTop] = useState(false);
-  const [settings, setSettings] = useState<HomeSettings>(() => {
-    if (typeof window !== "undefined") {
-      const cache = (window as any).__vivasayaSettingsCache;
-      if (cache) return cache;
-    }
-    return {};
-  });
+  const [settings, setSettings] = useState<HomeSettings>({});
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const cache = (window as any).__vivasayaSettingsCache;
+      if (cache) {
+        setSettings(cache);
+        setIsLoaded(true);
+      }
+    }
+
     async function loadSettings() {
       try {
         const res = await fetch(`/api/settings?t=${Date.now()}`, { cache: "no-store" });
@@ -81,6 +84,7 @@ export default function HomePage() {
         if (data.success) {
           const settingsData = data.settings || {};
           setSettings(settingsData);
+          setIsLoaded(true);
           if (typeof window !== "undefined") {
             (window as any).__vivasayaSettingsCache = settingsData;
           }
@@ -109,6 +113,7 @@ export default function HomePage() {
 
       {settings.section_hero_enabled !== false && (
         <HeroBanner
+          isLoading={!isLoaded}
           settings={{
             banner_slides: settings.banner_slides && settings.banner_slides.length > 0
               ? settings.banner_slides

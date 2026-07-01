@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
     }
 
     const resPayload: any = { success: true, message: 'Verification code sent successfully!' };
-    if (process.env.NODE_ENV !== 'production') {
+    if (process.env.NODE_ENV === 'development') {
       resPayload.otp = otp;
     }
 

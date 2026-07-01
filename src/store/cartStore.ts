@@ -35,7 +35,7 @@ export const useCartStore = create<CartState>()(
       addItem: (newItem) => {
         const quantity = Number.isFinite(newItem.quantity) ? Math.max(1, Math.floor(newItem.quantity)) : 1;
         const price = Number.isFinite(newItem.price) ? Math.max(0, newItem.price) : 0;
-        const weight = toWeightKg(newItem.weight, newItem.weightUnit || 'kg');
+        const weight = toWeightKg(newItem.weight, newItem.weightUnit || 'kg', newItem.name);
         const itemToAdd = { ...newItem, quantity, price, weight, weightUnit: 'kg' };
 
         set((state) => {
@@ -64,7 +64,7 @@ export const useCartStore = create<CartState>()(
               ? {
                   ...item,
                   ...metadata,
-                  weight: metadata.weight !== undefined ? toWeightKg(metadata.weight, metadata.weightUnit || 'kg') : item.weight,
+                  weight: metadata.weight !== undefined ? toWeightKg(metadata.weight, metadata.weightUnit || 'kg', item.name) : item.weight,
                   weightUnit: metadata.weight !== undefined ? 'kg' : (metadata.weightUnit || item.weightUnit),
                 }
               : item
