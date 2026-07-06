@@ -82,6 +82,7 @@ export function normalizeProductOutput(p: any) {
   const aesthetics = getEmojiAndBg(p.title || p.name || "", p.category || "");
 
   return {
+    _id: p._id?.toString() || p.id,
     id: p._id?.toString() || p.id,
     name: p.title || p.name,
     title: p.title || p.name,
