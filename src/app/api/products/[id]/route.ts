@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import mongoose from 'mongoose';
 import dbConnect from '@/lib/db';
 import Product from '@/models/Product';
 import Review from '@/models/Review';
@@ -38,6 +39,7 @@ function normalizeProductOutput(p: any) {
 
   return {
     ...p,
+    _id: p._id?.toString() || p.id,
     id: p._id?.toString() || p.id,
     name: p.title,
     originalPrice: compareAtPrice,
@@ -60,7 +62,13 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   try {
     const params = await props.params;
     await dbConnect();
-    const product = await Product.findById(params.id).lean();
+    let product = null;
+    if (mongoose.isValidObjectId(params.id)) {
+      product = await Product.findById(params.id).lean();
+    }
+    if (!product) {
+      product = await Product.findOne({ seoSlug: params.id }).lean();
+    }
     if (!product) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
     
     // Fetch approved reviews for this product with robust $or matching to prevent ObjectId/string mismatch

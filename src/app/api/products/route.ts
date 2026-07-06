@@ -39,6 +39,7 @@ function normalizeProductOutput(p: any) {
 
   return {
     ...p,
+    _id: p._id?.toString() || p.id,
     id: p._id?.toString() || p.id,
     name: p.title,
     originalPrice: compareAtPrice,
