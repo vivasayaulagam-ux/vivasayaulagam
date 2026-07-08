@@ -109,6 +109,10 @@ export function normalizeProductOutput(p: any) {
     emoji: aesthetics.emoji,
     isNew: true,
     isBestSeller: p.collections?.includes("Best Sellers") || false,
+    status: p.status,
+    collections: p.collections || [],
+    weight: p.weight,
+    weightUnit: p.weightUnit,
   };
 }
 
