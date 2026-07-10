@@ -9,7 +9,6 @@ import Link from 'next/link';
 import ProductTitleDesc from '@/components/admin/products/ProductTitleDesc';
 import MediaUpload from '@/components/admin/products/MediaUpload';
 import CategorySelect from '@/components/admin/products/CategorySelect';
-import PricingSection from '@/components/admin/products/PricingSection';
 import InventorySection from '@/components/admin/products/InventorySection';
 import VariantsSection from '@/components/admin/products/VariantsSection';
 import SeoPreview from '@/components/admin/products/SeoPreview';
@@ -25,6 +24,12 @@ const defaultForm: ProductFormData = {
   variants: [], seoTitle: '', seoDescription: '', seoSlug: '',
   status: 'draft', productType: '', vendor: '', collections: [], tags: [],
   themeTemplate: 'default',
+  product_type: 'normal',
+  courier_charge: '',
+  available_weights: [],
+  base_price_1kg: '',
+  weight: '',
+  weightUnit: 'kg',
 };
 
 export default function EditProductPage() {
@@ -55,8 +60,8 @@ export default function EditProductPage() {
             images: Array.isArray(p.images) && p.images.length > 0
               ? p.images.map((img: string) => normalizeImageUrl(img))
               : p.image
-              ? [normalizeImageUrl(p.image)]
-              : [],
+                ? [normalizeImageUrl(p.image)]
+                : [],
             category: p.category ?? '',
             categories: p.categories ?? [],
             price: p.price ?? '',
@@ -79,6 +84,12 @@ export default function EditProductPage() {
             collections: p.collections ?? [],
             tags: p.tags ?? [],
             themeTemplate: p.themeTemplate ?? 'default',
+            product_type: p.product_type ?? 'normal',
+            courier_charge: p.courier_charge ?? '',
+            available_weights: p.available_weights ?? [],
+            base_price_1kg: p.base_price_1kg ?? '',
+            weight: p.weight ?? '',
+            weightUnit: p.weightUnit ?? 'kg',
           });
         } else {
           setNotFound(true);
@@ -91,7 +102,23 @@ export default function EditProductPage() {
   const validate = () => {
     const e: typeof errors = {};
     if (!form.title.trim()) e.title = 'Title is required';
-    if (form.price === '' || Number(form.price) < 0) e.price = 'Valid price is required';
+
+    if (form.product_type === 'combo') {
+      if (form.price === '' || Number(form.price) <= 0) {
+        e.price = 'Price is required and must be greater than 0';
+      }
+      if (form.weight === '' || Number(form.weight) <= 0) {
+        e.weight = 'Combo Weight is required and must be greater than 0';
+      }
+    } else {
+      if (form.base_price_1kg === '' || Number(form.base_price_1kg) <= 0) {
+        e.base_price_1kg = '1KG Base Price is required and must be greater than 0';
+      }
+      if (!form.available_weights || form.available_weights.length === 0) {
+        e.available_weights = 'At least one weight variant must be selected or added';
+      }
+    }
+
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -187,9 +214,8 @@ export default function EditProductPage() {
           <ProductTitleDesc form={form} update={update} errors={errors} />
           <MediaUpload form={form} update={update} />
           <CategorySelect form={form} update={update} />
-          <PricingSection form={form} update={update} errors={errors} />
           <InventorySection form={form} update={update} />
-          <VariantsSection form={form} update={update} />
+          <VariantsSection form={form} update={update} errors={errors} />
           <SeoPreview form={form} update={update} />
         </div>
 

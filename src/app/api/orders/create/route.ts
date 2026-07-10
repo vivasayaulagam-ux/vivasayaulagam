@@ -144,7 +144,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing product ID in order items' }, { status: 400 });
     }
     const orderProducts = await Product.find({ _id: { $in: [...new Set(productIds)] } })
-      .select('title images price status variants trackInventory quantity')
+      .select('title images price status variants trackInventory quantity product_type courier_charge')
       .lean();
     const productsById = new Map(orderProducts.map((product: any) => [String(product._id), product]));
 
@@ -244,16 +244,34 @@ export async function POST(req: Request) {
     let deliveryFee = 0;
     let appliedRate = 0;
 
-    if (matchingRule && computedSubtotal >= (matchingRule.minimum_order_value || 0)) {
-      appliedRate = matchingRule.courier_charge;
-      if (matchingRule.free_shipping_above !== null && matchingRule.free_shipping_above !== undefined && computedSubtotal >= matchingRule.free_shipping_above) {
-        deliveryFee = 0;
+    let comboCourierChargeTotal = 0;
+    let normalWeightKg = 0;
+
+    for (const item of formattedItems) {
+      const dbProduct = productsById.get(item.productId) as any;
+      if (dbProduct && dbProduct.product_type === 'combo') {
+        const charge = typeof dbProduct.courier_charge === 'number' ? dbProduct.courier_charge : 80;
+        comboCourierChargeTotal += charge * item.quantity;
       } else {
-        deliveryFee = resolveSlabCharge(totalWeightKg, state || matchingRule.state_name || '', matchingRule.slabs);
+        normalWeightKg += item.weightKg * item.quantity;
       }
-    } else {
-      deliveryFee = resolveSlabCharge(totalWeightKg, state || '', []);
     }
+
+    let normalCourierCharge = 0;
+    if (normalWeightKg > 0) {
+      if (matchingRule && computedSubtotal >= (matchingRule.minimum_order_value || 0)) {
+        appliedRate = matchingRule.courier_charge;
+        if (matchingRule.free_shipping_above !== null && matchingRule.free_shipping_above !== undefined && computedSubtotal >= matchingRule.free_shipping_above) {
+          normalCourierCharge = 0;
+        } else {
+          normalCourierCharge = resolveSlabCharge(normalWeightKg, state || matchingRule.state_name || '', matchingRule.slabs);
+        }
+      } else {
+        normalCourierCharge = resolveSlabCharge(normalWeightKg, state || '', []);
+      }
+    }
+
+    deliveryFee = comboCourierChargeTotal + normalCourierCharge;
 
     if (deliveryFee <= 0 && totalWeightKg > 0) {
       const isFreeShipping = matchingRule && 

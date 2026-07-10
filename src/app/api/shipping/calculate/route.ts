@@ -14,6 +14,14 @@ export async function GET(req: NextRequest) {
     const pincode = searchParams.get('pincode')?.trim() || '';
     const subtotal = Number(searchParams.get('subtotal') || '0');
     const weight = Number(searchParams.get('weight') || '0');
+    const itemsStr = searchParams.get('items') || '[]';
+
+    let items: any[] = [];
+    try {
+      items = JSON.parse(itemsStr);
+    } catch (e) {
+      console.error('Failed to parse items in calculate shipping:', e);
+    }
 
     await dbConnect();
 
@@ -48,22 +56,54 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    if (matchingRule) {
-      // Validate minimum order value constraint
-      if (subtotal >= (matchingRule.minimum_order_value || 0)) {
-        // Check free shipping threshold
-        if (matchingRule.free_shipping_above !== null && matchingRule.free_shipping_above !== undefined && subtotal >= matchingRule.free_shipping_above) {
-          return NextResponse.json({ success: true, courier_charge: 0, rate_per_kg: 0, ruleUsed: matchingRule });
+    let resolvedCourierCharge = 0;
+
+    if (items.length > 0) {
+      const productIds = items.map((i: any) => i.productId).filter(Boolean);
+      const dbProducts = await Product.find({ _id: { $in: productIds } }).select('product_type courier_charge').lean();
+      const productsMap = new Map(dbProducts.map((p: any) => [p._id.toString(), p]));
+
+      let comboCourierChargeTotal = 0;
+      let normalWeightKg = 0;
+
+      for (const item of items) {
+        const dbProduct = productsMap.get(item.productId) as any;
+        if (dbProduct && dbProduct.product_type === 'combo') {
+          const charge = typeof dbProduct.courier_charge === 'number' ? dbProduct.courier_charge : 80;
+          comboCourierChargeTotal += charge * item.quantity;
+        } else {
+          normalWeightKg += (item.weightKg || 0.25) * item.quantity;
         }
-        const calculatedCharge = resolveSlabCharge(weight, state || matchingRule.state_name || '', matchingRule.slabs);
-        return NextResponse.json({ success: true, courier_charge: calculatedCharge, rate_per_kg: 0, ruleUsed: matchingRule });
+      }
+
+      let normalCourierCharge = 0;
+      if (normalWeightKg > 0) {
+        if (matchingRule && subtotal >= (matchingRule.minimum_order_value || 0)) {
+          if (matchingRule.free_shipping_above !== null && matchingRule.free_shipping_above !== undefined && subtotal >= matchingRule.free_shipping_above) {
+            normalCourierCharge = 0;
+          } else {
+            normalCourierCharge = resolveSlabCharge(normalWeightKg, state || matchingRule.state_name || '', matchingRule.slabs);
+          }
+        } else {
+          normalCourierCharge = resolveSlabCharge(normalWeightKg, state || '', []);
+        }
+      }
+
+      resolvedCourierCharge = comboCourierChargeTotal + normalCourierCharge;
+    } else {
+      // Fallback weight based logic if items list is empty or not passed
+      if (matchingRule && subtotal >= (matchingRule.minimum_order_value || 0)) {
+        if (matchingRule.free_shipping_above !== null && matchingRule.free_shipping_above !== undefined && subtotal >= matchingRule.free_shipping_above) {
+          resolvedCourierCharge = 0;
+        } else {
+          resolvedCourierCharge = resolveSlabCharge(weight, state || matchingRule.state_name || '', matchingRule.slabs);
+        }
+      } else {
+        resolvedCourierCharge = resolveSlabCharge(weight, state || '', []);
       }
     }
 
-    // 2. Fallback to standard weight calculation
-    const courierCharge = resolveSlabCharge(weight, state || '', []);
-
-    return NextResponse.json({ success: true, courier_charge: courierCharge, rate_per_kg: 0, fallback: true });
+    return NextResponse.json({ success: true, courier_charge: resolvedCourierCharge, rate_per_kg: 0, ruleUsed: matchingRule });
   } catch (error: any) {
     console.error('Calculate shipping API error:', error);
     return NextResponse.json({ success: false, error: 'Failed to calculate shipping charge' }, { status: 500 });

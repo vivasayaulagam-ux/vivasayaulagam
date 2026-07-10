@@ -9,7 +9,6 @@ import Link from 'next/link';
 import ProductTitleDesc from '@/components/admin/products/ProductTitleDesc';
 import MediaUpload from '@/components/admin/products/MediaUpload';
 import CategorySelect from '@/components/admin/products/CategorySelect';
-import PricingSection from '@/components/admin/products/PricingSection';
 import InventorySection from '@/components/admin/products/InventorySection';
 import VariantsSection from '@/components/admin/products/VariantsSection';
 
@@ -43,6 +42,12 @@ export type ProductFormData = {
   collections: string[];
   tags: string[];
   themeTemplate: string;
+  product_type: 'normal' | 'combo';
+  courier_charge: number | '';
+  available_weights: string[];
+  base_price_1kg: number | '';
+  weight: number | '';
+  weightUnit: string;
 };
 
 const defaultForm: ProductFormData = {
@@ -52,6 +57,12 @@ const defaultForm: ProductFormData = {
   variants: [], seoTitle: '', seoDescription: '', seoSlug: '',
   status: 'draft', productType: '', vendor: '', collections: [], tags: [],
   themeTemplate: 'default',
+  product_type: 'normal',
+  courier_charge: '',
+  available_weights: [],
+  base_price_1kg: '',
+  weight: '',
+  weightUnit: 'kg',
 };
 
 export default function AddProductPage() {
@@ -65,7 +76,24 @@ export default function AddProductPage() {
   const validate = () => {
     const e: typeof errors = {};
     if (!form.title.trim()) e.title = 'Title is required';
-    if (form.price === '' || Number(form.price) < 0) e.price = 'Valid price is required';
+    
+    if (form.product_type === 'combo') {
+      if (form.price === '' || Number(form.price) <= 0) {
+        e.price = 'Price is required and must be greater than 0';
+      }
+      if (form.weight === '' || Number(form.weight) <= 0) {
+        e.weight = 'Combo Weight is required and must be greater than 0';
+      }
+    } else {
+      if (form.base_price_1kg === '' || Number(form.base_price_1kg) <= 0) {
+        e.base_price_1kg = '1KG Base Price is required and must be greater than 0';
+      }
+      if (!form.available_weights || form.available_weights.length === 0) {
+        // Set key on 'available_weights' to represent the selection issue
+        e.available_weights = 'At least one weight variant must be selected or added';
+      }
+    }
+    
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -121,9 +149,8 @@ export default function AddProductPage() {
           <ProductTitleDesc form={form} update={update} errors={errors} />
           <MediaUpload form={form} update={update} />
           <CategorySelect form={form} update={update} />
-          <PricingSection form={form} update={update} errors={errors} />
           <InventorySection form={form} update={update} />
-          <VariantsSection form={form} update={update} />
+          <VariantsSection form={form} update={update} errors={errors} />
           <SeoPreview form={form} update={update} />
         </div>
 

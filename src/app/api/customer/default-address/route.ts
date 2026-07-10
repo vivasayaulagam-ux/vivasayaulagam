@@ -71,4 +71,10 @@ async function handleSave(req: NextRequest) {
   }
 }
 
-export { handleSave as POST, handleSave as PUT };
+export async function POST(req: NextRequest) {
+  return handleSave(req);
+}
+
+export async function PUT(req: NextRequest) {
+  return handleSave(req);
+}

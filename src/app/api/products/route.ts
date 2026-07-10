@@ -25,6 +25,12 @@ function normalizeProductPayload(body: any) {
           stock: variant.stock === '' || variant.stock === undefined ? 0 : Number(variant.stock),
         }))
       : [],
+    product_type: body.product_type || 'normal',
+    courier_charge: body.courier_charge === '' || body.courier_charge === undefined ? 0 : Number(body.courier_charge),
+    available_weights: Array.isArray(body.available_weights) ? body.available_weights : [],
+    base_price_1kg: body.base_price_1kg === '' || body.base_price_1kg === undefined ? 0 : Number(body.base_price_1kg),
+    weight: body.weight === '' || body.weight === undefined ? 0 : Number(body.weight),
+    weightUnit: body.weightUnit || 'kg',
   };
 }
 

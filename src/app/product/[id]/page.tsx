@@ -137,15 +137,23 @@ export default function ProductDetailPage() {
             stock_quantity: p.quantity ?? 0,
             stock_status: p.stock_status || "In Stock",
             is_out_of_stock: p.is_out_of_stock ?? false,
+            product_type: p.product_type || 'normal',
+            courier_charge: p.courier_charge || 0,
+            available_weights: p.available_weights || [],
+            base_price_1kg: p.base_price_1kg || 0,
           };
           setProduct(mappedProduct);
           setActiveImage(mappedProduct.image || mappedProduct.emoji || "");
           
-          // Auto select first weight/size variant
+          // Auto select first available weight/size variant
           if (mappedProduct.variants && mappedProduct.variants.length > 0) {
-            const firstSize = mappedProduct.variants.find((v: any) => v.type === 'size');
-            if (firstSize) {
-              setSelectedVariant(firstSize);
+            const sizeVariants = mappedProduct.variants.filter((v: any) => v.type === 'size');
+            if (sizeVariants.length > 0) {
+              const firstAvailable = sizeVariants.find((v: any) => {
+                const stock = typeof v.stock === 'number' ? v.stock : mappedProduct.quantity;
+                return !mappedProduct.trackInventory || stock > 0;
+              }) || sizeVariants[0];
+              setSelectedVariant(firstAvailable);
             }
           }
         }
@@ -305,7 +313,9 @@ export default function ProductDetailPage() {
     : product?.salePrice || 0;
 
   const currentOriginalPrice = selectedVariant 
-    ? (selectedVariant.price ? selectedVariant.price * 1.25 : product.originalPrice + (selectedVariant.additionalPrice || 0))
+    ? (typeof selectedVariant.price === 'number'
+        ? (product.salePrice > 0 ? selectedVariant.price * (product.originalPrice / product.salePrice) : selectedVariant.price * 1.25)
+        : product.originalPrice + (selectedVariant.additionalPrice || 0))
     : product?.originalPrice || 0;
 
   const currentSavings = currentOriginalPrice - currentSalePrice;
@@ -313,6 +323,9 @@ export default function ProductDetailPage() {
   // Weight calculations for variant
   const getWeightInKg = () => {
     if (!product) return 0;
+    if (product.product_type === 'combo') {
+      return product.weight || 0;
+    }
     return parseWeightFromText(selectedVariant?.value || product.title);
   };
 
@@ -387,11 +400,13 @@ export default function ProductDetailPage() {
 
 
   const isProductOutOfStock = product
-    ? product.is_out_of_stock === true || 
-      product.stock_status === "Out of Stock" || 
-      product.quantity === 0 || 
-      product.stock_quantity === 0 ||
-      (product.trackInventory && (product.quantity ?? 0) <= 0)
+    ? (selectedVariant
+        ? (product.trackInventory && (typeof selectedVariant.stock === 'number' ? selectedVariant.stock <= 0 : (product.quantity ?? 0) <= 0))
+        : (product.is_out_of_stock === true || 
+           product.stock_status === "Out of Stock" || 
+           product.quantity === 0 || 
+           product.stock_quantity === 0 ||
+           (product.trackInventory && (product.quantity ?? 0) <= 0)))
     : false;
 
   if (loading) {
@@ -459,12 +474,7 @@ export default function ProductDetailPage() {
   })();
 
   // Generate weight/size slabs for the selector
-  const slabs = sizeVariants.length > 0 ? sizeVariants : [{
-    value: defaultLabel,
-    price: product.salePrice,
-    stock: product.quantity,
-    isDefault: true
-  }];
+  const slabs = sizeVariants;
 
   const selectedVariantValue = selectedVariant?.value || (sizeVariants.length > 0 ? sizeVariants[0].value : defaultLabel);
 
@@ -603,46 +613,48 @@ export default function ProductDetailPage() {
               </div>
 
               {/* Slabs / Weight Variant Selector (Pill Design) */}
-              {sizeVariants.length > 0 && (
+              {product.product_type === 'combo' ? (
                 <div className="space-y-4 border-t border-gray-150 pt-5 md:pt-6">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-bold uppercase tracking-wider text-black">
-                      QUANTITY: {selectedVariantValue.toUpperCase()}
-                    </span>
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-2.5 md:gap-3">
-                    {slabs.map((slab: any) => {
-                      const isSelected = slab.isDefault 
-                        ? !selectedVariant 
-                        : selectedVariant?.value === slab.value;
-                      const stock = typeof slab.stock === 'number' ? slab.stock : product.quantity;
-                      const isOutOfStock = product.trackInventory && stock <= 0;
-
-                      return (
-                        <button
-                          key={slab.value}
-                          type="button"
-                          disabled={isOutOfStock}
-                          onClick={() => {
-                            if (slab.isDefault) {
-                              setSelectedVariant(null);
-                            } else {
-                              setSelectedVariant(slab);
-                            }
-                          }}
-                          className={`px-4 py-2.5 text-[13px] md:px-6 md:text-sm font-semibold rounded-full border transition-all duration-200 select-none ${
-                            isSelected
-                              ? 'bg-[#2d2d2d] border-[#2d2d2d] text-white shadow-sm font-bold'
-                              : 'bg-white border-gray-250 text-gray-500 hover:border-[#2d2d2d] hover:text-[#2d2d2d]'
-                          } ${isOutOfStock ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
-                        >
-                          {slab.value}
-                        </button>
-                      );
-                    })}
+                  <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 w-fit text-sm font-bold text-gray-800 shadow-2xs select-none">
+                    <span>📦 Combo Weight: {product.weight} {product.weightUnit || 'kg'}</span>
                   </div>
                 </div>
+              ) : (
+                sizeVariants.length > 0 && (
+                  <div className="space-y-4 border-t border-gray-150 pt-5 md:pt-6">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold uppercase tracking-wider text-black">
+                        QUANTITY: {selectedVariantValue.toUpperCase()}
+                      </span>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2.5 md:gap-3">
+                      {slabs.map((slab: any) => {
+                        const isSelected = selectedVariant?.value === slab.value;
+                        const stock = typeof slab.stock === 'number' ? slab.stock : product.quantity;
+                        const isOutOfStock = product.trackInventory && stock <= 0;
+
+                        return (
+                          <button
+                            key={slab.value}
+                            type="button"
+                            disabled={isOutOfStock}
+                            onClick={() => {
+                              setSelectedVariant(slab);
+                            }}
+                            className={`px-4 py-2.5 text-[13px] md:px-6 md:text-sm font-semibold rounded-full border transition-all duration-200 select-none ${
+                              isSelected
+                                ? 'bg-[#2d2d2d] border-[#2d2d2d] text-white shadow-sm font-bold'
+                                : 'bg-white border-gray-250 text-gray-500 hover:border-[#2d2d2d] hover:text-[#2d2d2d]'
+                            } ${isOutOfStock ? 'opacity-40 cursor-not-allowed text-gray-300' : 'cursor-pointer'}`}
+                          >
+                            {slab.value}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )
               )}
 
               <div className="border-t border-gray-100 pt-5">
