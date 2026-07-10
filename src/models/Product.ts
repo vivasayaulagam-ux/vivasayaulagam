@@ -49,6 +49,14 @@ const ProductSchema = new mongoose.Schema(
     tags: [{ type: String }],
     themeTemplate: { type: String, default: 'default' },
 
+    // Custom fields for weights & combos
+    product_type: { type: String, enum: ['normal', 'combo'], default: 'normal' },
+    courier_charge: { type: Number, default: 0 },
+    available_weights: [{ type: String }],
+    base_price_1kg: { type: Number, default: 0 },
+    weight: { type: Number, default: 0 },
+    weightUnit: { type: String, default: 'kg' },
+
     // Reviews (Calculated from approved customer reviews)
     rating: { type: Number, default: 0 },
     reviewCount: { type: Number, default: 0 },
