@@ -11,6 +11,9 @@ type ProductApiItem = {
   categories?: string[];
   compareAtPrice?: number;
   price: number;
+  sellingPrice: number;
+  mrp: number;
+  discount?: number;
   rating?: number;
   reviewCount?: number;
   collections?: string[];
@@ -52,16 +55,13 @@ export default function NewProducts({ settings }: { settings?: NewProductsSettin
         if (data.success && apiProducts.length > 0) {
           const activeDbProds = apiProducts.filter((p) => p.status === "active");
           const mapped: Product[] = activeDbProds.map((p) => {
-            const compareAtPrice =
-              p.compareAtPrice && p.compareAtPrice > p.price ? p.compareAtPrice : p.price * 1.25;
             const aesthetics = getEmojiAndBg(p.title, p.category || "");
-            const disc = Math.round(((compareAtPrice - p.price) / compareAtPrice) * 100);
             return {
               id: p._id,
               name: p.title,
-              originalPrice: compareAtPrice,
-              salePrice: p.price,
-              discount: disc || 20,
+              originalPrice: p.mrp > p.sellingPrice ? p.mrp : p.sellingPrice,
+              salePrice: p.sellingPrice,
+              discount: (p.mrp > p.sellingPrice ? p.discount : 0) ?? 0,
               rating: p.rating || 4.7,
               reviewCount: p.reviewCount || 12,
               category: p.category || "Organic Goods",

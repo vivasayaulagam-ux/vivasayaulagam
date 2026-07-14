@@ -39,6 +39,17 @@ const getEmojiAndBg = (title: string, category: string) => {
   return { emoji: "📦", bgColor: "from-gray-100 to-green-50" };
 };
 
+const formatComboQuantity = (baseValue: number | undefined, unit = "kg") => {
+  const value = Number(baseValue);
+  if (!Number.isFinite(value) || value <= 0) return "Weight not set";
+
+  if (unit === "g" || unit === "ml") {
+    return `${Number((value * 1000).toFixed(2)).toLocaleString("en-IN")} ${unit}`;
+  }
+
+  return `${Number(value.toFixed(2)).toLocaleString("en-IN")} ${unit}`;
+};
+
 export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -106,16 +117,13 @@ export default function ProductDetailPage() {
         if (data.success && data.product) {
           const p = data.product;
           const aesthetics = getEmojiAndBg(p.title, p.category);
-          const disc = p.compareAtPrice > p.price 
-            ? Math.round(((p.compareAtPrice - p.price) / p.compareAtPrice) * 100)
-            : 0;
 
           const mappedProduct = {
             id: p._id,
             name: p.title,
-            originalPrice: p.compareAtPrice || p.price * 1.25,
-            salePrice: p.price,
-            discount: disc || 20,
+            originalPrice: p.mrp > p.sellingPrice ? p.mrp : p.sellingPrice,
+            salePrice: p.sellingPrice,
+            discount: p.mrp > p.sellingPrice ? p.discount : 0,
             rating: p.rating ?? 0,
             reviewCount: p.reviewCount ?? 0,
             category: p.category || "Organic Goods",
@@ -132,6 +140,7 @@ export default function ProductDetailPage() {
             variants: p.variants || [],
             weight: p.weight || 0,
             weightUnit: p.weightUnit || "kg",
+            unit: p.unit || p.weightUnit || "g",
             trackInventory: p.trackInventory ?? false,
             quantity: p.quantity ?? 0,
             stock_quantity: p.quantity ?? 0,
@@ -141,6 +150,7 @@ export default function ProductDetailPage() {
             courier_charge: p.courier_charge || 0,
             available_weights: p.available_weights || [],
             base_price_1kg: p.base_price_1kg || 0,
+            comboWeight: p.comboWeight !== undefined ? p.comboWeight : (p.product_type === 'combo' ? p.weight : undefined),
           };
           setProduct(mappedProduct);
           setActiveImage(mappedProduct.image || mappedProduct.emoji || "");
@@ -309,22 +319,20 @@ export default function ProductDetailPage() {
 
   // Pricing calculations based on variant
   const currentSalePrice = selectedVariant 
-    ? (typeof selectedVariant.price === 'number' ? selectedVariant.price : product.salePrice + (selectedVariant.additionalPrice || 0))
+    ? (selectedVariant.sellingPrice ?? selectedVariant.price ?? product?.salePrice ?? 0)
     : product?.salePrice || 0;
 
   const currentOriginalPrice = selectedVariant 
-    ? (typeof selectedVariant.price === 'number'
-        ? (product.salePrice > 0 ? selectedVariant.price * (product.originalPrice / product.salePrice) : selectedVariant.price * 1.25)
-        : product.originalPrice + (selectedVariant.additionalPrice || 0))
+    ? (selectedVariant.mrp ?? selectedVariant.compareAtPrice ?? product?.originalPrice ?? 0)
     : product?.originalPrice || 0;
 
-  const currentSavings = currentOriginalPrice - currentSalePrice;
+  const currentSavings = currentOriginalPrice > currentSalePrice ? currentOriginalPrice - currentSalePrice : 0;
 
   // Weight calculations for variant
   const getWeightInKg = () => {
     if (!product) return 0;
     if (product.product_type === 'combo') {
-      return product.weight || 0;
+      return product.comboWeight || 0;
     }
     return parseWeightFromText(selectedVariant?.value || product.title);
   };
@@ -338,15 +346,19 @@ export default function ProductDetailPage() {
       const finalId = selectedVariant ? `${product.id}-${selectedVariant.value}` : String(product.id);
       const finalName = selectedVariant ? `${product.name} - ${selectedVariant.value}` : product.name;
       const itemWeight = getWeightInKg();
+      const isCombo = product.product_type === 'combo';
 
       addItem({
         id: finalId,
+        productId: product.id,
         name: finalName,
         price: currentSalePrice,
         quantity: quantity,
         image: product.image || product.emoji,
-        weight: itemWeight,
+        weight: isCombo ? product.comboWeight : itemWeight,
         weightUnit: "kg",
+        isCombo: isCombo,
+        comboWeight: isCombo ? product.comboWeight : undefined,
       } as any);
       
       setCartState("success");
@@ -363,15 +375,19 @@ export default function ProductDetailPage() {
     const finalId = selectedVariant ? `${product.id}-${selectedVariant.value}` : String(product.id);
     const finalName = selectedVariant ? `${product.name} - ${selectedVariant.value}` : product.name;
     const itemWeight = getWeightInKg();
+    const isCombo = product.product_type === 'combo';
 
     addItem({
       id: finalId,
+      productId: product.id,
       name: finalName,
       price: currentSalePrice,
       quantity,
       image: product.image || product.emoji,
-      weight: itemWeight,
+      weight: isCombo ? product.comboWeight : itemWeight,
       weightUnit: "kg",
+      isCombo: isCombo,
+      comboWeight: isCombo ? product.comboWeight : undefined,
     } as any);
     router.push("/checkout");
   };
@@ -616,7 +632,7 @@ export default function ProductDetailPage() {
               {product.product_type === 'combo' ? (
                 <div className="space-y-4 border-t border-gray-150 pt-5 md:pt-6">
                   <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 w-fit text-sm font-bold text-gray-800 shadow-2xs select-none">
-                    <span>📦 Combo Weight: {product.weight} {product.weightUnit || 'kg'}</span>
+                    <span>📦 Combo Weight: {formatComboQuantity(product.comboWeight, product.weightUnit || product.unit || 'kg')}</span>
                   </div>
                 </div>
               ) : (

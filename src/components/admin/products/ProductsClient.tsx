@@ -14,6 +14,8 @@ export type Product = {
   categories?: string[];
   price: number;
   compareAtPrice: number;
+  sellingPrice?: number;
+  mrp?: number;
   quantity: number;
   status: 'active' | 'draft';
   images: string[];

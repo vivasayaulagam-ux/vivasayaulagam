@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { MapPin, Mail, Phone } from "lucide-react";
 import SectionTitle from "@/components/ui/SectionTitle";
 import { useState } from "react";
+import { contactAddress, contactInfo } from "@/data/contact";
 
 // Inline SVG brand icons
 const FacebookIcon = () => (
@@ -60,9 +61,9 @@ export default function ContactSection() {
 
               <div className="space-y-4">
                 {[
-                  { icon: MapPin, label: "Address", value: "Tamil Nadu, India — 600001" },
-                  { icon: Mail, label: "Email", value: "care@vivasayaulagam.com" },
-                  { icon: Phone, label: "Phone", value: "+91 98765 43210" },
+                  { icon: MapPin, label: "Address", value: contactAddress },
+                  { icon: Mail, label: "Email", value: contactInfo.email },
+                  { icon: Phone, label: "Phone", value: contactInfo.phoneDisplay },
                 ].map(({ icon: Icon, label, value }) => (
                   <div key={label} className="flex items-start gap-4">
                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
@@ -84,9 +85,9 @@ export default function ContactSection() {
                 </p>
                 <div className="flex gap-3">
                   {[
-                    { icon: FacebookIcon, label: "Facebook", href: "https://facebook.com" },
-                    { icon: InstagramIcon, label: "Instagram", href: "https://instagram.com" },
-                    { icon: YoutubeIcon, label: "YouTube", href: "https://youtube.com" },
+                    { icon: FacebookIcon, label: "Facebook", href: contactInfo.socialLinks.facebook },
+                    { icon: InstagramIcon, label: "Instagram", href: contactInfo.socialLinks.instagram },
+                    { icon: YoutubeIcon, label: "YouTube", href: contactInfo.socialLinks.youtube },
                   ].map(({ icon: Icon, label, href }) => (
                     <a
                       key={label}
@@ -103,7 +104,7 @@ export default function ContactSection() {
 
             {/* WhatsApp CTA */}
             <a
-              href="https://wa.me/919876543210"
+              href={contactInfo.whatsappUrl}
               className="flex items-center gap-3 bg-green-500 text-white rounded-2xl p-5 hover:bg-green-600 transition-colors shadow-md"
               aria-label="Contact us on WhatsApp"
             >

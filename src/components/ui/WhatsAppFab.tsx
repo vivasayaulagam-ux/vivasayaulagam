@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { contactInfo } from "@/data/contact";
 
 const WhatsAppIcon = () => (
   <svg
@@ -17,7 +18,7 @@ const WhatsAppIcon = () => (
 export default function WhatsAppFab() {
   return (
     <motion.a
-      href="https://wa.me/917708631801"
+      href={contactInfo.whatsappUrl}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat on WhatsApp"

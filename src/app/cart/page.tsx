@@ -36,8 +36,10 @@ export default function CartPage() {
   const [loading, setLoading] = useState(true);
   const [couponCode, setCouponCode] = useState("");
   const [couponMessage, setCouponMessage] = useState("");
-  const [deliveryFee, setDeliveryFee] = useState(0);
+  const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
   const [appliedRate, setAppliedRate] = useState(0);
+  const [userShippingState, setUserShippingState] = useState<string>("");
+  const [loadingShippingState, setLoadingShippingState] = useState<boolean>(true);
 
   const { data: session, status: authStatus } = useSession();
   const router = useRouter();
@@ -332,6 +334,24 @@ export default function CartPage() {
     loadSettings();
   }, []);
 
+  // Fetch Saved Default Address state
+  useEffect(() => {
+    if (session?.user) {
+      setLoadingShippingState(true);
+      fetch("/api/customer/default-address")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.defaultAddress && data.defaultAddress.state) {
+            setUserShippingState(data.defaultAddress.state.trim());
+          }
+        })
+        .catch((err) => console.error("Error loading default address state in cart", err))
+        .finally(() => setLoadingShippingState(false));
+    } else {
+      setLoadingShippingState(false);
+    }
+  }, [session]);
+
 
 
   const fetchedOnMountRef = useRef(false);
@@ -359,10 +379,12 @@ export default function CartPage() {
 
             // Check if variant or product is out of stock
             let resolvedOutOfStock = false;
+            let resolvedPrice = item.price;
             if (variantValue) {
               const variant = product.variants?.find((v: any) => v.value === variantValue);
               if (variant) {
                 resolvedOutOfStock = product.trackInventory && (variant.stock <= 0);
+                resolvedPrice = variant.sellingPrice ?? variant.price ?? product.sellingPrice ?? product.price ?? item.price;
               }
             } else {
               resolvedOutOfStock =
@@ -371,16 +393,23 @@ export default function CartPage() {
                 product.quantity === 0 ||
                 product.stock_quantity === 0 ||
                 (product.trackInventory && (product.quantity ?? 0) <= 0);
+              resolvedPrice = product.sellingPrice ?? product.price ?? item.price;
             }
 
-            const resolvedWeight = variantValue
-              ? parseWeightLabelToKg(variantValue, 0, "kg")
-              : toWeightKg(undefined, "kg", product.title);
+            const isCombo = product.product_type === 'combo';
+            const resolvedWeight = isCombo
+              ? product.comboWeight
+              : (variantValue
+                ? parseWeightLabelToKg(variantValue, 0, "kg")
+                : toWeightKg(undefined, "kg", product.title));
 
             updateItemMetadata(item.id, {
               isOutOfStock: resolvedOutOfStock,
               weight: resolvedWeight > 0 ? resolvedWeight : item.weight,
               weightUnit: "kg",
+              isCombo: isCombo,
+              comboWeight: isCombo ? product.comboWeight : undefined,
+              price: resolvedPrice,
             });
           } catch (err) {
             console.error("Failed to load cart item info:", err);
@@ -397,21 +426,30 @@ export default function CartPage() {
   }, [hasHydrated]);
 
   const subtotal = totalPrice();
-  const totalWeight = items.reduce((sum, item) => sum + toWeightKg(item.weight, item.weightUnit || "kg", item.name) * item.quantity, 0);
+  const totalWeight = items.reduce((sum, item) => {
+    const itemWeight = item.isCombo ? (item.comboWeight || 0) : toWeightKg(item.weight, item.weightUnit || "kg", item.name);
+    return sum + itemWeight * item.quantity;
+  }, 0);
   const hasMissingWeight = false;
   const anyOutOfStock = items.some((item) => item.isOutOfStock);
 
   useEffect(() => {
     if (!hasHydrated || items.length === 0) {
       const timer = setTimeout(() => {
-        setDeliveryFee(prev => prev === 0 ? prev : 0);
+        setDeliveryFee(prev => prev === null ? prev : null);
       }, 0);
       return () => clearTimeout(timer);
     }
     const queryParams = new URLSearchParams({
+      state: userShippingState,
       subtotal: String(subtotal),
       weight: String(totalWeight),
-      items: JSON.stringify(items.map(i => ({ productId: i.id.split("-")[0], quantity: i.quantity, price: i.price, weightKg: toWeightKg(i.weight, i.weightUnit || "kg", i.name) })))
+      items: JSON.stringify(items.map(i => ({
+        productId: i.id.split("-")[0],
+        quantity: i.quantity,
+        price: i.price,
+        weightKg: i.isCombo ? (i.comboWeight || 0) : toWeightKg(i.weight, i.weightUnit || "kg", i.name)
+      })))
     });
     fetch(`/api/shipping/calculate?${queryParams.toString()}`)
       .then(res => res.json())
@@ -422,9 +460,9 @@ export default function CartPage() {
         }
       })
       .catch(err => console.error("Failed to calculate shipping in cart:", err));
-  }, [items, subtotal, totalWeight, hasHydrated]);
+  }, [items, subtotal, totalWeight, hasHydrated, userShippingState]);
 
-  const total = subtotal + deliveryFee;
+  const total = subtotal + (deliveryFee || 0);
 
   const handleApplyCoupon = () => {
     const code = couponCode.trim();
@@ -523,9 +561,9 @@ export default function CartPage() {
                           <div>
                             <h3 className="font-body font-semibold text-text-dark text-sm leading-tight mb-1">{item.name}</h3>
                             <p className="text-[11px] font-semibold text-text-muted">
-                              Weight: {formatWeightKg(toWeightKg(item.weight, item.weightUnit || "kg", item.name))}
-                              {toWeightKg(item.weight, item.weightUnit || "kg", item.name) > 0 && item.quantity > 1
-                                ? ` x ${item.quantity} = ${formatWeightKg(toWeightKg(item.weight, item.weightUnit || "kg", item.name) * item.quantity)}`
+                              Weight: {formatWeightKg(item.isCombo ? (item.comboWeight || 0) : toWeightKg(item.weight, item.weightUnit || "kg", item.name))}
+                              {(item.isCombo ? (item.comboWeight || 0) : toWeightKg(item.weight, item.weightUnit || "kg", item.name)) > 0 && item.quantity > 1
+                                ? ` x ${item.quantity} = ${formatWeightKg((item.isCombo ? (item.comboWeight || 0) : toWeightKg(item.weight, item.weightUnit || "kg", item.name)) * item.quantity)}`
                                 : ""}
                             </p>
                             {item.isOutOfStock && (
@@ -617,7 +655,7 @@ export default function CartPage() {
                             Unit Price: <span className="font-heading font-bold text-text-dark">{formatPrice(item.price)}</span>
                           </div>
                           <div className="text-xs font-semibold text-text-muted">
-                            Weight: <span className="font-heading font-bold text-text-dark">{formatWeightKg(toWeightKg(item.weight, item.weightUnit || "kg", item.name))}</span>
+                            Weight: <span className="font-heading font-bold text-text-dark">{formatWeightKg(item.isCombo ? (item.comboWeight || 0) : toWeightKg(item.weight, item.weightUnit || "kg", item.name))}</span>
                           </div>
 
 
@@ -684,10 +722,16 @@ export default function CartPage() {
                       <span>Total Weight</span>
                       <span className="font-heading font-semibold text-text-dark">{formatWeightKg(totalWeight)}</span>
                     </div>
-                    <div className="flex justify-between text-text-muted">
-                      <span>Courier Charges</span>
-                      <span className="font-heading font-semibold text-text-dark">{formatPrice(deliveryFee)}</span>
-                    </div>
+                     <div className="flex justify-between text-text-muted items-start gap-4">
+                       <span>Courier Charge</span>
+                       {deliveryFee !== null && deliveryFee !== undefined ? (
+                         <span className="font-heading font-semibold text-text-dark">{formatPrice(deliveryFee)}</span>
+                       ) : (
+                         <span className="text-[11px] text-amber-600 font-semibold text-right max-w-[200px] leading-snug">
+                           Enter your delivery address to calculate shipping.
+                         </span>
+                       )}
+                     </div>
                     {hasMissingWeight && (
                       <p className="rounded-lg bg-amber-50 px-3 py-2 text-[11px] font-semibold leading-relaxed text-amber-700">
                         One or more products do not have weight set. Add product weight in admin for exact courier charges.

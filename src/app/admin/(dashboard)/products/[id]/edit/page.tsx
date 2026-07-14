@@ -19,7 +19,7 @@ import { normalizeImageUrl } from '@/lib/utils';
 
 const defaultForm: ProductFormData = {
   title: '', description: '', images: [], category: '', categories: [],
-  price: '', compareAtPrice: '', unitPrice: '', chargeTax: false, costPerItem: '',
+  sellingPrice: '', mrp: '', price: '', compareAtPrice: '', unitPrice: '', chargeTax: false, costPerItem: '',
   trackInventory: false, quantity: '', sku: '', barcode: '', continueSelling: false,
   variants: [], seoTitle: '', seoDescription: '', seoSlug: '',
   status: 'draft', productType: '', vendor: '', collections: [], tags: [],
@@ -28,8 +28,11 @@ const defaultForm: ProductFormData = {
   courier_charge: '',
   available_weights: [],
   base_price_1kg: '',
+  base_mrp_1kg: '',
   weight: '',
   weightUnit: 'kg',
+  unit: 'g',
+  comboWeight: '',
 };
 
 export default function EditProductPage() {
@@ -64,8 +67,10 @@ export default function EditProductPage() {
                 : [],
             category: p.category ?? '',
             categories: p.categories ?? [],
-            price: p.price ?? '',
-            compareAtPrice: p.compareAtPrice ?? '',
+            sellingPrice: p.sellingPrice ?? p.price ?? '',
+            mrp: p.mrp ?? p.compareAtPrice ?? '',
+            price: p.sellingPrice ?? p.price ?? '',
+            compareAtPrice: p.mrp ?? p.compareAtPrice ?? '',
             unitPrice: p.unitPrice ?? '',
             chargeTax: p.chargeTax ?? false,
             costPerItem: p.costPerItem ?? '',
@@ -74,7 +79,14 @@ export default function EditProductPage() {
             sku: p.sku ?? '',
             barcode: p.barcode ?? '',
             continueSelling: p.continueSelling ?? false,
-            variants: p.variants ?? [],
+            variants: (p.variants || []).map((v: any) => ({
+              ...v,
+              sellingPrice: v.sellingPrice ?? v.price,
+              mrp: v.mrp ?? v.compareAtPrice ?? 0,
+              price: v.sellingPrice ?? v.price,
+              compareAtPrice: v.mrp ?? v.compareAtPrice ?? 0,
+              unit: v.unit || p.unit || p.weightUnit || 'g',
+            })),
             seoTitle: p.seoTitle ?? '',
             seoDescription: p.seoDescription ?? '',
             seoSlug: p.seoSlug ?? '',
@@ -88,8 +100,11 @@ export default function EditProductPage() {
             courier_charge: p.courier_charge ?? '',
             available_weights: p.available_weights ?? [],
             base_price_1kg: p.base_price_1kg ?? '',
+            base_mrp_1kg: p.base_mrp_1kg ?? '',
             weight: p.weight ?? '',
             weightUnit: p.weightUnit ?? 'kg',
+            unit: p.unit ?? p.weightUnit ?? 'g',
+            comboWeight: p.comboWeight ?? (p.product_type === 'combo' ? p.weight : ''),
           });
         } else {
           setNotFound(true);
@@ -102,10 +117,11 @@ export default function EditProductPage() {
   const validate = () => {
     const e: typeof errors = {};
     if (!form.title.trim()) e.title = 'Title is required';
+    if (!form.unit) e.unit = 'Unit is required';
 
     if (form.product_type === 'combo') {
-      if (form.price === '' || Number(form.price) <= 0) {
-        e.price = 'Price is required and must be greater than 0';
+      if (form.sellingPrice === '' || Number(form.sellingPrice) <= 0) {
+        e.sellingPrice = 'Selling Price is required and must be greater than 0';
       }
       if (form.weight === '' || Number(form.weight) <= 0) {
         e.weight = 'Combo Weight is required and must be greater than 0';

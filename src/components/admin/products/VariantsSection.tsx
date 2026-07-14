@@ -11,15 +11,43 @@ type Props = {
   errors: Partial<Record<keyof ProductFormData, string>>;
 };
 
-const DEFAULT_WEIGHT_OPTIONS = ['50g', '100g', '250g', '500g', '1kg'];
-const COMBO_STANDARD_WEIGHTS = ['1 kg', '2 kg', '3 kg', '4 kg', '5 kg', '10 kg'];
+const getWeightOptions = (unit: string) => {
+  if (unit === 'ml' || unit === 'L') {
+    return ['50ml', '100ml', '250ml', '500ml', '1L', '2L'];
+  }
+  return ['50g', '100g', '250g', '500g', '1kg', '2kg'];
+};
+
+const getComboWeights = (unit: string) => {
+  if (unit === 'ml' || unit === 'L') {
+    return ['250 ml', '500 ml', '1 L', '2 L', '5 L', '10 L'];
+  }
+  return ['250 g', '500 g', '1 kg', '2 kg', '3 kg', '4 kg', '5 kg', '10 kg'];
+};
 
 const parseWeightLabelToGrams = (label: string): number => {
-  const match = label.match(/^([\d.]+)\s*(g|kg)$/i);
+  const match = label.match(/^([\d.]+)\s*(g|kg|ml|l)$/i);
   if (!match) return 0;
   const val = parseFloat(match[1]);
   const unit = match[2].toLowerCase();
-  return unit === 'g' ? val : val * 1000;
+  return (unit === 'g' || unit === 'ml') ? val : val * 1000;
+};
+
+const parseComboWeightStr = (str: string): { val: number; unit: string } => {
+  const match = str.match(/^([\d.]+)\s*(g|kg|ml|l)$/i);
+  if (!match) return { val: 1, unit: 'kg' };
+  const val = parseFloat(match[1]);
+  const u = match[2].toLowerCase();
+  return { val, unit: u === 'l' ? 'L' : u };
+};
+
+const toComboBaseValue = (value: number, unit: string) => {
+  return unit === 'g' || unit === 'ml' ? value / 1000 : value;
+};
+
+const fromComboBaseValue = (value: number | '' | undefined, unit: string) => {
+  if (value === '' || value === undefined) return '';
+  return unit === 'g' || unit === 'ml' ? value * 1000 : value;
 };
 
 export default function VariantsSection({ form, update, errors }: Props) {
@@ -29,33 +57,61 @@ export default function VariantsSection({ form, update, errors }: Props) {
   const availableWeights = form.available_weights || [];
   const quantity = Number(form.quantity || 0);
 
+  const unit = form.unit || 'g';
+  const isVolume = unit === 'ml' || unit === 'L';
+  const comboWeightsList = getComboWeights(unit);
+
   // States for adding custom weights (Normal products)
   const [customWeight, setCustomWeight] = useState<string>('');
-  const [customUnit, setCustomUnit] = useState<'g' | 'kg'>('g');
+  const [customUnit, setCustomUnit] = useState<string>(() => {
+    return isVolume ? 'ml' : 'g';
+  });
 
   // State for combo weight option
   const [selectedWeightOption, setSelectedWeightOption] = useState<string>(() => {
-    const wt = form.weight;
-    if (wt === '' || wt === 0) return '1 kg';
-    const wtStr = `${wt} kg`;
-    return COMBO_STANDARD_WEIGHTS.includes(wtStr) ? wtStr : 'Custom';
+    const wt = form.comboWeight || form.weight;
+    if (wt === '' || wt === 0) return isVolume ? '1 L' : '1 kg';
+    const matchedOption = comboWeightsList.find(opt => {
+      const { val, unit: u } = parseComboWeightStr(opt);
+      const baseValue = (u === 'g' || u === 'ml') ? val / 1000 : val;
+      return baseValue === wt;
+    });
+    return matchedOption || 'Custom';
   });
+
+  const selectedCustomUnit = isVolume
+    ? (customUnit === 'ml' || customUnit === 'L' ? customUnit : 'ml')
+    : (customUnit === 'g' || customUnit === 'kg' ? customUnit : 'g');
 
   const availableWeightsStr = JSON.stringify(form.available_weights || []);
   const prevProductType = useRef(productType);
+  const prevUnit = useRef<string>(form.unit);
+
+  // Clear available weights checklist if admin switches unit type classes (mass vs volume)
+  useEffect(() => {
+    const isVol = form.unit === 'ml' || form.unit === 'L';
+    const prevIsVol = prevUnit.current === 'ml' || prevUnit.current === 'L';
+    if (isVol !== prevIsVol && prevUnit.current !== undefined) {
+      update({ available_weights: [] });
+    }
+    prevUnit.current = form.unit;
+  }, [form.unit, update]);
 
   // Set default courier charge of ₹80 and default weight of 1kg when switching to Combo Product
   useEffect(() => {
     if (productType === 'combo' && prevProductType.current !== 'combo') {
-      update({ courier_charge: 80, weight: 1, weightUnit: 'kg' });
-      setSelectedWeightOption('1 kg');
+      const defaultOption = isVolume ? '1 L' : '1 kg';
+      const { val, unit: u } = parseComboWeightStr(defaultOption);
+      const baseValue = toComboBaseValue(val, u);
+      update({ courier_charge: 80, weight: baseValue, weightUnit: u, comboWeight: baseValue });
+      setSelectedWeightOption(defaultOption);
     } else if (productType === 'normal' && prevProductType.current !== 'normal') {
-      update({ courier_charge: 0, weight: 0 });
+      update({ courier_charge: 0, weight: 0, comboWeight: undefined });
     }
     prevProductType.current = productType;
-  }, [productType, update]);
+  }, [productType, isVolume, update]);
 
-  // Synchronize variants dynamically whenever base price, weight list, product type, or stock changes
+  // Synchronize variants dynamically whenever base price, weight list, product type, unit, or stock changes
   useEffect(() => {
     if (productType === 'combo') {
       // Combo products don't have weight variants
@@ -66,6 +122,7 @@ export default function VariantsSection({ form, update, errors }: Props) {
     }
 
     const basePriceVal = Number(basePrice1Kg || 0);
+    const baseMrpVal = Number(form.base_mrp_1kg || 0);
     const weightsList = form.available_weights || [];
 
     // Sort weight options logically (ascending weight in grams)
@@ -74,28 +131,46 @@ export default function VariantsSection({ form, update, errors }: Props) {
     });
 
     const newVariants = sortedWeightsList.map((w) => {
-      const match = w.match(/^([\d.]+)\s*(g|kg)$/i);
+      const match = w.match(/^([\d.]+)\s*(g|kg|ml|l)$/i);
       let calculatedPrice = 0;
+      let calculatedMrp = 0;
+      let variantUnit = form.unit || 'g';
       if (match) {
         const val = parseFloat(match[1]);
-        const unit = match[2].toLowerCase();
-        if (unit === 'g') {
-          calculatedPrice = Math.round((basePriceVal / 1000) * val);
-        } else if (unit === 'kg') {
-          calculatedPrice = Math.round(basePriceVal * val);
+        const unitLabel = match[2].toLowerCase();
+        
+        // Convert to grams/milliliters
+        const amount = (unitLabel === 'kg' || unitLabel === 'l') ? val * 1000 : val;
+        
+        calculatedPrice = Math.round((basePriceVal / 1000) * amount);
+        calculatedMrp = baseMrpVal > 0 ? Math.round((baseMrpVal / 1000) * amount) : 0;
+        
+        if (unitLabel === 'l') {
+          variantUnit = 'L';
+        } else if (unitLabel === 'kg') {
+          variantUnit = 'kg';
+        } else if (unitLabel === 'ml') {
+          variantUnit = 'ml';
+        } else {
+          variantUnit = 'g';
         }
       }
       return {
         type: 'size',
         value: w,
-        price: calculatedPrice,
+        sellingPrice: calculatedPrice,
+        mrp: calculatedMrp,
+        price: calculatedPrice, // compatibility
+        compareAtPrice: calculatedMrp, // compatibility
         additionalPrice: 0,
         stock: quantity,
+        unit: variantUnit,
       };
     });
 
     // Parent price becomes first variant price or base price
-    const firstPrice = newVariants[0]?.price ?? basePriceVal;
+    const firstPrice = newVariants[0]?.sellingPrice ?? basePriceVal;
+    const firstMrp = newVariants[0]?.mrp ?? baseMrpVal;
 
     const areVariantsEqual = (a: any[], b: any[]) => {
       const arrA = a || [];
@@ -107,14 +182,15 @@ export default function VariantsSection({ form, update, errors }: Props) {
         return (
           current.type === v.type &&
           current.value === v.value &&
-          current.price === v.price &&
-          current.additionalPrice === v.additionalPrice &&
-          current.stock === v.stock
+          current.sellingPrice === v.sellingPrice &&
+          current.mrp === v.mrp &&
+          current.stock === v.stock &&
+          current.unit === v.unit
         );
       });
     };
 
-    const currentPriceMatches = form.price === (firstPrice || '');
+    const currentPriceMatches = form.sellingPrice === (firstPrice || '') && form.mrp === (firstMrp || '');
     const currentVariantsMatch = areVariantsEqual(form.variants, newVariants);
     const orderOfWeightsMatches = JSON.stringify(form.available_weights) === JSON.stringify(sortedWeightsList);
 
@@ -122,10 +198,13 @@ export default function VariantsSection({ form, update, errors }: Props) {
       update({
         available_weights: sortedWeightsList,
         variants: newVariants,
-        price: firstPrice || '',
+        sellingPrice: firstPrice || '',
+        mrp: firstMrp || '',
+        price: firstPrice || '', // compatibility
+        compareAtPrice: firstMrp || '', // compatibility
       });
     }
-  }, [basePrice1Kg, availableWeightsStr, productType, quantity, update]);
+  }, [basePrice1Kg, form.base_mrp_1kg, availableWeightsStr, productType, quantity, form.unit, update]);
 
   const toggleWeightOption = (weight: string) => {
     if (availableWeights.includes(weight)) {
@@ -144,7 +223,7 @@ export default function VariantsSection({ form, update, errors }: Props) {
     const val = parseFloat(customWeight);
     if (!Number.isFinite(val) || val <= 0) return;
 
-    const weightStr = `${val}${customUnit}`;
+    const weightStr = `${val}${selectedCustomUnit}`;
     if (!availableWeights.includes(weightStr)) {
       update({ available_weights: [...availableWeights, weightStr] });
     }
@@ -154,14 +233,16 @@ export default function VariantsSection({ form, update, errors }: Props) {
   const handleComboWeightDropdownChange = (option: string) => {
     setSelectedWeightOption(option);
     if (option !== 'Custom') {
-      const numericVal = parseFloat(option.split(' ')[0]);
-      update({ weight: numericVal, weightUnit: 'kg' });
+      const { val, unit: u } = parseComboWeightStr(option);
+      const baseValue = toComboBaseValue(val, u);
+      update({ weight: baseValue, weightUnit: u, comboWeight: baseValue });
     } else {
-      update({ weight: '', weightUnit: 'kg' });
+      update({ weight: '', weightUnit: form.unit || 'kg', comboWeight: '' });
     }
   };
 
-  const customWeights = availableWeights.filter((w) => !DEFAULT_WEIGHT_OPTIONS.includes(w));
+  const weightOptions = getWeightOptions(form.unit || 'g');
+  const customWeights = availableWeights.filter((w) => !weightOptions.includes(w));
 
   return (
     <motion.div
@@ -175,7 +256,7 @@ export default function VariantsSection({ form, update, errors }: Props) {
         <p className="text-xs text-gray-500 mt-0.5">Configure product type, shipping rates, and variant pricing</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {/* Product Type Field */}
         <div>
           <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
@@ -188,6 +269,40 @@ export default function VariantsSection({ form, update, errors }: Props) {
           >
             <option value="normal">Normal Product</option>
             <option value="combo">Combo Product</option>
+          </select>
+        </div>
+
+        {/* Unit Dropdown Field */}
+        <div>
+          <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
+            Unit *
+          </label>
+          <select
+            value={form.unit || 'g'}
+            onChange={(e) => {
+              const newUnit = e.target.value;
+              const nextCustomUnit = newUnit === 'ml' || newUnit === 'L' ? 'ml' : 'g';
+              const updates: Partial<ProductFormData> = { unit: newUnit, weightUnit: newUnit };
+              setCustomUnit(nextCustomUnit);
+
+              if (productType === 'combo') {
+                const defaultOption = newUnit === 'ml' || newUnit === 'L' ? '1 L' : '1 kg';
+                const { val, unit: u } = parseComboWeightStr(defaultOption);
+                const baseValue = toComboBaseValue(val, u);
+                setSelectedWeightOption(defaultOption);
+                updates.weight = baseValue;
+                updates.weightUnit = u;
+                updates.comboWeight = baseValue;
+              }
+
+              update(updates);
+            }}
+            className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-sm outline-none bg-white focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition-all font-medium text-gray-800"
+          >
+            <option value="g">Gram (g)</option>
+            <option value="kg">Kilogram (kg)</option>
+            <option value="ml">Milliliter (ml)</option>
+            <option value="L">Liter (L)</option>
           </select>
         </div>
 
@@ -224,14 +339,14 @@ export default function VariantsSection({ form, update, errors }: Props) {
           {/* Combo Weight */}
           <div>
             <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-              Combo Weight (kg) *
+              Combo Weight ({form.unit || 'kg'}) *
             </label>
             <select
               value={selectedWeightOption}
               onChange={(e) => handleComboWeightDropdownChange(e.target.value)}
               className="w-full max-w-md px-3.5 py-2.5 rounded-lg border border-gray-300 text-sm outline-none bg-white focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition-all font-medium text-gray-800"
             >
-              {COMBO_STANDARD_WEIGHTS.map((wt) => (
+              {comboWeightsList.map((wt) => (
                 <option key={wt} value={wt}>
                   {wt}
                 </option>
@@ -245,15 +360,16 @@ export default function VariantsSection({ form, update, errors }: Props) {
                   type="number"
                   step="any"
                   min={0.01}
-                  value={form.weight ?? ''}
+                  value={fromComboBaseValue(form.comboWeight ?? form.weight ?? '', form.unit || 'kg')}
                   onChange={(e) => {
                     const val = e.target.value === '' ? '' : parseFloat(e.target.value);
-                    update({ weight: val });
+                    const baseValue = val === '' ? '' : toComboBaseValue(val, form.unit || 'kg');
+                    update({ weight: baseValue, weightUnit: form.unit || 'kg', comboWeight: baseValue });
                   }}
                   className={`w-full px-3.5 py-2.5 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition-all font-semibold text-gray-800 ${
                     errors.weight ? 'border-red-400 bg-red-50' : 'border-gray-300'
                   }`}
-                  placeholder="Enter Combo Weight in kg (e.g. 2.5)"
+                  placeholder={`Enter Combo Weight in ${form.unit || 'kg'}`}
                 />
               </div>
             )}
@@ -272,18 +388,18 @@ export default function VariantsSection({ form, update, errors }: Props) {
                 <input
                   type="number"
                   min={0}
-                  value={form.price ?? ''}
+                  value={form.sellingPrice ?? ''}
                   onChange={(e) => {
                     const val = e.target.value === '' ? '' : parseFloat(e.target.value);
-                    update({ price: val, base_price_1kg: val });
+                    update({ sellingPrice: val });
                   }}
                   className={`w-full pl-8 pr-3.5 py-2.5 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition-all font-semibold text-gray-800 ${
-                    errors.price ? 'border-red-400 bg-red-50' : 'border-gray-300'
+                    errors.sellingPrice ? 'border-red-400 bg-red-50' : 'border-gray-300'
                   }`}
                   placeholder="e.g. 899"
                 />
               </div>
-              {errors.price && <p className="text-xs text-red-500 mt-1.5">{errors.price}</p>}
+              {errors.sellingPrice && <p className="text-xs text-red-500 mt-1.5">{errors.sellingPrice}</p>}
             </div>
 
             {/* MRP (Optional) */}
@@ -296,9 +412,9 @@ export default function VariantsSection({ form, update, errors }: Props) {
                 <input
                   type="number"
                   min={0}
-                  value={form.compareAtPrice ?? ''}
+                  value={form.mrp ?? ''}
                   onChange={(e) =>
-                    update({ compareAtPrice: e.target.value === '' ? '' : parseFloat(e.target.value) })
+                    update({ mrp: e.target.value === '' ? '' : parseFloat(e.target.value) })
                   }
                   className="w-full pl-8 pr-3.5 py-2.5 rounded-lg border border-gray-300 text-sm outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition-all font-semibold text-gray-800"
                   placeholder="e.g. 1199"
@@ -310,11 +426,11 @@ export default function VariantsSection({ form, update, errors }: Props) {
       ) : (
         /* Pricing & Weight Variants fields for Normal Product */
         <div className="border-t border-gray-100 pt-5 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-            {/* 1KG Base Price */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+            {/* Base Price */}
             <div>
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                1KG Base Price (₹) *
+                {form.unit === 'ml' || form.unit === 'L' ? '1L Base Price (₹) *' : '1KG Base Price (₹) *'}
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₹</span>
@@ -335,7 +451,30 @@ export default function VariantsSection({ form, update, errors }: Props) {
                 <p className="text-xs text-red-500 mt-1.5">{errors.base_price_1kg}</p>
               )}
               <p className="text-[10px] text-gray-400 mt-1">
-                Enter the base price for 1KG. Prices for other weight variants will be computed dynamically.
+                Enter the base price for {form.unit === 'ml' || form.unit === 'L' ? '1L' : '1KG'}. Prices for other variants will be computed dynamically.
+              </p>
+            </div>
+
+            {/* Base MRP */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
+                {form.unit === 'ml' || form.unit === 'L' ? '1L Base MRP (₹)' : '1KG Base MRP (₹)'} <span className="text-gray-400 text-[10px] lowercase font-normal">(optional)</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₹</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={form.base_mrp_1kg ?? ''}
+                  onChange={(e) =>
+                    update({ base_mrp_1kg: e.target.value === '' ? '' : parseFloat(e.target.value) })
+                  }
+                  className="w-full pl-8 pr-3.5 py-2.5 rounded-lg border border-gray-300 text-sm outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition-all font-semibold text-gray-800"
+                  placeholder="e.g. 600"
+                />
+              </div>
+              <p className="text-[10px] text-gray-400 mt-1">
+                Enter the base MRP for {form.unit === 'ml' || form.unit === 'L' ? '1L' : '1KG'}. MRP for other variants will be computed dynamically.
               </p>
             </div>
 
@@ -345,7 +484,7 @@ export default function VariantsSection({ form, update, errors }: Props) {
                 Available Weight Variants
               </label>
               <div className="flex flex-wrap gap-2 pt-1">
-                {DEFAULT_WEIGHT_OPTIONS.map((weight) => {
+                {weightOptions.map((weight) => {
                   const isChecked = availableWeights.includes(weight);
                   return (
                     <button
@@ -397,12 +536,13 @@ export default function VariantsSection({ form, update, errors }: Props) {
               </div>
               <div className="w-24">
                 <select
-                  value={customUnit}
-                  onChange={(e) => setCustomUnit(e.target.value as 'g' | 'kg')}
+                  value={selectedCustomUnit}
+                  onChange={(e) => setCustomUnit(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none bg-white focus:border-gray-400 transition-all font-medium text-gray-800"
                 >
-                  <option value="g">g</option>
-                  <option value="kg">kg</option>
+                  {(isVolume ? ['ml', 'L'] : ['g', 'kg']).map(u => (
+                    <option key={u} value={u}>{u}</option>
+                  ))}
                 </select>
               </div>
               <button
@@ -451,40 +591,42 @@ export default function VariantsSection({ form, update, errors }: Props) {
             >
               <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1">
                 <BadgePercent size={13} className="text-[#34a121]" />
-                Auto-calculated Weight Prices Preview
+                Auto-calculated Weight/Volume Prices Preview
               </span>
 
               <div className="overflow-hidden border border-gray-100 rounded-lg bg-white">
                 <table className="min-w-full divide-y divide-gray-100 text-left text-xs">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-2 font-bold text-gray-500 uppercase">Weight Variant</th>
-                      <th className="px-4 py-2 font-bold text-gray-500 uppercase">Proportional Weight</th>
+                      <th className="px-4 py-2 font-bold text-gray-500 uppercase">Variant Option</th>
+                      <th className="px-4 py-2 font-bold text-gray-500 uppercase">Proportional Quantity</th>
                       <th className="px-4 py-2 font-bold text-gray-500 uppercase">Calculated Price</th>
+                      <th className="px-4 py-2 font-bold text-gray-500 uppercase">Calculated MRP</th>
                       <th className="px-4 py-2 font-bold text-gray-500 uppercase">Stock</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 text-gray-700">
                     {availableWeights.map((w) => {
-                      const match = w.match(/^([\d.]+)\s*(g|kg)$/i);
+                      const match = w.match(/^([\d.]+)\s*(g|kg|ml|l)$/i);
                       let calculatedPrice = 0;
-                      let weightInGrams = 0;
+                      let calculatedMrp = 0;
+                      let amountVal = 0;
+                      const baseMrpVal = Number(form.base_mrp_1kg || 0);
                       if (match) {
                         const val = parseFloat(match[1]);
-                        const unit = match[2].toLowerCase();
-                        if (unit === 'g') {
-                          calculatedPrice = Math.round((Number(basePrice1Kg) / 1000) * val);
-                          weightInGrams = val;
-                        } else if (unit === 'kg') {
-                          calculatedPrice = Math.round(Number(basePrice1Kg) * val);
-                          weightInGrams = val * 1000;
-                        }
+                        const unitLabel = match[2].toLowerCase();
+                        
+                        const amount = (unitLabel === 'kg' || unitLabel === 'l') ? val * 1000 : val;
+                        calculatedPrice = Math.round((Number(basePrice1Kg) / 1000) * amount);
+                        calculatedMrp = baseMrpVal > 0 ? Math.round((baseMrpVal / 1000) * amount) : 0;
+                        amountVal = amount;
                       }
                       return (
                         <tr key={w} className="hover:bg-gray-50/50 transition-colors">
                           <td className="px-4 py-2.5 font-bold text-gray-900">{w}</td>
-                          <td className="px-4 py-2.5 text-gray-500">{weightInGrams}g</td>
+                          <td className="px-4 py-2.5 text-gray-500">{amountVal}{isVolume ? 'ml' : 'g'}</td>
                           <td className="px-4 py-2.5 font-bold text-[#34a121]">₹{calculatedPrice}</td>
+                          <td className="px-4 py-2.5 font-bold text-gray-400">₹{calculatedMrp > 0 ? calculatedMrp : '—'}</td>
                           <td className="px-4 py-2.5 text-gray-500">{quantity}</td>
                         </tr>
                       );

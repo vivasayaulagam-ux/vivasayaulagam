@@ -22,7 +22,7 @@ interface BugReport {
 const bugs: BugReport[] = [];
 const apiCallsLog: string[] = [];
 let totalBugCount = 0;
-let fixedBugCount = 0;
+const fixedBugCount = 0;
 
 function logBug(severity: BugReport['severity'], step: string, description: string, fix?: string) {
   bugs.push({ severity, step, description, fix });

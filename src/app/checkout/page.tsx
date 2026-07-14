@@ -198,7 +198,10 @@ export default function CheckoutPage() {
 
 
   const subtotal = totalPrice();
-  const totalWeight = items.reduce((sum, item) => sum + toWeightKg(item.weight, item.weightUnit || "kg", item.name) * item.quantity, 0);
+  const totalWeight = items.reduce((sum, item) => {
+    const itemWeight = item.isCombo ? (item.comboWeight || 0) : toWeightKg(item.weight, item.weightUnit || "kg", item.name);
+    return sum + itemWeight * item.quantity;
+  }, 0);
 
   // Fetch shipping fee dynamically when state or pincode changes
   useEffect(() => {
@@ -209,7 +212,12 @@ export default function CheckoutPage() {
           pincode: shippingAddress.postalCode || "",
           subtotal: String(subtotal),
           weight: String(totalWeight),
-          items: JSON.stringify(items.map(i => ({ productId: i.id.split("-")[0], quantity: i.quantity, price: i.price, weightKg: toWeightKg(i.weight, i.weightUnit || "kg", i.name) })))
+          items: JSON.stringify(items.map(i => ({
+            productId: i.id.split("-")[0],
+            quantity: i.quantity,
+            price: i.price,
+            weightKg: i.isCombo ? (i.comboWeight || 0) : toWeightKg(i.weight, i.weightUnit || "kg", i.name)
+          })))
         });
         const res = await fetch(`/api/shipping/calculate?${queryParams.toString()}`);
         const data = await res.json();
@@ -622,7 +630,7 @@ export default function CheckoutPage() {
                           <p className="font-semibold text-text-dark text-xs">{item.name}</p>
                           <p className="text-[11px] text-text-muted">Qty: {item.quantity}</p>
                           <p className="text-[11px] text-text-muted">
-                            Weight: {formatWeightKg(toWeightKg(item.weight, item.weightUnit || "kg", item.name))}
+                            Weight: {formatWeightKg(item.isCombo ? (item.comboWeight || 0) : toWeightKg(item.weight, item.weightUnit || "kg", item.name))}
                           </p>
                         </div>
                       </div>
@@ -638,9 +646,15 @@ export default function CheckoutPage() {
                     <span>Total Weight</span>
                     <span className="font-heading font-semibold text-text-dark">{formatWeightKg(totalWeight)}</span>
                   </div>
-                  <div className="flex justify-between text-text-muted">
-                    <span>Courier Charges</span>
-                    <span className="font-heading font-semibold text-text-dark">{formatPrice(resolvedDeliveryFee)}</span>
+                  <div className="flex justify-between text-text-muted items-start gap-4">
+                    <span>Courier Charge</span>
+                    {courierFee !== null && courierFee !== undefined ? (
+                      <span className="font-heading font-semibold text-text-dark">{formatPrice(courierFee)}</span>
+                    ) : (
+                      <span className="text-[11px] text-amber-600 font-semibold text-right max-w-[200px] leading-snug">
+                        Enter your delivery address to calculate shipping.
+                      </span>
+                    )}
                   </div>
                   {hasMissingWeight && (
                     <p className="rounded-lg bg-amber-50 px-3 py-2 text-[11px] font-semibold leading-relaxed text-amber-700">

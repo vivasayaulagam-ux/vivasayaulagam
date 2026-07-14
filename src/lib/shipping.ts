@@ -96,6 +96,19 @@ export function formatWeightKg(weightKg: number) {
   return `${Number(weightKg.toFixed(2)).toLocaleString("en-IN")} kg`;
 }
 
+export function normalizeComboWeightKg(weight: number | string | null | undefined, unit = "kg") {
+  const value = typeof weight === "string" ? parseFloat(weight) : Number(weight);
+  if (!Number.isFinite(value) || value <= 0) return 0;
+
+  // New comboWeight values are stored as kg/L-equivalent. This protects older
+  // records that may have persisted raw g/ml values before normalization.
+  if ((unit === "g" || unit === "ml") && value > 50) {
+    return value / 1000;
+  }
+
+  return value;
+}
+
 export function getCourierBracketLabel(weightKg: number) {
   if (!Number.isFinite(weightKg) || weightKg <= 0.25) return "Up to 250g";
   if (weightKg <= 0.5) return "Up to 500g";
@@ -121,22 +134,59 @@ export const DEFAULT_OTHER_SLABS = [
   { weight_start_g: 5000, weight_end_g: 6000, charge: 600 }
 ];
 
+export const SHIPPING_RATES: Record<string, number> = {
+  "Tamil Nadu": 50,
+  "Kerala": 100,
+  "Karnataka": 100,
+  "Andhra Pradesh": 100,
+  "Telangana": 100,
+  "DEFAULT": 150
+};
+
+export const STATE_CODE_MAP: Record<string, string> = {
+  "TN": "Tamil Nadu",
+  "KL": "Kerala",
+  "KA": "Karnataka",
+  "AP": "Andhra Pradesh",
+  "TG": "Telangana"
+};
+
+export function calculateCourierCharge(weightKg: number, stateName?: string): number {
+  if (!weightKg || weightKg <= 0) return 0;
+  
+  const state = (stateName || "").trim();
+  let baseRate = SHIPPING_RATES.DEFAULT;
+  
+  if (state) {
+    let resolvedState = state;
+    if (state.toUpperCase() in STATE_CODE_MAP) {
+      resolvedState = STATE_CODE_MAP[state.toUpperCase()];
+    }
+    const matchedState = Object.keys(SHIPPING_RATES).find(
+      (key) => key.toLowerCase() === resolvedState.toLowerCase()
+    );
+    if (matchedState) {
+      baseRate = SHIPPING_RATES[matchedState];
+    }
+  }
+  
+  const weightInGrams = Math.round(weightKg * 1000);
+  const multiplier = Math.ceil(weightInGrams / 1000);
+  return baseRate * multiplier;
+}
+
 export function resolveSlabCharge(weightKg: number, stateName: string, slabsFromRule?: any[]): number {
   const weightGrams = Math.round(weightKg * 1000);
   if (weightGrams <= 0) return 0;
-  
+
   const isTN = (stateName || '').toLowerCase().trim() === 'tamil nadu' || (stateName || '').toLowerCase().trim() === 'tn';
+  const slabs = slabsFromRule && slabsFromRule.length > 0
+    ? slabsFromRule
+    : isTN
+      ? DEFAULT_TN_SLABS
+      : DEFAULT_OTHER_SLABS;
 
-  // Choose slabs to use
-  let slabs = slabsFromRule;
-  if (!slabs || slabs.length === 0) {
-    slabs = isTN ? DEFAULT_TN_SLABS : DEFAULT_OTHER_SLABS;
-  }
-
-  // Sort slabs by end weight ascending
   const sortedSlabs = [...slabs].sort((a, b) => a.weight_end_g - b.weight_end_g);
-
-  // Check matching slab
   const matchedSlab = sortedSlabs.find(
     (s) => weightGrams > s.weight_start_g && weightGrams <= s.weight_end_g
   );
@@ -145,22 +195,21 @@ export function resolveSlabCharge(weightKg: number, stateName: string, slabsFrom
     return matchedSlab.charge;
   }
 
-  // Extrapolate if weight exceeds the maximum defined slab
   const lastSlab = sortedSlabs[sortedSlabs.length - 1];
-  if (lastSlab) {
-    const weightDiff = weightGrams - lastSlab.weight_end_g;
-    const extraSlabsCount = Math.ceil(weightDiff / 1000);
-    
-    let increment = isTN ? 50 : 100;
-    if (sortedSlabs.length >= 2) {
-      const secondLastSlab = sortedSlabs[sortedSlabs.length - 2];
-      increment = lastSlab.charge - secondLastSlab.charge;
-    }
-    
-    return lastSlab.charge + (extraSlabsCount * increment);
+  if (!lastSlab) {
+    return calculateCourierCharge(weightKg, stateName);
   }
 
-  return isTN ? 50 : 100;
+  const weightDiff = weightGrams - lastSlab.weight_end_g;
+  const extraSlabsCount = Math.ceil(weightDiff / 1000);
+  let increment = isTN ? 50 : 100;
+
+  if (sortedSlabs.length >= 2) {
+    const secondLastSlab = sortedSlabs[sortedSlabs.length - 2];
+    increment = lastSlab.charge - secondLastSlab.charge;
+  }
+
+  return lastSlab.charge + (extraSlabsCount * increment);
 }
 
 export function getCourierFee(weightKg: number, subtotal: number, stateName = "Tamil Nadu", slabs?: any[]) {

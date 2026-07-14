@@ -640,7 +640,7 @@ export default function SettingsPage() {
                     Weight-Based Courier Charges
                   </h2>
                   <p className="text-xs text-gray-500">
-                    Define shipping rates dynamically based on the cumulative weight of the products in the customer's cart. Weights will be parsed and calculated at checkout.
+                    Define shipping rates dynamically based on the cumulative weight of the products in the customer&apos;s cart. Weights will be parsed and calculated at checkout.
                   </p>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -839,7 +839,7 @@ export default function SettingsPage() {
                       </button>
                     )}
                     {bannerSlides.length === 0 && (
-                      <p className="text-xs text-gray-400 text-center py-4">No slides yet. Click "Add New Slide" to begin.</p>
+                      <p className="text-xs text-gray-400 text-center py-4">No slides yet. Click &quot;Add New Slide&quot; to begin.</p>
                     )}
                   </div>
                 </div>

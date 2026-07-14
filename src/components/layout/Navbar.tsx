@@ -36,6 +36,7 @@ import {
 import SearchDrawer from "@/components/layout/SearchDrawer";
 import Logo from "@/components/ui/Logo";
 import { categories } from "@/data/categories";
+import { contactInfo } from "@/data/contact";
 import { useCartStore } from "@/store/cartStore";
 
 type NavCategory = {
@@ -51,16 +52,6 @@ type NavCategory = {
 type CategoriesResponse = {
   success?: boolean;
   categories?: NavCategory[];
-};
-
-type NavbarSettings = Record<string, string | boolean | undefined> & {
-  contact_email?: string;
-  contact_phone?: string;
-};
-
-type SettingsResponse = {
-  success?: boolean;
-  settings?: NavbarSettings;
 };
 
 type NavItem = {
@@ -214,20 +205,6 @@ export default function Navbar() {
     }
     return [];
   });
-  const [contactEmail, setContactEmail] = useState(() => {
-    if (typeof window !== "undefined") {
-      const cache = (window as any).__vivasayaSettingsCache;
-      if (cache?.contact_email) return String(cache.contact_email);
-    }
-    return "vivasayaulagam@gmail.com";
-  });
-  const [contactPhone, setContactPhone] = useState(() => {
-    if (typeof window !== "undefined") {
-      const cache = (window as any).__vivasayaSettingsCache;
-      if (cache?.contact_phone) return String(cache.contact_phone);
-    }
-    return "+91 98765 43210";
-  });
   const [mobileSearchVal, setMobileSearchVal] = useState("");
   const [mobileCatsOpen, setMobileCatsOpen] = useState(false);
   const [mobileActiveTab, setMobileActiveTab] = useState<"categories" | "menu">("categories");
@@ -291,26 +268,6 @@ export default function Navbar() {
     }
 
     loadDbCategories();
-  }, []);
-
-  useEffect(() => {
-    async function loadNavbarSettings() {
-      try {
-        const res = await fetch(`/api/settings?t=${Date.now()}`, { cache: "no-store" });
-        const data = (await res.json()) as SettingsResponse;
-        if (data.success && data.settings) {
-          setContactEmail(String(data.settings.contact_email || "vivasayaulagam@gmail.com"));
-          setContactPhone(String(data.settings.contact_phone || "+91 98765 43210"));
-          if (typeof window !== "undefined") {
-            (window as any).__vivasayaSettingsCache = data.settings;
-          }
-        }
-      } catch {
-        // Keep fallback contact details if the optional settings request is interrupted.
-      }
-    }
-
-    loadNavbarSettings();
   }, []);
 
   useEffect(() => {
@@ -745,9 +702,9 @@ export default function Navbar() {
                 })}
 
                 {/* WhatsApp / Contact quick-action */}
-                {contactPhone && (
+                {contactInfo.whatsappUrl && (
                   <a
-                    href={`https://wa.me/${contactPhone.replace(/\D/g, "")}`}
+                    href={contactInfo.whatsappUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => setMobileOpen(false)}

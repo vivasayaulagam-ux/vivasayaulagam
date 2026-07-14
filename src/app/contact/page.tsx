@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronDown, Mail, Phone, MapPin, Send, HelpCircle, Shield, Globe2, Loader2, CheckCircle2 } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
+import { contactAddress, contactInfo } from '@/data/contact';
 
 export default function ContactPage() {
   const [name, setName] = useState('');
@@ -114,8 +115,8 @@ export default function ContactPage() {
             </div>
             <div>
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Email Support</p>
-              <p className="text-sm font-semibold text-gray-800 mt-1 font-mono break-all">{settings.contact_email || "support@vivasayauallagam.com"}</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">{settings.contact_email_sub || "Replies within 24 hours"}</p>
+              <p className="text-sm font-semibold text-gray-800 mt-1 font-mono break-all">{contactInfo.email}</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">{contactInfo.emailSubtext}</p>
             </div>
           </div>
 
@@ -125,8 +126,8 @@ export default function ContactPage() {
             </div>
             <div>
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Phone Helpline</p>
-              <p className="text-sm font-semibold text-gray-800 mt-1 font-mono">{settings.contact_phone || "+91 98765 43210"}</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">{settings.contact_helpline_hours || "Mon - Sat, 9 AM - 6 PM IST"}</p>
+              <p className="text-sm font-semibold text-gray-800 mt-1 font-mono">{contactInfo.phoneDisplay}</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">{contactInfo.businessHours}</p>
             </div>
           </div>
 
@@ -136,7 +137,14 @@ export default function ContactPage() {
             </div>
             <div>
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">HQ Address</p>
-              <p className="text-sm font-semibold text-gray-800 mt-1">{settings.shop_address || "12, Organic Green Valley, Coimbatore, Tamil Nadu - 641001"}</p>
+              <a
+                href={contactInfo.googleMapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 block text-sm font-semibold text-gray-800 hover:text-primary transition-colors"
+              >
+                {contactAddress}
+              </a>
             </div>
           </div>
         </div>
@@ -301,7 +309,7 @@ export default function ContactPage() {
             <div className="w-full h-64 bg-secondary border border-gray-200 rounded-3xl overflow-hidden relative shadow-sm">
               <iframe
                 title="Vivasaya Ulagam HQ Location Map"
-                src={settings.contact_map_embed || `https://maps.google.com/maps?q=${encodeURIComponent(settings.shop_address || "Vivasaya Ulagam Agri Products, Coimbatore, Tamil Nadu, India")}&t=&z=14&ie=UTF8&iwloc=&output=embed`}
+                src={`https://maps.google.com/maps?q=${encodeURIComponent(contactInfo.googleMapsQuery)}&t=&z=14&ie=UTF8&iwloc=&output=embed`}
                 width="100%"
                 height="100%"
                 style={{ border: 0 }}

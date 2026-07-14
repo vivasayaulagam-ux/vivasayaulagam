@@ -8,6 +8,8 @@ const OrderItemSchema = new mongoose.Schema({
   quantity: { type: Number, required: true },
   image: { type: String },
   weightKg: { type: Number, default: 0 },
+  isCombo: { type: Boolean },
+  comboWeight: { type: Number },
 });
 
 const OrderSchema = new mongoose.Schema(

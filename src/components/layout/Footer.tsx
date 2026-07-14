@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Mail, Phone, MapPin } from "lucide-react";
+import { contactInfo } from "@/data/contact";
 
 function NewsletterForm() {
   const [email, setEmail] = useState("");
@@ -199,41 +200,41 @@ export default function Footer() {
             <ul className="space-y-4 text-sm text-white/80 font-body">
               <li className="flex">
                 <a
-                  href="https://share.google/bQ76u9FIoO6puAF0G"
+                  href={contactInfo.googleMapsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-start gap-3 hover:text-white transition-colors group"
                 >
                   <MapPin size={20} strokeWidth={1.75} className="text-accent-light shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
                   <span>
-                    VIVASAYA ULAGAM AGRI PRODUCTS<br />
-                    Tamilnadu, India
+                    {contactInfo.companyName}<br />
+                    {contactInfo.addressLines.join(", ")}
                   </span>
                 </a>
               </li>
               <li className="flex items-center gap-3">
                 <Mail size={20} strokeWidth={1.75} className="text-accent-light shrink-0" />
-                <a href="mailto:vivasayaulagam@gmail.com" className="hover:text-white transition-colors">
-                  vivasayaulagam@gmail.com
+                <a href={`mailto:${contactInfo.email}`} className="hover:text-white transition-colors">
+                  {contactInfo.email}
                 </a>
               </li>
               <li className="flex items-start gap-3">
                 <Phone size={20} strokeWidth={1.75} className="text-accent-light shrink-0 mt-0.5" />
                 <span>
-                  <a href="tel:+917708631801" className="hover:text-white transition-colors">
-                    +91 7708631801
+                  <a href={contactInfo.phoneHref} className="hover:text-white transition-colors">
+                    {contactInfo.phoneDisplay}
                   </a>
                   <br />
-                  <span className="text-xs text-white/60">Timing(9:30AM - 6:30PM)</span>
+                  <span className="text-xs text-white/60">{contactInfo.businessHours}</span>
                 </span>
               </li>
             </ul>
             <div className="flex gap-3 pt-2">
               {[
-                { Icon: FacebookIcon, label: "Facebook", href: "https://www.facebook.com/people/Vivasaya-Ulagam/100086884635234/" },
-                { Icon: InstagramIcon, label: "Instagram", href: "https://www.instagram.com/vivasaya_ulagam/" },
-                { Icon: YoutubeIcon, label: "YouTube", href: "https://www.youtube.com/@vivasayaulagam" },
-                { Icon: WhatsappIcon, label: "WhatsApp", href: "https://wa.me/917708631801" },
+                { Icon: FacebookIcon, label: "Facebook", href: contactInfo.socialLinks.facebook },
+                { Icon: InstagramIcon, label: "Instagram", href: contactInfo.socialLinks.instagram },
+                { Icon: YoutubeIcon, label: "YouTube", href: contactInfo.socialLinks.youtube },
+                { Icon: WhatsappIcon, label: "WhatsApp", href: contactInfo.whatsappUrl },
               ].map(({ Icon, label, href }) => (
                 <a
                   key={label}
