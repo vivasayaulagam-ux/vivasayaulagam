@@ -55,10 +55,12 @@ export async function GET(req: NextRequest) {
     }
 
     let totalWeightKg = 0;
+    let isComboCart = false;
+    let comboShippingCharge = 0;
 
     if (items.length > 0) {
       const productIds = items.map((i: any) => i.productId).filter(Boolean);
-      const dbProducts = await Product.find({ _id: { $in: productIds } }).select('product_type comboWeight weight weightUnit unit').lean();
+      const dbProducts = await Product.find({ _id: { $in: productIds } }).select('product_type courier_charge comboWeight weight weightUnit unit').lean();
       const productsMap = new Map(dbProducts.map((p: any) => [p._id.toString(), p]));
 
       for (const item of items) {
@@ -66,6 +68,10 @@ export async function GET(req: NextRequest) {
         let itemWeight = 0.25;
         if (dbProduct) {
           if (dbProduct.product_type === 'combo') {
+            isComboCart = true;
+            if (dbProduct.courier_charge > 0) {
+              comboShippingCharge += dbProduct.courier_charge * item.quantity;
+            }
             itemWeight = normalizeComboWeightKg(
               dbProduct.comboWeight !== undefined ? dbProduct.comboWeight : dbProduct.weight,
               dbProduct.weightUnit || dbProduct.unit || 'kg'
@@ -82,19 +88,24 @@ export async function GET(req: NextRequest) {
       totalWeightKg = weight;
     }
 
-    const ruleApplies = matchingRule && subtotal >= (matchingRule.minimum_order_value || 0);
-    const isFreeShipping = ruleApplies &&
-      matchingRule.free_shipping_above !== null &&
-      matchingRule.free_shipping_above !== undefined &&
-      subtotal >= matchingRule.free_shipping_above;
-
     let resolvedCourierCharge = 0;
-    if (!isFreeShipping) {
-      resolvedCourierCharge = resolveSlabCharge(
-        totalWeightKg,
-        state || matchingRule?.state_name || '',
-        ruleApplies ? matchingRule.slabs : []
-      );
+
+    if (isComboCart) {
+      resolvedCourierCharge = comboShippingCharge;
+    } else {
+      const ruleApplies = matchingRule && subtotal >= (matchingRule.minimum_order_value || 0);
+      const isFreeShipping = ruleApplies &&
+        matchingRule.free_shipping_above !== null &&
+        matchingRule.free_shipping_above !== undefined &&
+        subtotal >= matchingRule.free_shipping_above;
+
+      if (!isFreeShipping) {
+        resolvedCourierCharge = resolveSlabCharge(
+          totalWeightKg,
+          state || matchingRule?.state_name || '',
+          ruleApplies ? matchingRule.slabs : []
+        );
+      }
     }
 
     return NextResponse.json({ success: true, courier_charge: resolvedCourierCharge, rate_per_kg: 0, ruleUsed: matchingRule });

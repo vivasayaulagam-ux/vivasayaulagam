@@ -132,6 +132,8 @@ export async function POST(req: Request) {
 
     // Retrieve active product prices and info from the database
     let totalWeightKg = 0;
+    let isComboCart = false;
+    let comboShippingCharge = 0;
     const formattedItems = [];
     
     const productIds = items.map((item: any) => String(item.id || item.productId || '').split('-')[0]);
@@ -172,6 +174,10 @@ export async function POST(req: Request) {
       let itemWeight = 0.25;
 
       if (product.product_type === 'combo') {
+        isComboCart = true;
+        if (product.courier_charge > 0) {
+          comboShippingCharge += product.courier_charge * orderQty;
+        }
         itemWeight = normalizeComboWeightKg(
           product.comboWeight !== undefined ? product.comboWeight : product.weight,
           product.weightUnit || product.unit || 'kg'
@@ -242,18 +248,29 @@ export async function POST(req: Request) {
       );
     }
 
-    const ruleApplies = matchingRule && computedSubtotal >= (matchingRule.minimum_order_value || 0);
-    const isFreeShipping = ruleApplies &&
-      matchingRule.free_shipping_above !== null &&
-      matchingRule.free_shipping_above !== undefined &&
-      computedSubtotal >= matchingRule.free_shipping_above;
+    let deliveryFee = 0;
+    if (isComboCart) {
+      deliveryFee = comboShippingCharge;
+    } else {
+      const ruleApplies = matchingRule && computedSubtotal >= (matchingRule.minimum_order_value || 0);
+      const isFreeShipping = ruleApplies &&
+        matchingRule.free_shipping_above !== null &&
+        matchingRule.free_shipping_above !== undefined &&
+        computedSubtotal >= matchingRule.free_shipping_above;
 
-    const deliveryFee = isFreeShipping
-      ? 0
-      : resolveSlabCharge(totalWeightKg, state || matchingRule?.state_name || '', ruleApplies ? matchingRule.slabs : []);
+      deliveryFee = isFreeShipping
+        ? 0
+        : resolveSlabCharge(totalWeightKg, state || matchingRule?.state_name || '', ruleApplies ? matchingRule.slabs : []);
+    }
     const appliedRate = 0; // Legacy unused field
 
-    if (deliveryFee <= 0 && totalWeightKg > 0) {
+    if (deliveryFee <= 0 && totalWeightKg > 0 && !isComboCart) {
+      const ruleApplies = matchingRule && computedSubtotal >= (matchingRule.minimum_order_value || 0);
+      const isFreeShipping = ruleApplies &&
+        matchingRule.free_shipping_above !== null &&
+        matchingRule.free_shipping_above !== undefined &&
+        computedSubtotal >= matchingRule.free_shipping_above;
+
       if (!isFreeShipping) {
         return NextResponse.json({ error: 'Courier rate is missing for your shipping location. Please contact support.' }, { status: 400 });
       }
