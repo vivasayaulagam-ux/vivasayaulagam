@@ -11,13 +11,16 @@ export interface CartItem {
   weight?: number;
   weightUnit?: string;
   isOutOfStock?: boolean;
+  isCombo?: boolean;
+  comboWeight?: number;
+  productId?: string;
 }
 
 interface CartState {
   items: CartItem[];
   hasHydrated: boolean;
   addItem: (item: CartItem) => void;
-  updateItemMetadata: (id: string, metadata: Partial<Pick<CartItem, 'image' | 'name' | 'price' | 'weight' | 'weightUnit' | 'isOutOfStock'>>) => void;
+  updateItemMetadata: (id: string, metadata: Partial<Pick<CartItem, 'image' | 'name' | 'price' | 'weight' | 'weightUnit' | 'isOutOfStock' | 'isCombo' | 'comboWeight'>>) => void;
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
@@ -35,7 +38,12 @@ export const useCartStore = create<CartState>()(
       addItem: (newItem) => {
         const quantity = Number.isFinite(newItem.quantity) ? Math.max(1, Math.floor(newItem.quantity)) : 1;
         const price = Number.isFinite(newItem.price) ? Math.max(0, newItem.price) : 0;
-        const weight = toWeightKg(newItem.weight, newItem.weightUnit || 'kg', newItem.name);
+        let weight: number;
+        if (newItem.isCombo) {
+          weight = newItem.comboWeight || 0;
+        } else {
+          weight = toWeightKg(newItem.weight, newItem.weightUnit || 'kg', newItem.name);
+        }
         const itemToAdd = { ...newItem, quantity, price, weight, weightUnit: 'kg' };
 
         set((state) => {
@@ -59,16 +67,23 @@ export const useCartStore = create<CartState>()(
       },
       updateItemMetadata: (id, metadata) => {
         set((state) => ({
-          items: state.items.map((item) =>
-            item.id === id
-              ? {
-                  ...item,
-                  ...metadata,
-                  weight: metadata.weight !== undefined ? toWeightKg(metadata.weight, metadata.weightUnit || 'kg', item.name) : item.weight,
-                  weightUnit: metadata.weight !== undefined ? 'kg' : (metadata.weightUnit || item.weightUnit),
-                }
-              : item
-          ),
+          items: state.items.map((item) => {
+            if (item.id === id) {
+              const merged = { ...item, ...metadata };
+              let weight: number;
+              if (merged.isCombo) {
+                weight = merged.comboWeight || 0;
+              } else {
+                weight = metadata.weight !== undefined ? toWeightKg(metadata.weight, metadata.weightUnit || 'kg', item.name) : item.weight || 0;
+              }
+              return {
+                ...merged,
+                weight,
+                weightUnit: merged.isCombo ? 'kg' : (metadata.weight !== undefined ? 'kg' : (metadata.weightUnit || item.weightUnit)),
+              };
+            }
+            return item;
+          }),
         }));
       },
       removeItem: (id) => {

@@ -16,6 +16,11 @@ const poppins = Poppins({
 export const metadata: Metadata = {
   title: "Vivasaya Ulagam — Premium Organic Tamil Nadu Products",
   description: "Premium organic local foods direct from Tamil Nadu farms. Pure Ghee, Millets, Honey & Cold Pressed Oils.",
+  icons: {
+    icon: "/icon.png",
+    shortcut: "/icon.png",
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default async function RootLayout({

@@ -22,8 +22,10 @@ export type ProductFormData = {
   images: string[];
   category: string;
   categories: string[];
-  price: number | '';
-  compareAtPrice: number | '';
+  sellingPrice: number | '';
+  mrp: number | '';
+  price?: number | ''; // compatibility
+  compareAtPrice?: number | ''; // compatibility
   unitPrice: number | '';
   chargeTax: boolean;
   costPerItem: number | '';
@@ -32,7 +34,7 @@ export type ProductFormData = {
   sku: string;
   barcode: string;
   continueSelling: boolean;
-  variants: { type: string; value: string; price?: number | ''; additionalPrice: number | ''; stock: number | '' }[];
+  variants: { type: string; value: string; sellingPrice?: number | ''; mrp?: number | ''; price?: number | ''; compareAtPrice?: number | ''; additionalPrice: number | ''; stock: number | '' }[];
   seoTitle: string;
   seoDescription: string;
   seoSlug: string;
@@ -46,13 +48,16 @@ export type ProductFormData = {
   courier_charge: number | '';
   available_weights: string[];
   base_price_1kg: number | '';
+  base_mrp_1kg: number | '';
   weight: number | '';
   weightUnit: string;
+  unit: string;
+  comboWeight?: number | '';
 };
 
 const defaultForm: ProductFormData = {
   title: '', description: '', images: [], category: '', categories: [],
-  price: '', compareAtPrice: '', unitPrice: '', chargeTax: false, costPerItem: '',
+  sellingPrice: '', mrp: '', price: '', compareAtPrice: '', unitPrice: '', chargeTax: false, costPerItem: '',
   trackInventory: false, quantity: '', sku: '', barcode: '', continueSelling: false,
   variants: [], seoTitle: '', seoDescription: '', seoSlug: '',
   status: 'draft', productType: '', vendor: '', collections: [], tags: [],
@@ -61,8 +66,11 @@ const defaultForm: ProductFormData = {
   courier_charge: '',
   available_weights: [],
   base_price_1kg: '',
+  base_mrp_1kg: '',
   weight: '',
   weightUnit: 'kg',
+  unit: 'g',
+  comboWeight: '',
 };
 
 export default function AddProductPage() {
@@ -76,10 +84,11 @@ export default function AddProductPage() {
   const validate = () => {
     const e: typeof errors = {};
     if (!form.title.trim()) e.title = 'Title is required';
+    if (!form.unit) e.unit = 'Unit is required';
     
     if (form.product_type === 'combo') {
-      if (form.price === '' || Number(form.price) <= 0) {
-        e.price = 'Price is required and must be greater than 0';
+      if (form.sellingPrice === '' || Number(form.sellingPrice) <= 0) {
+        e.sellingPrice = 'Selling Price is required and must be greater than 0';
       }
       if (form.weight === '' || Number(form.weight) <= 0) {
         e.weight = 'Combo Weight is required and must be greater than 0';

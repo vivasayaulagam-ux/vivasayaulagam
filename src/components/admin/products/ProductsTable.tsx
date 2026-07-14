@@ -185,9 +185,9 @@ export default function ProductsTable({
 
                   {/* Price */}
                   <td className="px-3 py-3.5">
-                    <p className="font-bold text-gray-900">₹{p.price.toLocaleString()}</p>
-                    {p.compareAtPrice > 0 && (
-                      <p className="text-xs text-gray-400 line-through">₹{p.compareAtPrice.toLocaleString()}</p>
+                    <p className="font-bold text-gray-900">₹{Number(p.sellingPrice ?? p.price ?? 0).toLocaleString()}</p>
+                    {Number(p.mrp ?? p.compareAtPrice ?? 0) > Number(p.sellingPrice ?? p.price ?? 0) && (
+                      <p className="text-xs text-gray-400 line-through">₹{Number(p.mrp ?? p.compareAtPrice ?? 0).toLocaleString()}</p>
                     )}
                   </td>
 

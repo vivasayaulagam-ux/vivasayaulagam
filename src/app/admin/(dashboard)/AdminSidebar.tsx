@@ -26,21 +26,16 @@ const NAV = [
   { href: "/admin/settings",   icon: Settings,        label: "Settings" },
 ];
 
-export default function AdminSidebar() {
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const pathname = usePathname();
-  const router = useRouter();
-
-  const handleLogout = async () => {
-    try {
-      await fetch("/api/admin/login", { method: "DELETE" });
-      router.push("/admin/login");
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const SidebarContent = () => (
+function SidebarContent({
+  pathname,
+  onClose,
+  onLogout,
+}: {
+  pathname: string | null;
+  onClose: () => void;
+  onLogout: () => Promise<void>;
+}) {
+  return (
     <>
       <div className="px-5 py-5 border-b border-[#e5e5e5]">
         <div className="flex items-center gap-2.5">
@@ -61,7 +56,7 @@ export default function AdminSidebar() {
             <Link
               key={href}
               href={href}
-              onClick={() => setMobileOpen(false)}
+              onClick={onClose}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-[13px] font-medium transition-all duration-250 ease-in-out group ${
                 isActive ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:bg-white hover:text-gray-900 hover:shadow-sm"
               }`}
@@ -75,7 +70,7 @@ export default function AdminSidebar() {
 
       <div className="px-3 py-4 border-t border-[#e5e5e5] space-y-0.5">
         <button
-          onClick={handleLogout}
+          onClick={onLogout}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-gray-500 text-[13px] font-medium hover:bg-red-50 hover:text-red-600 hover:shadow-sm transition-all duration-250 ease-in-out group border-0 bg-transparent cursor-pointer"
         >
           <LogOut size={18} strokeWidth={1.75} className="text-gray-400 group-hover:text-red-500 group-hover:scale-105 transition-all duration-250 shrink-0" />
@@ -91,6 +86,21 @@ export default function AdminSidebar() {
       </div>
     </>
   );
+}
+
+export default function AdminSidebar() {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/admin/login", { method: "DELETE" });
+      router.push("/admin/login");
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   return (
     <>
@@ -112,7 +122,7 @@ export default function AdminSidebar() {
         className="hidden md:flex w-[240px] shrink-0 flex-col fixed top-0 left-0 h-screen z-30"
         style={{ background: "#efefef", borderRight: "1px solid #e5e5e5" }}
       >
-        <SidebarContent />
+        <SidebarContent pathname={pathname} onClose={() => setMobileOpen(false)} onLogout={handleLogout} />
       </aside>
 
       {/* Mobile Sidebar overlay */}
@@ -139,7 +149,7 @@ export default function AdminSidebar() {
               >
                 <X size={18} className="text-gray-500" />
               </button>
-              <SidebarContent />
+              <SidebarContent pathname={pathname} onClose={() => setMobileOpen(false)} onLogout={handleLogout} />
             </motion.aside>
           </>
         )}

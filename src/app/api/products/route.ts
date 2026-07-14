@@ -4,65 +4,10 @@ import Product from '@/models/Product';
 import { requireAdmin } from '@/lib/authHelper';
 import { normalizeImageUrl, normalizeProductImage, normalizeSinglePath } from '@/lib/utils';
 import { getProducts } from '@/lib/productService';
+import { normalizeProductPayload, normalizeProductOutput } from '@/lib/pricing';
 
 export const dynamic = 'force-dynamic';
 
-function normalizeProductPayload(body: any) {
-  const normalizedImages = Array.isArray(body?.images)
-    ? body.images.map((img: string) => normalizeImageUrl(img))
-    : body?.image
-    ? [normalizeImageUrl(body.image)]
-    : [];
-
-  return {
-    ...body,
-    images: normalizedImages,
-    variants: Array.isArray(body?.variants)
-      ? body.variants.map((variant: any) => ({
-          ...variant,
-          price: variant.price === '' || variant.price === undefined ? undefined : Number(variant.price),
-          additionalPrice: variant.additionalPrice === '' || variant.additionalPrice === undefined ? 0 : Number(variant.additionalPrice),
-          stock: variant.stock === '' || variant.stock === undefined ? 0 : Number(variant.stock),
-        }))
-      : [],
-    product_type: body.product_type || 'normal',
-    courier_charge: body.courier_charge === '' || body.courier_charge === undefined ? 0 : Number(body.courier_charge),
-    available_weights: Array.isArray(body.available_weights) ? body.available_weights : [],
-    base_price_1kg: body.base_price_1kg === '' || body.base_price_1kg === undefined ? 0 : Number(body.base_price_1kg),
-    weight: body.weight === '' || body.weight === undefined ? 0 : Number(body.weight),
-    weightUnit: body.weightUnit || 'kg',
-  };
-}
-
-function normalizeProductOutput(p: any) {
-  const isOutOfStock = p.trackInventory && (p.quantity ?? 0) <= 0;
-  const primaryImage = normalizeProductImage(p);
-  const compareAtPrice = p.compareAtPrice ?? p.price ?? 0;
-  const salePrice = p.price ?? 0;
-  const disc = compareAtPrice > salePrice 
-    ? Math.round(((compareAtPrice - salePrice) / compareAtPrice) * 100)
-    : 0;
-
-  return {
-    ...p,
-    _id: p._id?.toString() || p.id,
-    id: p._id?.toString() || p.id,
-    name: p.title,
-    originalPrice: compareAtPrice,
-    salePrice: salePrice,
-    discount: disc || 20,
-    primaryImage: primaryImage,
-    image: primaryImage,
-    images: (p.images || []).map((img: string) => normalizeSinglePath(img) || primaryImage),
-    stock_quantity: p.quantity ?? 0,
-    stock_status: isOutOfStock ? 'Out of Stock' : 'In Stock',
-    is_out_of_stock: isOutOfStock,
-    averageRating: p.rating ?? p.averageRating ?? 0,
-    reviewCount: p.reviewCount ?? 0,
-    slug: p.seoSlug || '',
-    stock: p.quantity ?? 0,
-  };
-}
 
 export async function GET(req: NextRequest) {
   try {

@@ -4,13 +4,11 @@ import dbConnect from '@/lib/db';
 import Order from '@/models/Order';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { parseWeightFromText } from '@/lib/shipping';
+import { normalizeComboWeightKg, parseWeightFromText, resolveSlabCharge } from '@/lib/shipping';
 import { sendEmail, sendAdminNotification } from '@/lib/email';
 import User from '@/models/User';
 import Product from '@/models/Product';
 import CourierCharge from '@/models/CourierCharge';
-import Setting from '@/models/Setting';
-import { resolveSlabCharge } from '@/lib/shipping';
 import { generateOrderToken } from '@/lib/orderToken';
 
 
@@ -136,15 +134,12 @@ export async function POST(req: Request) {
     let totalWeightKg = 0;
     const formattedItems = [];
     
-    // Import Setting model dynamically if needed or query it
-    const Setting = (await import('@/models/Setting')).default;
-
     const productIds = items.map((item: any) => String(item.id || item.productId || '').split('-')[0]);
     if (productIds.some((id: string) => !id)) {
       return NextResponse.json({ error: 'Missing product ID in order items' }, { status: 400 });
     }
     const orderProducts = await Product.find({ _id: { $in: [...new Set(productIds)] } })
-      .select('title images price status variants trackInventory quantity product_type courier_charge')
+      .select('title images price compareAtPrice sellingPrice mrp base_price_1kg base_mrp_1kg status variants trackInventory quantity product_type courier_charge comboWeight weight weightUnit unit')
       .lean();
     const productsById = new Map(orderProducts.map((product: any) => [String(product._id), product]));
 
@@ -172,14 +167,19 @@ export async function POST(req: Request) {
       }
       
       // Determine variant price and stock
-      let itemPrice = product.price;
+      let itemPrice = product.sellingPrice ?? product.price;
       let finalName = product.title;
       let itemWeight = 0.25;
 
-      if (variantValue) {
+      if (product.product_type === 'combo') {
+        itemWeight = normalizeComboWeightKg(
+          product.comboWeight !== undefined ? product.comboWeight : product.weight,
+          product.weightUnit || product.unit || 'kg'
+        );
+      } else if (variantValue) {
         const variant = product.variants.find((v: any) => v.value === variantValue);
         if (variant) {
-          itemPrice = typeof variant.price === 'number' ? variant.price : (product.price + (variant.additionalPrice || 0));
+          itemPrice = typeof variant.sellingPrice === 'number' ? variant.sellingPrice : (typeof variant.price === 'number' ? variant.price : (product.sellingPrice ?? product.price ?? 0));
           if (product.trackInventory && typeof variant.stock === 'number' && variant.stock < orderQty) {
             return NextResponse.json({ error: `Insufficient stock for variant: ${product.title} (${variantValue})` }, { status: 400 });
           }
@@ -202,83 +202,58 @@ export async function POST(req: Request) {
         quantity: orderQty,
         image: product.images?.[0] || item.image || "",
         weightKg: itemWeight,
+        isCombo: product.product_type === 'combo',
+        comboWeight: product.product_type === 'combo' ? itemWeight : undefined,
       });
     }
 
     const computedSubtotal = formattedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-    // Calculate custom courier fee matching database rules
+    // Calculate custom courier fee matching admin rules
     const state = shippingAddress?.state?.trim() || '';
     const pincode = shippingAddress?.postalCode?.trim() || '';
+    if (!state) {
+      return NextResponse.json({ error: 'Delivery address state is required to calculate shipping.' }, { status: 400 });
+    }
 
     const activeRules = await CourierCharge.find({ status: 'active' }).lean();
-
     let matchingRule: any = null;
 
-    // Exact pincode match
     if (pincode) {
       matchingRule = activeRules.find((r: any) => r.pincode && r.pincode.trim() === pincode);
     }
 
-    // Pincode range match
     if (!matchingRule && pincode) {
       const pinNum = parseInt(pincode, 10);
       if (Number.isInteger(pinNum)) {
-        matchingRule = activeRules.find((r: any) => 
-          r.pincode_start !== undefined && 
-          r.pincode_end !== undefined && 
-          pinNum >= r.pincode_start && 
+        matchingRule = activeRules.find((r: any) =>
+          r.pincode_start !== undefined &&
+          r.pincode_end !== undefined &&
+          pinNum >= r.pincode_start &&
           pinNum <= r.pincode_end
         );
       }
     }
 
-    // State match
     if (!matchingRule && state) {
-      matchingRule = activeRules.find((r: any) => 
+      matchingRule = activeRules.find((r: any) =>
         (r.state_name && r.state_name.toLowerCase() === state.toLowerCase()) ||
         (r.state_code && r.state_code.toLowerCase() === state.toLowerCase())
       );
     }
 
-    let deliveryFee = 0;
-    let appliedRate = 0;
+    const ruleApplies = matchingRule && computedSubtotal >= (matchingRule.minimum_order_value || 0);
+    const isFreeShipping = ruleApplies &&
+      matchingRule.free_shipping_above !== null &&
+      matchingRule.free_shipping_above !== undefined &&
+      computedSubtotal >= matchingRule.free_shipping_above;
 
-    let comboCourierChargeTotal = 0;
-    let normalWeightKg = 0;
-
-    for (const item of formattedItems) {
-      const dbProduct = productsById.get(item.productId) as any;
-      if (dbProduct && dbProduct.product_type === 'combo') {
-        const charge = typeof dbProduct.courier_charge === 'number' ? dbProduct.courier_charge : 80;
-        comboCourierChargeTotal += charge * item.quantity;
-      } else {
-        normalWeightKg += item.weightKg * item.quantity;
-      }
-    }
-
-    let normalCourierCharge = 0;
-    if (normalWeightKg > 0) {
-      if (matchingRule && computedSubtotal >= (matchingRule.minimum_order_value || 0)) {
-        appliedRate = matchingRule.courier_charge;
-        if (matchingRule.free_shipping_above !== null && matchingRule.free_shipping_above !== undefined && computedSubtotal >= matchingRule.free_shipping_above) {
-          normalCourierCharge = 0;
-        } else {
-          normalCourierCharge = resolveSlabCharge(normalWeightKg, state || matchingRule.state_name || '', matchingRule.slabs);
-        }
-      } else {
-        normalCourierCharge = resolveSlabCharge(normalWeightKg, state || '', []);
-      }
-    }
-
-    deliveryFee = comboCourierChargeTotal + normalCourierCharge;
+    const deliveryFee = isFreeShipping
+      ? 0
+      : resolveSlabCharge(totalWeightKg, state || matchingRule?.state_name || '', ruleApplies ? matchingRule.slabs : []);
+    const appliedRate = 0; // Legacy unused field
 
     if (deliveryFee <= 0 && totalWeightKg > 0) {
-      const isFreeShipping = matchingRule && 
-        matchingRule.free_shipping_above !== null && 
-        matchingRule.free_shipping_above !== undefined && 
-        computedSubtotal >= matchingRule.free_shipping_above;
-      
       if (!isFreeShipping) {
         return NextResponse.json({ error: 'Courier rate is missing for your shipping location. Please contact support.' }, { status: 400 });
       }

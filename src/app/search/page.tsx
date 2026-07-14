@@ -39,6 +39,9 @@ type SearchApiProduct = {
   title?: string;
   price?: number;
   compareAtPrice?: number;
+  sellingPrice: number;
+  mrp: number;
+  discount?: number;
   rating?: number;
   reviewCount?: number;
   category?: string;
@@ -95,21 +98,16 @@ function SearchPageContent() {
         if (data.success && data.products?.length > 0) {
           const activeDbProds = (data.products as SearchApiProduct[]).filter((p) => p.status === "active");
           const mapped = activeDbProds.map((p) => {
-            const price = p.price ?? 0;
-            const compareAtPrice = p.compareAtPrice ?? price * 1.25;
             const title = p.title || "Organic Product";
             const category = p.category || "Organic Goods";
             const aesthetics = getEmojiAndBg(title, category);
-            const disc = compareAtPrice > price 
-              ? Math.round(((compareAtPrice - price) / compareAtPrice) * 100)
-              : 0;
 
             return {
               id: p._id,
               name: title,
-              originalPrice: compareAtPrice,
-              salePrice: price,
-              discount: disc || 20,
+              originalPrice: p.mrp > p.sellingPrice ? p.mrp : p.sellingPrice,
+              salePrice: p.sellingPrice,
+              discount: (p.mrp > p.sellingPrice ? p.discount : 0) ?? 0,
               rating: p.rating || 4.7,
               reviewCount: p.reviewCount || 10,
               category,

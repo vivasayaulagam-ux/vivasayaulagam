@@ -76,7 +76,7 @@ async function runTests() {
   console.log('Sync result:', syncResult1);
 
   // Reload order from DB
-  let updatedOrder = await Order.findById(order._id);
+  const updatedOrder = await Order.findById(order._id);
   console.log('Updated order status in DB:', updatedOrder?.sync_status);
   console.log('OMS Order ID:', updatedOrder?.oms_order_id);
   console.log('OMS Order Number:', updatedOrder?.oms_order_number);

@@ -3,6 +3,7 @@ import Product from '@/models/Product';
 import Category from '@/models/Category';
 import mongoose from 'mongoose';
 import { normalizeProductImage, normalizeSinglePath } from './utils';
+import { normalizeProductOutput } from './pricing';
 
 // Helper for aesthetics mapping
 export const getEmojiAndBg = (title: string, category: string) => {
@@ -57,10 +58,10 @@ export function getLegacyMongoQueryForCategory(activeSlug: string): any {
 
 export function getMongoSort(sortBy: string): any {
   if (sortBy === "Price: Low to High") {
-    return { price: 1 };
+    return { sellingPrice: 1 };
   }
   if (sortBy === "Price: High to Low") {
-    return { price: -1 };
+    return { sellingPrice: -1 };
   }
   if (sortBy === "Newest Arrivals") {
     return { createdAt: -1 };
@@ -69,51 +70,6 @@ export function getMongoSort(sortBy: string): any {
     return { collections: -1, createdAt: -1 };
   }
   return { createdAt: -1 };
-}
-
-export function normalizeProductOutput(p: any) {
-  const isOutOfStock = p.trackInventory && (p.quantity ?? 0) <= 0;
-  const primaryImage = normalizeProductImage(p);
-  const compareAtPrice = p.compareAtPrice ?? p.price ?? 0;
-  const salePrice = p.price ?? 0;
-  const disc = compareAtPrice > salePrice 
-    ? Math.round(((compareAtPrice - salePrice) / compareAtPrice) * 100)
-    : 0;
-  const aesthetics = getEmojiAndBg(p.title || p.name || "", p.category || "");
-
-  return {
-    _id: p._id?.toString() || p.id,
-    id: p._id?.toString() || p.id,
-    name: p.title || p.name,
-    title: p.title || p.name,
-    originalPrice: compareAtPrice,
-    salePrice: salePrice,
-    price: compareAtPrice,
-    discount: disc || 20,
-    primaryImage: primaryImage,
-    image: primaryImage,
-    images: (p.images || []).map((img: string) => normalizeSinglePath(img) || primaryImage),
-    stock_quantity: p.quantity ?? 0,
-    stock_status: isOutOfStock ? 'Out of Stock' : 'In Stock',
-    is_out_of_stock: isOutOfStock,
-    averageRating: p.rating ?? p.averageRating ?? 0,
-    rating: p.rating ?? p.averageRating ?? 0,
-    reviewCount: p.reviewCount ?? 0,
-    slug: p.seoSlug || p.slug || '',
-    stock: p.quantity ?? 0,
-    quantity: p.quantity ?? 0,
-    trackInventory: p.trackInventory ?? false,
-    category: p.category || "Organic Goods",
-    categories: p.categories || [],
-    bgColor: aesthetics.bgColor,
-    emoji: aesthetics.emoji,
-    isNew: true,
-    isBestSeller: p.collections?.includes("Best Sellers") || false,
-    status: p.status,
-    collections: p.collections || [],
-    weight: p.weight,
-    weightUnit: p.weightUnit,
-  };
 }
 
 export interface GetProductsParams {
@@ -196,14 +152,14 @@ export async function getProducts(params: GetProductsParams = {}) {
   if (maxPrice) {
     const maxPriceVal = Number(maxPrice);
     if (!isNaN(maxPriceVal)) {
-      query.price = { $lte: maxPriceVal };
+      query.sellingPrice = { $lte: maxPriceVal };
     }
   }
 
   const sortQuery = getMongoSort(sort);
 
   // Projection - only required fields for cards to optimize performance
-  const projection = 'title seoSlug price compareAtPrice images reviewCount quantity trackInventory category status collections weight weightUnit rating averageRating createdAt';
+  const projection = 'title seoSlug price compareAtPrice sellingPrice mrp base_price_1kg base_mrp_1kg variants images reviewCount quantity trackInventory category status collections weight weightUnit unit rating averageRating createdAt';
 
   let productsDocs;
   let totalProducts = 0;
@@ -241,11 +197,11 @@ export async function getProducts(params: GetProductsParams = {}) {
   // Query max product price in DB for pricing slider default
   let maxProductPriceLimit = 2000;
   const maxPriceProd = await Product.findOne({ status: "active" })
-    .sort({ price: -1 })
-    .select("price")
-    .lean<{ price?: number }>();
-  if (maxPriceProd?.price) {
-    maxProductPriceLimit = Math.max(1000, Number(maxPriceProd.price));
+    .sort({ sellingPrice: -1 })
+    .select("sellingPrice")
+    .lean<{ sellingPrice?: number }>();
+  if (maxPriceProd?.sellingPrice) {
+    maxProductPriceLimit = Math.max(1000, Number(maxPriceProd.sellingPrice));
   }
 
   return {
