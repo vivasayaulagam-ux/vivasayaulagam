@@ -3,11 +3,13 @@ import dbConnect from '@/lib/db';
 import Order from '@/models/Order';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { formatWeightKg } from '@/lib/shipping';
 
 type InvoiceItem = {
   name: string;
   price: number;
   quantity: number;
+  weightKg?: number;
 };
 
 type InvoiceOrder = {
@@ -43,6 +45,7 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
     <tr>
       <td style="padding: 10px 12px; border-bottom: 1px solid #f0f0f0; font-size: 13px;">
         <strong>${item.name}</strong>
+        ${item.weightKg !== undefined && item.weightKg > 0 ? `<br/><span style="font-size: 11px; color: #6b7280; font-weight: normal;">Weight: ${formatWeightKg(item.weightKg)}</span>` : ''}
       </td>
       <td style="padding: 10px 12px; border-bottom: 1px solid #f0f0f0; text-align: center; font-size: 13px;">${item.quantity}</td>
       <td style="padding: 10px 12px; border-bottom: 1px solid #f0f0f0; text-align: right; font-size: 13px;">${formatCurrency(item.price)}</td>

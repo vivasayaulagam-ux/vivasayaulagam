@@ -4,7 +4,7 @@ import dbConnect from '@/lib/db';
 import Order from '@/models/Order';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { normalizeComboWeightKg, parseWeightFromText, resolveSlabCharge } from '@/lib/shipping';
+import { normalizeComboWeightKg, parseWeightFromText, calculateCartShipping, getStateChargeKey } from '@/lib/shipping';
 import { sendEmail, sendAdminNotification } from '@/lib/email';
 import User from '@/models/User';
 import Product from '@/models/Product';
@@ -132,8 +132,6 @@ export async function POST(req: Request) {
 
     // Retrieve active product prices and info from the database
     let totalWeightKg = 0;
-    let isComboCart = false;
-    let comboShippingCharge = 0;
     const formattedItems = [];
     
     const productIds = items.map((item: any) => String(item.id || item.productId || '').split('-')[0]);
@@ -141,7 +139,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing product ID in order items' }, { status: 400 });
     }
     const orderProducts = await Product.find({ _id: { $in: [...new Set(productIds)] } })
-      .select('title images price compareAtPrice sellingPrice mrp base_price_1kg base_mrp_1kg status variants trackInventory quantity product_type courier_charge comboWeight weight weightUnit unit')
+      .select('title images price compareAtPrice sellingPrice mrp base_price_1kg base_mrp_1kg status variants trackInventory quantity product_type courier_charge comboWeight weight weightUnit unit state_courier_charges')
       .lean();
     const productsById = new Map(orderProducts.map((product: any) => [String(product._id), product]));
 
@@ -173,11 +171,9 @@ export async function POST(req: Request) {
       let finalName = product.title;
       let itemWeight = 0.25;
 
+      // No custom charge calculation here; handled in calculateCartShipping below
+
       if (product.product_type === 'combo') {
-        isComboCart = true;
-        if (product.courier_charge > 0) {
-          comboShippingCharge += product.courier_charge * orderQty;
-        }
         itemWeight = normalizeComboWeightKg(
           product.comboWeight !== undefined ? product.comboWeight : product.weight,
           product.weightUnit || product.unit || 'kg'
@@ -210,6 +206,9 @@ export async function POST(req: Request) {
         weightKg: itemWeight,
         isCombo: product.product_type === 'combo',
         comboWeight: product.product_type === 'combo' ? itemWeight : undefined,
+        state_courier_charges: product.state_courier_charges,
+        courier_charge: product.courier_charge,
+        product_type: product.product_type,
       });
     }
 
@@ -248,23 +247,21 @@ export async function POST(req: Request) {
       );
     }
 
-    let deliveryFee = 0;
-    if (isComboCart) {
-      deliveryFee = comboShippingCharge;
-    } else {
-      const ruleApplies = matchingRule && computedSubtotal >= (matchingRule.minimum_order_value || 0);
-      const isFreeShipping = ruleApplies &&
-        matchingRule.free_shipping_above !== null &&
-        matchingRule.free_shipping_above !== undefined &&
-        computedSubtotal >= matchingRule.free_shipping_above;
-
-      deliveryFee = isFreeShipping
-        ? 0
-        : resolveSlabCharge(totalWeightKg, state || matchingRule?.state_name || '', ruleApplies ? matchingRule.slabs : []);
-    }
+    const deliveryFee = calculateCartShipping(formattedItems, state, computedSubtotal, matchingRule);
     const appliedRate = 0; // Legacy unused field
 
-    if (deliveryFee <= 0 && totalWeightKg > 0 && !isComboCart) {
+    // Check if there's any weight-based (slab) items that failed to resolve shipping
+    const stateKey = getStateChargeKey(state);
+    const slabItems = formattedItems.filter(item => {
+      const stateCharge = item.state_courier_charges?.[stateKey];
+      const productCourierRate = (typeof stateCharge === 'number' && stateCharge > 0)
+        ? stateCharge
+        : (item.courier_charge > 0 ? item.courier_charge : 0);
+      return productCourierRate <= 0;
+    });
+    const totalWeightForSlabs = slabItems.reduce((sum, item) => sum + item.weightKg * item.quantity, 0);
+
+    if (deliveryFee <= 0 && totalWeightForSlabs > 0) {
       const ruleApplies = matchingRule && computedSubtotal >= (matchingRule.minimum_order_value || 0);
       const isFreeShipping = ruleApplies &&
         matchingRule.free_shipping_above !== null &&

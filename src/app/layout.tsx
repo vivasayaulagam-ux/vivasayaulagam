@@ -17,8 +17,11 @@ export const metadata: Metadata = {
   title: "Vivasaya Ulagam — Premium Organic Tamil Nadu Products",
   description: "Premium organic local foods direct from Tamil Nadu farms. Pure Ghee, Millets, Honey & Cold Pressed Oils.",
   icons: {
-    icon: "/icon.png",
-    shortcut: "/icon.png",
+    icon: [
+      { url: "/favicon.ico", type: "image/x-icon" },
+      { url: "/icon.png", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
     apple: "/apple-touch-icon.png",
   },
 };

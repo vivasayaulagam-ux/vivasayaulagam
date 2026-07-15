@@ -7,11 +7,12 @@ import {
   Loader2, CheckCircle, Printer, ArrowUpDown, Copy,
 } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
+import { formatWeightKg } from "@/lib/shipping";
 import OrderEmptyState from "./OrderEmptyState";
 import type { OrderFilters } from "./OrdersToolbar";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-interface OrderItem { name: string; price: number; quantity: number; image?: string; }
+interface OrderItem { name: string; price: number; quantity: number; image?: string; weightKg?: number; }
 interface Order {
   _id: string; orderId: string; user: { name: string; email: string } | null;
   items: OrderItem[]; totalAmount: number; status: string; isPaid: boolean;
@@ -268,7 +269,12 @@ function OrderDetailPanel({
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold truncate text-gray-800">{item.name}</p>
-                    <p className="text-[11px] text-gray-400">Qty: {item.quantity} × {formatPrice(item.price)}</p>
+                    <p className="text-[11px] text-gray-400">
+                      Qty: {item.quantity} × {formatPrice(item.price)}
+                      {item.weightKg !== undefined && item.weightKg > 0 && (
+                        <span className="ml-1 text-gray-500 font-medium">({formatWeightKg(item.weightKg)})</span>
+                      )}
+                    </p>
                   </div>
                   <span className="text-sm font-bold text-[#34a121] shrink-0">{formatPrice(item.quantity * item.price)}</span>
                 </div>

@@ -331,6 +331,52 @@ export default function VariantsSection({ form, update, errors }: Props) {
               : 'Left at 0 to calculate shipping dynamically based on weight.'}
           </p>
         </div>
+
+        {/* Statewise Courier Charges */}
+        <div className="md:col-span-2 border border-gray-150 rounded-xl p-4 bg-gray-50/50 mt-2">
+          <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+            Statewise Courier Charges (₹)
+          </label>
+          <p className="text-[10px] text-gray-400 mb-3 leading-normal">
+            Specify shipping costs for each state. If left blank or 0, the general courier charge (or weight-based slabs) will be used.
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {[
+              { key: 'tamilnadu', label: 'Tamil Nadu' },
+              { key: 'kerala', label: 'Kerala' },
+              { key: 'karnataka', label: 'Karnataka' },
+              { key: 'andhrapradesh', label: 'Andhra Pradesh' },
+              { key: 'telangana', label: 'Telangana' },
+              { key: 'otherstates', label: 'Other States' },
+            ].map(({ key, label }) => {
+              const val = (form.state_courier_charges as any)?.[key] ?? '';
+              return (
+                <div key={key} className="space-y-1">
+                  <label className="text-[10px] font-semibold text-gray-500 uppercase">{label}</label>
+                  <div className="relative">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">₹</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={val}
+                      onChange={(e) => {
+                        const newCharges = {
+                          ...((form.state_courier_charges as any) || {
+                            tamilnadu: '', kerala: '', karnataka: '', andhrapradesh: '', telangana: '', otherstates: ''
+                          }),
+                          [key]: e.target.value === '' ? '' : parseFloat(e.target.value)
+                        };
+                        update({ state_courier_charges: newCharges });
+                      }}
+                      className="w-full pl-6 pr-2 py-2 rounded-lg border border-gray-300 text-xs outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition-all font-medium text-gray-800 bg-white"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {productType === 'combo' ? (

@@ -216,3 +216,78 @@ export function getCourierFee(weightKg: number, subtotal: number, stateName = "T
   if (subtotal <= 0) return 0;
   return resolveSlabCharge(weightKg, stateName, slabs);
 }
+
+export function getStateChargeKey(stateName: string): string {
+  const name = (stateName || '').toLowerCase().replace(/[^a-z]/g, '');
+  if (name.includes('tamilnadu')) return 'tamilnadu';
+  if (name.includes('kerala')) return 'kerala';
+  if (name.includes('karnataka')) return 'karnataka';
+  if (name.includes('andhra')) return 'andhrapradesh';
+  if (name.includes('telangana')) return 'telangana';
+  return 'otherstates';
+}
+
+export function calculateCartShipping(
+  items: Array<{
+    productId: string;
+    quantity: number;
+    weightKg: number;
+    state_courier_charges?: Record<string, number>;
+    courier_charge?: number;
+    product_type?: string;
+  }>,
+  state: string,
+  subtotal: number,
+  matchingRule: any
+): number {
+  if (!state) return 0;
+  
+  const stateKey = getStateChargeKey(state);
+  const rateGroups: Record<number, number> = {};
+  let totalWeightForSlabs = 0;
+
+  for (const item of items) {
+    const stateCharge = item.state_courier_charges?.[stateKey];
+    
+    let productCourierRate = 0;
+    if (typeof stateCharge === 'number' && stateCharge > 0) {
+      productCourierRate = stateCharge;
+    } else if (typeof item.courier_charge === 'number' && item.courier_charge > 0) {
+      productCourierRate = item.courier_charge;
+    }
+
+    const itemTotalWeight = (item.weightKg || 0.25) * item.quantity;
+
+    if (productCourierRate > 0) {
+      rateGroups[productCourierRate] = (rateGroups[productCourierRate] || 0) + itemTotalWeight;
+    } else {
+      totalWeightForSlabs += itemTotalWeight;
+    }
+  }
+
+  let finalShipping = 0;
+
+  for (const [rateStr, weight] of Object.entries(rateGroups)) {
+    const rate = Number(rateStr);
+    if (weight > 0) {
+      const multiplier = Math.ceil(weight);
+      finalShipping += multiplier * rate;
+    }
+  }
+
+  if (totalWeightForSlabs > 0) {
+    const ruleApplies = matchingRule && subtotal >= (matchingRule.minimum_order_value || 0);
+    const isFreeShipping = ruleApplies &&
+      matchingRule.free_shipping_above !== null &&
+      matchingRule.free_shipping_above !== undefined &&
+      subtotal >= matchingRule.free_shipping_above;
+
+    if (!isFreeShipping) {
+      const slabs = ruleApplies ? matchingRule.slabs : [];
+      const slabCharge = resolveSlabCharge(totalWeightForSlabs, state || matchingRule?.state_name || '', slabs);
+      finalShipping += slabCharge;
+    }
+  }
+
+  return finalShipping;
+}

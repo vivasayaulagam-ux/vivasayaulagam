@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import CourierCharge from '@/models/CourierCharge';
 import Product from '@/models/Product';
-import { normalizeComboWeightKg, resolveSlabCharge } from '@/lib/shipping';
+import { normalizeComboWeightKg, calculateCartShipping } from '@/lib/shipping';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,13 +54,12 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    let totalWeightKg = 0;
-    let isComboCart = false;
-    let comboShippingCharge = 0;
+    let resolvedCourierCharge = 0;
+    const resolvedItems = [];
 
     if (items.length > 0) {
       const productIds = items.map((i: any) => i.productId).filter(Boolean);
-      const dbProducts = await Product.find({ _id: { $in: productIds } }).select('product_type courier_charge comboWeight weight weightUnit unit').lean();
+      const dbProducts = await Product.find({ _id: { $in: productIds } }).select('product_type courier_charge comboWeight weight weightUnit unit state_courier_charges').lean();
       const productsMap = new Map(dbProducts.map((p: any) => [p._id.toString(), p]));
 
       for (const item of items) {
@@ -68,10 +67,6 @@ export async function GET(req: NextRequest) {
         let itemWeight = 0.25;
         if (dbProduct) {
           if (dbProduct.product_type === 'combo') {
-            isComboCart = true;
-            if (dbProduct.courier_charge > 0) {
-              comboShippingCharge += dbProduct.courier_charge * item.quantity;
-            }
             itemWeight = normalizeComboWeightKg(
               dbProduct.comboWeight !== undefined ? dbProduct.comboWeight : dbProduct.weight,
               dbProduct.weightUnit || dbProduct.unit || 'kg'
@@ -82,31 +77,25 @@ export async function GET(req: NextRequest) {
         } else {
           itemWeight = item.weightKg || 0.25;
         }
-        totalWeightKg += itemWeight * item.quantity;
+
+        resolvedItems.push({
+          productId: item.productId,
+          quantity: item.quantity,
+          weightKg: itemWeight,
+          state_courier_charges: dbProduct?.state_courier_charges,
+          courier_charge: dbProduct?.courier_charge,
+          product_type: dbProduct?.product_type,
+        });
       }
-    } else {
-      totalWeightKg = weight;
+    } else if (weight > 0) {
+      resolvedItems.push({
+        productId: 'dummy',
+        quantity: 1,
+        weightKg: weight,
+      });
     }
 
-    let resolvedCourierCharge = 0;
-
-    if (isComboCart) {
-      resolvedCourierCharge = comboShippingCharge;
-    } else {
-      const ruleApplies = matchingRule && subtotal >= (matchingRule.minimum_order_value || 0);
-      const isFreeShipping = ruleApplies &&
-        matchingRule.free_shipping_above !== null &&
-        matchingRule.free_shipping_above !== undefined &&
-        subtotal >= matchingRule.free_shipping_above;
-
-      if (!isFreeShipping) {
-        resolvedCourierCharge = resolveSlabCharge(
-          totalWeightKg,
-          state || matchingRule?.state_name || '',
-          ruleApplies ? matchingRule.slabs : []
-        );
-      }
-    }
+    resolvedCourierCharge = calculateCartShipping(resolvedItems, state, subtotal, matchingRule);
 
     return NextResponse.json({ success: true, courier_charge: resolvedCourierCharge, rate_per_kg: 0, ruleUsed: matchingRule });
   } catch (error: any) {
