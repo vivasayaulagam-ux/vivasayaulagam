@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { ArrowLeft, Download, Loader2, Package, Calendar, Tag, CreditCard, User, Home, Phone, ShoppingBag, Eye } from "lucide-react";
 import { Document, Page, Text, View, StyleSheet, pdf } from "@react-pdf/renderer";
+import { formatWeightKg } from "@/lib/shipping";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 
@@ -130,7 +131,14 @@ const InvoicePDFDocument = ({ order }: { order: any }) => {
           </View>
           {(order.items || []).map((item: any, idx: number) => (
             <View key={idx} style={pdfStyles.tableRow}>
-              <Text style={pdfStyles.tableRowCol}>{item.name}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 9 }}>{item.name}</Text>
+                {item.weightKg !== undefined && item.weightKg > 0 && (
+                  <Text style={{ fontSize: 7, color: "#666666", marginTop: 1 }}>
+                    Weight: {formatWeightKg(item.weightKg)}
+                  </Text>
+                )}
+              </View>
               <Text style={pdfStyles.tableRowColCenter}>{item.quantity}</Text>
               <Text style={pdfStyles.tableRowColRight}>₹{Number(item.price).toFixed(2)}</Text>
               <Text style={pdfStyles.tableRowColRight}>₹{Number(item.price * item.quantity).toFixed(2)}</Text>
@@ -396,7 +404,12 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
                                 <span className="text-base">🌿</span>
                               )}
                             </div>
-                            <span>{item.name}</span>
+                            <div className="flex flex-col gap-0.5">
+                              <span>{item.name}</span>
+                              {item.weightKg !== undefined && item.weightKg > 0 && (
+                                <span className="text-[10px] text-gray-400 font-normal">Weight: {formatWeightKg(item.weightKg)}</span>
+                              )}
+                            </div>
                           </td>
                           <td className="py-4 text-xs text-[#111111] text-center font-bold">{item.quantity}</td>
                           <td className="py-4 text-xs text-[#111111] text-right">₹{Number(item.price).toFixed(2)}</td>
@@ -421,7 +434,12 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
                       
                       <div className="flex-grow min-w-0 flex flex-col justify-center text-xs">
                         <span className="font-bold text-[#111111] truncate">{item.name}</span>
-                        <span className="text-gray-400 mt-0.5">Quantity: <strong className="text-[#111111]">{item.quantity}</strong></span>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-gray-400">Quantity: <strong className="text-[#111111]">{item.quantity}</strong></span>
+                          {item.weightKg !== undefined && item.weightKg > 0 && (
+                            <span className="text-gray-400">| Weight: <strong className="text-[#111111]">{formatWeightKg(item.weightKg)}</strong></span>
+                          )}
+                        </div>
                         <div className="flex justify-between items-center mt-1">
                           <span className="text-gray-400">Unit: ₹{Number(item.price).toFixed(2)}</span>
                           <span className="font-bold text-[#2f9e24]">₹{Number(item.price * item.quantity).toFixed(2)}</span>

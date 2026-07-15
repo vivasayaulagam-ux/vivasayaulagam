@@ -722,16 +722,16 @@ export default function CartPage() {
                       <span>Total Weight</span>
                       <span className="font-heading font-semibold text-text-dark">{formatWeightKg(totalWeight)}</span>
                     </div>
-                     <div className="flex justify-between text-text-muted items-start gap-4">
-                       <span>Courier Charge</span>
-                       {deliveryFee !== null && deliveryFee !== undefined ? (
-                         <span className="font-heading font-semibold text-text-dark">{formatPrice(deliveryFee)}</span>
-                       ) : (
-                         <span className="text-[11px] text-amber-600 font-semibold text-right max-w-[200px] leading-snug">
-                           Enter your delivery address to calculate shipping.
-                         </span>
-                       )}
-                     </div>
+                    <div className="flex justify-between text-text-muted items-start gap-4">
+                      <span>Courier Charge</span>
+                      {deliveryFee !== null && deliveryFee !== undefined ? (
+                        <span className="font-heading font-semibold text-text-dark">{formatPrice(deliveryFee)}</span>
+                      ) : (
+                        <span className="text-[11px] text-amber-600 font-semibold text-right max-w-[200px] leading-snug">
+                          Calculated at checkout.
+                        </span>
+                      )}
+                    </div>
                     {hasMissingWeight && (
                       <p className="rounded-lg bg-amber-50 px-3 py-2 text-[11px] font-semibold leading-relaxed text-amber-700">
                         One or more products do not have weight set. Add product weight in admin for exact courier charges.

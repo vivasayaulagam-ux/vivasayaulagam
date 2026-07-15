@@ -46,6 +46,14 @@ export type ProductFormData = {
   themeTemplate: string;
   product_type: 'normal' | 'combo';
   courier_charge: number | '';
+  state_courier_charges?: {
+    tamilnadu: number | '';
+    kerala: number | '';
+    karnataka: number | '';
+    andhrapradesh: number | '';
+    telangana: number | '';
+    otherstates: number | '';
+  };
   available_weights: string[];
   base_price_1kg: number | '';
   base_mrp_1kg: number | '';
@@ -64,6 +72,14 @@ const defaultForm: ProductFormData = {
   themeTemplate: 'default',
   product_type: 'normal',
   courier_charge: '',
+  state_courier_charges: {
+    tamilnadu: '',
+    kerala: '',
+    karnataka: '',
+    andhrapradesh: '',
+    telangana: '',
+    otherstates: '',
+  },
   available_weights: [],
   base_price_1kg: '',
   base_mrp_1kg: '',

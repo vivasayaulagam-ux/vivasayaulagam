@@ -55,6 +55,14 @@ const ProductSchema = new mongoose.Schema(
     // Custom fields for weights & combos
     product_type: { type: String, enum: ['normal', 'combo'], default: 'normal' },
     courier_charge: { type: Number, default: 0 },
+    state_courier_charges: {
+      tamilnadu: { type: Number, default: 0 },
+      kerala: { type: Number, default: 0 },
+      karnataka: { type: Number, default: 0 },
+      andhrapradesh: { type: Number, default: 0 },
+      telangana: { type: Number, default: 0 },
+      otherstates: { type: Number, default: 0 },
+    },
     available_weights: [{ type: String }],
     base_price_1kg: { type: Number, default: 0 },
     base_mrp_1kg: { type: Number, default: 0 },
@@ -96,6 +104,10 @@ ProductSchema.index({ status: 1, sellingPrice: 1 });
 ProductSchema.index({ status: 1, sellingPrice: -1 });
 ProductSchema.index({ category: 1, status: 1, sellingPrice: 1 });
 ProductSchema.index({ category: 1, status: 1, sellingPrice: -1 });
+
+if (mongoose.models && mongoose.models.Product) {
+  delete (mongoose.models as any).Product;
+}
 
 export default mongoose.models.Product || mongoose.model('Product', ProductSchema);
 

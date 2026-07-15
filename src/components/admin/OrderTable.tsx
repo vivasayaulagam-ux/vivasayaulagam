@@ -4,6 +4,7 @@ import React from "react";
 
 import { useState } from "react";
 import { formatPrice } from "@/lib/utils";
+import { formatWeightKg } from "@/lib/shipping";
 import { ChevronDown, ChevronUp, Loader2, CheckCircle, Copy } from "lucide-react";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -294,7 +295,12 @@ Payment Status: ${paymentStatus}`;
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-semibold truncate">{item.name}</p>
-                                <p className="text-xs text-gray-400">Qty: {item.quantity} × {formatPrice(item.price)}</p>
+                                <p className="text-xs text-gray-400">
+                                  Qty: {item.quantity} × {formatPrice(item.price)}
+                                  {item.weightKg !== undefined && item.weightKg > 0 && (
+                                    <span className="ml-1 text-gray-500 font-medium">({formatWeightKg(item.weightKg)})</span>
+                                  )}
+                                </p>
                               </div>
                               <div className="font-bold text-sm text-primary shrink-0">
                                 {formatPrice(item.quantity * item.price)}

@@ -4,12 +4,14 @@ import { useState } from "react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { Search, Package, CheckCircle, Clock } from "lucide-react";
+import { formatWeightKg } from "@/lib/shipping";
 
 type TrackedOrderItem = {
   _id?: string;
   name: string;
   price: number;
   quantity: number;
+  weightKg?: number;
 };
 
 type TrackedOrder = {
@@ -134,7 +136,12 @@ export default function TrackOrderPage() {
                   <div key={item._id || item.name} className="flex items-center justify-between py-2 border-b border-gray-50">
                     <div>
                       <p className="text-sm font-semibold">{item.name}</p>
-                      <p className="text-xs text-gray-400">Qty: {item.quantity}</p>
+                      <p className="text-xs text-gray-400">
+                        Qty: {item.quantity}
+                        {item.weightKg !== undefined && item.weightKg > 0 && (
+                          <span className="ml-1 text-gray-400">({formatWeightKg(item.weightKg)})</span>
+                        )}
+                      </p>
                     </div>
                     <p className="text-sm font-bold text-primary">₹{(item.price * item.quantity).toLocaleString("en-IN")}</p>
                   </div>
