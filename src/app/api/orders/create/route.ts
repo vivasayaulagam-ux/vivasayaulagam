@@ -4,7 +4,8 @@ import dbConnect from '@/lib/db';
 import Order from '@/models/Order';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { normalizeComboWeightKg, parseWeightFromText, calculateCartShipping, getStateChargeKey } from '@/lib/shipping';
+import { normalizeComboWeightKg, parseWeightFromText, calculateCartShipping, getStateChargeKey, toWeightKg } from '@/lib/shipping';
+import { parseVariantMeasurement } from '@/lib/productVariants';
 import { sendEmail, sendAdminNotification } from '@/lib/email';
 import User from '@/models/User';
 import Product from '@/models/Product';
@@ -15,10 +16,15 @@ import { generateOrderToken } from '@/lib/orderToken';
 type CheckoutItem = {
   id?: string;
   productId?: string;
+  variantId?: string;
+  variantName?: string;
   name?: string;
   price?: number;
   quantity?: number;
   image?: string;
+  weight?: number;
+  unit?: string;
+  sku?: string;
 };
 
 type ShippingAddress = {
@@ -134,23 +140,28 @@ export async function POST(req: Request) {
     let totalWeightKg = 0;
     const formattedItems = [];
     
-    const productIds = items.map((item: any) => String(item.id || item.productId || '').split('-')[0]);
+    const productIds = items.map((item: any) =>
+      String(item.productId || item.id || '').split('-')[0]
+    );
     if (productIds.some((id: string) => !id)) {
       return NextResponse.json({ error: 'Missing product ID in order items' }, { status: 400 });
     }
     const orderProducts = await Product.find({ _id: { $in: [...new Set(productIds)] } })
-      .select('title images price compareAtPrice sellingPrice mrp base_price_1kg base_mrp_1kg status variants trackInventory quantity product_type courier_charge comboWeight weight weightUnit unit state_courier_charges')
+      .select('title images price compareAtPrice sellingPrice mrp base_price_1kg base_mrp_1kg status sku variants trackInventory continueSelling quantity product_type courier_charge comboWeight weight weightUnit unit state_courier_charges')
       .lean();
     const productsById = new Map(orderProducts.map((product: any) => [String(product._id), product]));
 
     for (const item of items) {
-      const pId = item.id || item.productId;
+      const pId = item.productId || item.id;
       if (!pId) {
         return NextResponse.json({ error: 'Missing product ID in order items' }, { status: 400 });
       }
       
-      const [mongoId, ...variantParts] = pId.split('-');
-      const variantValue = variantParts.join('-'); // e.g., '500g'
+      const [fallbackMongoId, ...variantParts] = String(item.id || '').split('-');
+      const mongoId = String(item.productId || fallbackMongoId);
+      const legacyVariantValue = variantParts.join('-');
+      const requestedVariantId = String(item.variantId || '');
+      const requestedVariantName = String(item.variantName || legacyVariantValue || '');
 
       const product: any = productsById.get(mongoId);
       if (!product) {
@@ -168,8 +179,13 @@ export async function POST(req: Request) {
       
       // Determine variant price and stock
       let itemPrice = product.sellingPrice ?? product.price;
-      let finalName = product.title;
+      const finalName = product.title;
       let itemWeight = 0.25;
+      let selectedWeight = 0;
+      let selectedUnit = product.unit || product.weightUnit || 'kg';
+      let selectedVariantId = '';
+      let selectedVariantName = '';
+      let selectedSku = product.sku || '';
 
       // No custom charge calculation here; handled in calculateCartShipping below
 
@@ -178,32 +194,73 @@ export async function POST(req: Request) {
           product.comboWeight !== undefined ? product.comboWeight : product.weight,
           product.weightUnit || product.unit || 'kg'
         );
-      } else if (variantValue) {
-        const variant = product.variants.find((v: any) => v.value === variantValue);
-        if (variant) {
-          itemPrice = typeof variant.sellingPrice === 'number' ? variant.sellingPrice : (typeof variant.price === 'number' ? variant.price : (product.sellingPrice ?? product.price ?? 0));
-          if (product.trackInventory && typeof variant.stock === 'number' && variant.stock < orderQty) {
-            return NextResponse.json({ error: `Insufficient stock for variant: ${product.title} (${variantValue})` }, { status: 400 });
-          }
+        selectedWeight = itemWeight;
+        selectedUnit = 'kg';
+      } else if (requestedVariantId || requestedVariantName) {
+        const variant = product.variants.find((candidate: any) => {
+          const candidateId = String(candidate._id || candidate.id || '');
+          return (
+            (requestedVariantId && candidateId === requestedVariantId) ||
+            (requestedVariantName && candidate.value === requestedVariantName)
+          );
+        });
+        if (!variant) {
+          return NextResponse.json(
+            { error: `Selected variant is no longer available: ${product.title}` },
+            { status: 400 }
+          );
         }
-        finalName = `${product.title} - ${variantValue}`;
-        itemWeight = parseWeightFromText(variantValue);
+
+        itemPrice = typeof variant.sellingPrice === 'number'
+          ? variant.sellingPrice
+          : (typeof variant.price === 'number'
+              ? variant.price
+              : (product.sellingPrice ?? product.price ?? 0));
+        if (
+          product.trackInventory &&
+          !product.continueSelling &&
+          typeof variant.stock === 'number' &&
+          variant.stock < orderQty
+        ) {
+          return NextResponse.json(
+            { error: `Insufficient stock for variant: ${product.title} (${variant.value})` },
+            { status: 400 }
+          );
+        }
+
+        const parsedMeasurement = parseVariantMeasurement(
+          variant.value,
+          variant.unit || product.unit || product.weightUnit || 'g'
+        );
+        selectedVariantId = String(variant._id || variant.id || variant.value);
+        selectedVariantName = variant.value;
+        selectedWeight = parsedMeasurement.weight;
+        selectedUnit = parsedMeasurement.unit;
+        selectedSku = variant.sku || product.sku || '';
+        itemWeight = parsedMeasurement.weightKg || parseWeightFromText(variant.value);
       } else {
-        if (product.trackInventory && product.quantity < orderQty) {
+        if (product.trackInventory && !product.continueSelling && product.quantity < orderQty) {
           return NextResponse.json({ error: `Insufficient stock for product: ${product.title}` }, { status: 400 });
         }
-        itemWeight = parseWeightFromText(product.title);
+        selectedWeight = Number(product.weight || 0);
+        selectedUnit = product.weightUnit || product.unit || 'kg';
+        itemWeight = toWeightKg(selectedWeight, selectedUnit, product.title);
       }
 
       totalWeightKg += itemWeight * orderQty;
       
       formattedItems.push({
         productId: product._id.toString(),
+        variantId: selectedVariantId || undefined,
+        variantName: selectedVariantName || undefined,
         name: finalName,
         price: itemPrice, // STRICTLY USE DB OR VARIANT PRICE
         quantity: orderQty,
         image: product.images?.[0] || item.image || "",
+        weight: selectedWeight,
+        unit: selectedUnit,
         weightKg: itemWeight,
+        sku: selectedSku,
         isCombo: product.product_type === 'combo',
         comboWeight: product.product_type === 'combo' ? itemWeight : undefined,
         state_courier_charges: product.state_courier_charges,

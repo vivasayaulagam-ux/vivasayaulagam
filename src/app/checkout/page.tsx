@@ -10,13 +10,9 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Script from "next/script";
 import {
-  DEFAULT_COURIER_RATES,
   type CourierRates,
   formatWeightKg,
-  getCourierBracketLabel,
-  getCourierFee,
-  parseWeightLabelToKg,
-  toWeightKg,
+  getCartItemWeightKg,
 } from "@/lib/shipping";
 
 
@@ -199,7 +195,7 @@ export default function CheckoutPage() {
 
   const subtotal = totalPrice();
   const totalWeight = items.reduce((sum, item) => {
-    const itemWeight = item.isCombo ? (item.comboWeight || 0) : toWeightKg(item.weight, item.weightUnit || "kg", item.name);
+    const itemWeight = getCartItemWeightKg(item);
     return sum + itemWeight * item.quantity;
   }, 0);
 
@@ -213,10 +209,10 @@ export default function CheckoutPage() {
           subtotal: String(subtotal),
           weight: String(totalWeight),
           items: JSON.stringify(items.map(i => ({
-            productId: i.id.split("-")[0],
+            productId: i.productId || i.id.split("-")[0],
             quantity: i.quantity,
             price: i.price,
-            weightKg: i.isCombo ? (i.comboWeight || 0) : toWeightKg(i.weight, i.weightUnit || "kg", i.name)
+            weightKg: getCartItemWeightKg(i)
           })))
         });
         const res = await fetch(`/api/shipping/calculate?${queryParams.toString()}`);
@@ -628,9 +624,15 @@ export default function CheckoutPage() {
                         </div>
                         <div>
                           <p className="font-semibold text-text-dark text-xs">{item.name}</p>
+                          {item.variantName && (
+                            <p className="text-[11px] font-bold text-primary">Variant: {item.variantName}</p>
+                          )}
+                          {item.sku && (
+                            <p className="text-[10px] font-mono text-text-muted">SKU: {item.sku}</p>
+                          )}
                           <p className="text-[11px] text-text-muted">Qty: {item.quantity}</p>
                           <p className="text-[11px] text-text-muted">
-                            Weight: {formatWeightKg(item.isCombo ? (item.comboWeight || 0) : toWeightKg(item.weight, item.weightUnit || "kg", item.name))}
+                            Shipping weight: {formatWeightKg(getCartItemWeightKg(item))}
                           </p>
                         </div>
                       </div>

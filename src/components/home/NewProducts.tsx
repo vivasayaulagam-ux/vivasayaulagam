@@ -21,6 +21,12 @@ type ProductApiItem = {
   status?: string;
   weight?: number;
   weightUnit?: string;
+  unit?: string;
+  sku?: string;
+  product_type?: string;
+  comboWeight?: number;
+  continueSelling?: boolean;
+  variants?: Product["variants"];
   trackInventory?: boolean;
   quantity?: number;
 };
@@ -62,8 +68,8 @@ export default function NewProducts({ settings }: { settings?: NewProductsSettin
               originalPrice: p.mrp > p.sellingPrice ? p.mrp : p.sellingPrice,
               salePrice: p.sellingPrice,
               discount: (p.mrp > p.sellingPrice ? p.discount : 0) ?? 0,
-              rating: p.rating || 4.7,
-              reviewCount: p.reviewCount || 12,
+              rating: p.rating ?? 0,
+              reviewCount: p.reviewCount ?? 0,
               category: p.category || "Organic Goods",
               categories: p.categories || [],
               emoji: aesthetics.emoji,
@@ -71,6 +77,15 @@ export default function NewProducts({ settings }: { settings?: NewProductsSettin
               isNew: true,
               isBestSeller: p.collections?.includes("Best Sellers") || false,
               image: p.images && p.images.length > 0 ? p.images[0] : undefined,
+              images: p.images || [],
+              sku: p.sku,
+              weight: p.weight,
+              weightUnit: p.weightUnit,
+              unit: p.unit,
+              product_type: p.product_type,
+              comboWeight: p.comboWeight,
+              continueSelling: p.continueSelling,
+              variants: p.variants || [],
               trackInventory: p.trackInventory ?? false,
               quantity: p.quantity ?? 0,
               stock_quantity: p.quantity ?? 0,

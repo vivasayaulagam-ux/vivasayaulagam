@@ -3,11 +3,16 @@ import Counter from './Counter';
 
 const OrderItemSchema = new mongoose.Schema({
   productId: { type: String, required: true },
+  variantId: { type: String },
+  variantName: { type: String },
   name: { type: String, required: true },
   price: { type: Number, required: true },
   quantity: { type: Number, required: true },
   image: { type: String },
+  weight: { type: Number, default: 0 },
+  unit: { type: String, default: 'kg' },
   weightKg: { type: Number, default: 0 },
+  sku: { type: String, default: '' },
   isCombo: { type: Boolean },
   comboWeight: { type: Number },
 });

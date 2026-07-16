@@ -96,6 +96,22 @@ export function formatWeightKg(weightKg: number) {
   return `${Number(weightKg.toFixed(2)).toLocaleString("en-IN")} kg`;
 }
 
+export function getCartItemWeightKg(item: {
+  isCombo?: boolean;
+  comboWeight?: number;
+  weightKg?: number;
+  weight?: number | string;
+  unit?: string;
+  weightUnit?: string;
+  name?: string;
+}) {
+  if (item.isCombo) return item.comboWeight || item.weightKg || 0;
+  if (Number.isFinite(item.weightKg) && Number(item.weightKg) > 0) {
+    return Number(item.weightKg);
+  }
+  return toWeightKg(item.weight, item.unit || item.weightUnit || "kg", item.name || "");
+}
+
 export function normalizeComboWeightKg(weight: number | string | null | undefined, unit = "kg") {
   const value = typeof weight === "string" ? parseFloat(weight) : Number(weight);
   if (!Number.isFinite(value) || value <= 0) return 0;

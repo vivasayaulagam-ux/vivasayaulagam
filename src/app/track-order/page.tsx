@@ -11,6 +11,8 @@ type TrackedOrderItem = {
   name: string;
   price: number;
   quantity: number;
+  variantName?: string;
+  sku?: string;
   weightKg?: number;
 };
 
@@ -136,10 +138,16 @@ export default function TrackOrderPage() {
                   <div key={item._id || item.name} className="flex items-center justify-between py-2 border-b border-gray-50">
                     <div>
                       <p className="text-sm font-semibold">{item.name}</p>
+                      {item.variantName && (
+                        <p className="text-[11px] font-bold text-primary">Variant: {item.variantName}</p>
+                      )}
+                      {item.sku && (
+                        <p className="text-[10px] font-mono text-gray-400">SKU: {item.sku}</p>
+                      )}
                       <p className="text-xs text-gray-400">
                         Qty: {item.quantity}
                         {item.weightKg !== undefined && item.weightKg > 0 && (
-                          <span className="ml-1 text-gray-400">({formatWeightKg(item.weightKg)})</span>
+                          <span className="ml-1 text-gray-400">(shipping {formatWeightKg(item.weightKg)})</span>
                         )}
                       </p>
                     </div>

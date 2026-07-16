@@ -16,9 +16,27 @@ export interface Product {
   image?: string;
   images?: string[];
   description?: string;
+  sku?: string;
   weight?: number;
   weightUnit?: string;
-  variants?: { type: string; value: string; price?: number; additionalPrice?: number; stock?: number }[];
+  unit?: string;
+  product_type?: string;
+  comboWeight?: number;
+  continueSelling?: boolean;
+  variants?: {
+    _id?: string;
+    id?: string;
+    type: string;
+    value: string;
+    price?: number;
+    sellingPrice?: number;
+    mrp?: number;
+    compareAtPrice?: number;
+    additionalPrice?: number;
+    stock?: number;
+    unit?: string;
+    sku?: string;
+  }[];
   trackInventory?: boolean;
   quantity?: number;
   stock_quantity?: number;
