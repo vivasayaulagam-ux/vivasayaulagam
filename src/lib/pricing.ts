@@ -85,6 +85,8 @@ export function normalizeProductOutput(p: any) {
     weight: p.weight,
     weightUnit: p.weightUnit,
     unit: p.unit || p.weightUnit || 'g',
+    sku: p.sku || '',
+    continueSelling: p.continueSelling ?? false,
     product_type: p.product_type || 'normal',
     courier_charge: p.courier_charge || 0,
     state_courier_charges: p.state_courier_charges ? (p.state_courier_charges.toObject ? p.state_courier_charges.toObject() : p.state_courier_charges) : {
@@ -120,6 +122,7 @@ export function normalizeProductOutput(p: any) {
         savings: vSavings,
         stock: v.stock ?? 0,
         unit: v.unit || p.unit || p.weightUnit || 'g',
+        sku: v.sku || '',
       };
     })
   };

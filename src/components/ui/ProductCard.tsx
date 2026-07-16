@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useRef, useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Check, Loader2 } from "lucide-react";
+import { ShoppingBag } from "lucide-react";
 import { Product } from "@/data/products";
 import Link from "next/link";
 import Image from "next/image";
 import { formatPrice, normalizeProductImage } from "@/lib/utils";
-import { useCartStore } from "@/store/cartStore";
 import { IMAGE_BLUR_DATA_URL } from "@/lib/image";
+import QuickAddModal from "@/components/ui/QuickAddModal";
+import { hasPurchasableStock } from "@/lib/productVariants";
 
 interface ProductCardProps {
   product: Product;
@@ -34,41 +35,9 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
     ((product as any).thumbnail && typeof (product as any).thumbnail === 'string' && (product as any).thumbnail.trim() !== "")
   );
 
-  const isOutOfStock = 
-    product.is_out_of_stock === true || 
-    product.stock_status === "Out of Stock" || 
-    product.quantity === 0 || 
-    product.stock_quantity === 0 ||
-    (product.trackInventory && (product.quantity ?? 0) <= 0);
-
-  const [qty, setQty] = useState(isOutOfStock ? 0 : 1);
-  const [cartState, setCartState] = useState<"idle" | "loading" | "success">("idle");
-  const addItem = useCartStore((state) => state.addItem);
-
-  const handleAddToCart = () => {
-    if (isOutOfStock) return;
-    if (cartState === "loading") return;
-    setCartState("loading");
-    window.setTimeout(() => {
-      addItem({
-        id: String(product.id),
-        name: product.name,
-        price: product.salePrice,
-        quantity: qty,
-        image: product.image || product.emoji,
-      });
-      setCartState("success");
-      window.setTimeout(() => setCartState("idle"), 1200);
-    }, 300);
-  };
-
-  const buttonLabel = isOutOfStock
-    ? "Out of Stock"
-    : cartState === "loading"
-    ? "Adding"
-    : cartState === "success"
-    ? "Added"
-    : "Add to cart";
+  const isOutOfStock = !hasPurchasableStock(product);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const quickAddTriggerRef = useRef<HTMLButtonElement>(null);
 
   return (
     <motion.div
@@ -116,55 +85,23 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
         </div>
 
         <div className="z-10 flex h-9 w-full min-w-0 translate-y-0 items-center bg-primary text-white opacity-100 transition-all duration-500 md:absolute md:bottom-0 md:left-0 md:right-0 md:h-10 md:translate-y-full md:invisible md:opacity-0 md:group-hover:visible md:group-hover:translate-y-0 md:group-hover:opacity-100">
-          <div className="flex h-full shrink-0 items-center">
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (isOutOfStock) return;
-                setQty(Math.max(1, qty - 1));
-              }}
-              disabled={isOutOfStock}
-              className="flex h-full w-6 min-[390px]:w-7 cursor-pointer items-center justify-center border-0 bg-transparent text-base font-normal text-white transition-colors hover:bg-black/10 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
-              aria-label="Decrease quantity"
-            >
-              -
-            </button>
-            <div className="flex h-full w-5 min-[390px]:w-6 select-none items-center justify-center border-l border-r border-white/20 text-[12px] font-normal text-white">
-              {qty}
-            </div>
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (isOutOfStock) return;
-                setQty(qty + 1);
-              }}
-              disabled={isOutOfStock}
-              className="flex h-full w-6 min-[390px]:w-7 cursor-pointer items-center justify-center border-0 bg-transparent text-base font-normal text-white transition-colors hover:bg-black/10 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
-              aria-label="Increase quantity"
-            >
-              +
-            </button>
-          </div>
-
           <button
+            ref={quickAddTriggerRef}
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              handleAddToCart();
+              if (!isOutOfStock) setQuickAddOpen(true);
             }}
-            disabled={cartState === "loading" || isOutOfStock}
-            className={`flex h-full min-w-0 flex-grow items-center justify-center gap-1 border-l border-white/20 bg-transparent px-0 text-[12px] font-normal tracking-normal text-white transition-all focus:outline-none min-[390px]:gap-1.5 min-[390px]:text-[13px] md:px-[10px] ${
+            disabled={isOutOfStock}
+            className={`flex h-full min-w-0 flex-grow items-center justify-center gap-2 bg-transparent px-2 text-[12px] font-semibold tracking-wide text-white transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 min-[390px]:text-[13px] md:px-[10px] ${
               isOutOfStock 
                 ? 'bg-rose-750/90 cursor-not-allowed opacity-80' 
-                : 'cursor-pointer hover:bg-primary-dark disabled:cursor-wait'
+                : 'cursor-pointer hover:bg-primary-dark'
             }`}
             style={{ lineHeight: 1, whiteSpace: "nowrap" }}
           >
-            {cartState === "loading" && <Loader2 size={13} className="animate-spin" />}
-            {cartState === "success" && <Check size={14} strokeWidth={3} />}
-            {buttonLabel}
+            <ShoppingBag size={14} />
+            {isOutOfStock ? "Out of Stock" : "Quick add"}
           </button>
         </div>
       </div>
@@ -187,6 +124,13 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
           {product.reviewCount ? `${product.reviewCount} reviews` : "No reviews"}
         </p>
       </div>
+
+      <QuickAddModal
+        product={product}
+        isOpen={quickAddOpen}
+        onClose={() => setQuickAddOpen(false)}
+        triggerRef={quickAddTriggerRef}
+      />
     </motion.div>
   );
 }

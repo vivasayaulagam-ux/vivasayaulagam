@@ -40,12 +40,12 @@ export async function syncOrderToOMS(order: any): Promise<boolean> {
   // Build items array
   const items = order.items.map((item: any) => {
     const product = productsMap.get(item.productId.toString());
-    const sku = product?.sku || '';
+    const sku = item.sku || product?.sku || '';
     const omsProductId = SKU_TO_OMS_PRODUCT_ID[sku] || 1; // Fallback to 1
 
     // Extract variation
-    let variation = '';
-    if (item.name.includes(' - ')) {
+    let variation = item.variantName || '';
+    if (!variation && item.name.includes(' - ')) {
       variation = item.name.split(' - ').slice(1).join(' - ');
     }
 

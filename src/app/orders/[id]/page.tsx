@@ -133,9 +133,19 @@ const InvoicePDFDocument = ({ order }: { order: any }) => {
             <View key={idx} style={pdfStyles.tableRow}>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 9 }}>{item.name}</Text>
+                {item.variantName && (
+                  <Text style={{ fontSize: 7, color: "#2f9e24", marginTop: 1, fontWeight: "bold" }}>
+                    Variant: {item.variantName}
+                  </Text>
+                )}
+                {item.sku && (
+                  <Text style={{ fontSize: 7, color: "#666666", marginTop: 1 }}>
+                    SKU: {item.sku}
+                  </Text>
+                )}
                 {item.weightKg !== undefined && item.weightKg > 0 && (
                   <Text style={{ fontSize: 7, color: "#666666", marginTop: 1 }}>
-                    Weight: {formatWeightKg(item.weightKg)}
+                    Shipping weight: {formatWeightKg(item.weightKg)}
                   </Text>
                 )}
               </View>
@@ -406,8 +416,14 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
                             </div>
                             <div className="flex flex-col gap-0.5">
                               <span>{item.name}</span>
+                              {item.variantName && (
+                                <span className="text-[10px] text-[#2f9e24]">Variant: {item.variantName}</span>
+                              )}
+                              {item.sku && (
+                                <span className="text-[9px] font-mono text-gray-400">SKU: {item.sku}</span>
+                              )}
                               {item.weightKg !== undefined && item.weightKg > 0 && (
-                                <span className="text-[10px] text-gray-400 font-normal">Weight: {formatWeightKg(item.weightKg)}</span>
+                                <span className="text-[10px] text-gray-400 font-normal">Shipping weight: {formatWeightKg(item.weightKg)}</span>
                               )}
                             </div>
                           </td>
@@ -434,10 +450,16 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
                       
                       <div className="flex-grow min-w-0 flex flex-col justify-center text-xs">
                         <span className="font-bold text-[#111111] truncate">{item.name}</span>
+                        {item.variantName && (
+                          <span className="text-[10px] font-bold text-[#2f9e24]">Variant: {item.variantName}</span>
+                        )}
+                        {item.sku && (
+                          <span className="text-[9px] font-mono text-gray-400">SKU: {item.sku}</span>
+                        )}
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="text-gray-400">Quantity: <strong className="text-[#111111]">{item.quantity}</strong></span>
                           {item.weightKg !== undefined && item.weightKg > 0 && (
-                            <span className="text-gray-400">| Weight: <strong className="text-[#111111]">{formatWeightKg(item.weightKg)}</strong></span>
+                            <span className="text-gray-400">| Shipping: <strong className="text-[#111111]">{formatWeightKg(item.weightKg)}</strong></span>
                           )}
                         </div>
                         <div className="flex justify-between items-center mt-1">

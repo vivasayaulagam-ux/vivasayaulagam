@@ -9,6 +9,7 @@ const VariantSchema = new mongoose.Schema({
   unit: { type: String, enum: ['g', 'kg', 'ml', 'L'], default: 'g' },
   additionalPrice: { type: Number, default: 0 },
   stock: { type: Number, default: 0 },
+  sku: { type: String, default: '' },
 });
 
 const ProductSchema = new mongoose.Schema(

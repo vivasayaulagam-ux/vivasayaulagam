@@ -4,23 +4,28 @@ import { toWeightKg } from '@/lib/shipping';
 
 export interface CartItem {
   id: string;
+  productId?: string;
+  variantId?: string;
+  variantName?: string;
   name: string;
   price: number;
   quantity: number;
   image: string;
   weight?: number;
+  unit?: string;
   weightUnit?: string;
+  weightKg?: number;
+  sku?: string;
   isOutOfStock?: boolean;
   isCombo?: boolean;
   comboWeight?: number;
-  productId?: string;
 }
 
 interface CartState {
   items: CartItem[];
   hasHydrated: boolean;
   addItem: (item: CartItem) => void;
-  updateItemMetadata: (id: string, metadata: Partial<Pick<CartItem, 'image' | 'name' | 'price' | 'weight' | 'weightUnit' | 'isOutOfStock' | 'isCombo' | 'comboWeight'>>) => void;
+  updateItemMetadata: (id: string, metadata: Partial<Omit<CartItem, 'id' | 'quantity'>>) => void;
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
@@ -38,13 +43,23 @@ export const useCartStore = create<CartState>()(
       addItem: (newItem) => {
         const quantity = Number.isFinite(newItem.quantity) ? Math.max(1, Math.floor(newItem.quantity)) : 1;
         const price = Number.isFinite(newItem.price) ? Math.max(0, newItem.price) : 0;
-        let weight: number;
+        let weightKg: number;
         if (newItem.isCombo) {
-          weight = newItem.comboWeight || 0;
+          weightKg = newItem.comboWeight || newItem.weightKg || 0;
         } else {
-          weight = toWeightKg(newItem.weight, newItem.weightUnit || 'kg', newItem.name);
+          weightKg = newItem.weightKg || toWeightKg(newItem.weight, newItem.unit || newItem.weightUnit || 'kg', newItem.name);
         }
-        const itemToAdd = { ...newItem, quantity, price, weight, weightUnit: 'kg' };
+        const productId = String(newItem.productId || newItem.id.split('-')[0]);
+        const unit = newItem.unit || newItem.weightUnit || 'kg';
+        const itemToAdd = {
+          ...newItem,
+          productId,
+          quantity,
+          price,
+          unit,
+          weightUnit: newItem.weightUnit || unit,
+          weightKg,
+        };
 
         set((state) => {
           const existingItem = state.items.find((item) => item.id === itemToAdd.id);
@@ -52,12 +67,24 @@ export const useCartStore = create<CartState>()(
             return {
               items: state.items.map((item) =>
                 item.id === itemToAdd.id
-                  ? {
+                  ? (() => {
+                      const keepExistingVariantMetadata = Boolean(
+                        item.variantName && !itemToAdd.variantName
+                      );
+                      return {
                       ...item,
+                      ...itemToAdd,
+                      name: keepExistingVariantMetadata ? item.name : itemToAdd.name,
+                      variantId: itemToAdd.variantId || item.variantId,
+                      variantName: itemToAdd.variantName || item.variantName,
+                      sku: itemToAdd.sku || item.sku,
+                      weight: keepExistingVariantMetadata ? item.weight : itemToAdd.weight,
+                      unit: keepExistingVariantMetadata ? item.unit : itemToAdd.unit,
+                      weightUnit: keepExistingVariantMetadata ? item.weightUnit : itemToAdd.weightUnit,
+                      weightKg: keepExistingVariantMetadata ? item.weightKg : itemToAdd.weightKg,
                       quantity: item.quantity + itemToAdd.quantity,
-                      weight: item.weight || itemToAdd.weight,
-                      weightUnit: item.weightUnit || itemToAdd.weightUnit,
-                    }
+                      };
+                    })()
                   : item
               ),
             };
@@ -70,16 +97,21 @@ export const useCartStore = create<CartState>()(
           items: state.items.map((item) => {
             if (item.id === id) {
               const merged = { ...item, ...metadata };
-              let weight: number;
+              let weightKg: number;
               if (merged.isCombo) {
-                weight = merged.comboWeight || 0;
+                weightKg = merged.comboWeight || merged.weightKg || 0;
               } else {
-                weight = metadata.weight !== undefined ? toWeightKg(metadata.weight, metadata.weightUnit || 'kg', item.name) : item.weight || 0;
+                weightKg = metadata.weightKg || toWeightKg(
+                  merged.weight,
+                  merged.unit || merged.weightUnit || 'kg',
+                  merged.name
+                );
               }
               return {
                 ...merged,
-                weight,
-                weightUnit: merged.isCombo ? 'kg' : (metadata.weight !== undefined ? 'kg' : (metadata.weightUnit || item.weightUnit)),
+                unit: merged.unit || merged.weightUnit || 'kg',
+                weightUnit: merged.weightUnit || merged.unit || 'kg',
+                weightKg,
               };
             }
             return item;

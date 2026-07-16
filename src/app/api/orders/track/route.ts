@@ -10,6 +10,12 @@ type LeanOrderItem = {
   price?: number;
   quantity?: number;
   image?: string;
+  variantId?: string;
+  variantName?: string;
+  sku?: string;
+  weight?: number;
+  unit?: string;
+  weightKg?: number;
 };
 
 type LeanOrder = {

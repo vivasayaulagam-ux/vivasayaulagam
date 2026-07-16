@@ -12,12 +12,9 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useSession, signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
-  DEFAULT_COURIER_RATES,
   formatWeightKg,
-  getCourierBracketLabel,
-  getCourierFee,
+  getCartItemWeightKg,
   parseWeightLabelToKg,
-  toWeightKg,
   type CourierRates,
 } from "@/lib/shipping";
 
@@ -366,7 +363,8 @@ export default function CartPage() {
     async function checkCartStockAndWeight() {
       await Promise.all(
         items.map(async (item) => {
-          const [productId, ...variantParts] = item.id.split("-");
+          const [legacyProductId, ...variantParts] = item.id.split("-");
+          const productId = item.productId || legacyProductId;
           if (!productId || productId === "video") return;
 
           try {
@@ -375,13 +373,16 @@ export default function CartPage() {
             if (cancelled || !data.success || !data.product) return;
 
             const product = data.product;
-            const variantValue = variantParts.join("-");
+            const variantValue = item.variantName || variantParts.join("-");
 
             // Check if variant or product is out of stock
             let resolvedOutOfStock = false;
             let resolvedPrice = item.price;
-            if (variantValue) {
-              const variant = product.variants?.find((v: any) => v.value === variantValue);
+            if (item.variantId || variantValue) {
+              const variant = product.variants?.find((v: any) =>
+                (item.variantId && String(v.id || v._id || "") === item.variantId) ||
+                (variantValue && v.value === variantValue)
+              );
               if (variant) {
                 resolvedOutOfStock = product.trackInventory && (variant.stock <= 0);
                 resolvedPrice = variant.sellingPrice ?? variant.price ?? product.sellingPrice ?? product.price ?? item.price;
@@ -397,16 +398,29 @@ export default function CartPage() {
             }
 
             const isCombo = product.product_type === 'combo';
+            const selectedVariant = product.variants?.find((v: any) =>
+              (item.variantId && String(v.id || v._id || "") === item.variantId) ||
+              (variantValue && v.value === variantValue)
+            );
+            const resolvedUnit = selectedVariant?.unit || product.unit || product.weightUnit || "kg";
             const resolvedWeight = isCombo
               ? product.comboWeight
               : (variantValue
-                ? parseWeightLabelToKg(variantValue, 0, "kg")
-                : toWeightKg(undefined, "kg", product.title));
+                ? Number.parseFloat(variantValue)
+                : Number(product.weight || 0));
+            const resolvedWeightKg = isCombo
+              ? product.comboWeight
+              : parseWeightLabelToKg(variantValue, resolvedWeight, resolvedUnit);
 
             updateItemMetadata(item.id, {
               isOutOfStock: resolvedOutOfStock,
               weight: resolvedWeight > 0 ? resolvedWeight : item.weight,
-              weightUnit: "kg",
+              unit: resolvedUnit,
+              weightUnit: resolvedUnit,
+              weightKg: resolvedWeightKg,
+              variantId: selectedVariant ? String(selectedVariant.id || selectedVariant._id || selectedVariant.value) : item.variantId,
+              variantName: selectedVariant?.value || item.variantName,
+              sku: selectedVariant?.sku || product.sku || item.sku,
               isCombo: isCombo,
               comboWeight: isCombo ? product.comboWeight : undefined,
               price: resolvedPrice,
@@ -427,7 +441,7 @@ export default function CartPage() {
 
   const subtotal = totalPrice();
   const totalWeight = items.reduce((sum, item) => {
-    const itemWeight = item.isCombo ? (item.comboWeight || 0) : toWeightKg(item.weight, item.weightUnit || "kg", item.name);
+    const itemWeight = getCartItemWeightKg(item);
     return sum + itemWeight * item.quantity;
   }, 0);
   const hasMissingWeight = false;
@@ -445,10 +459,10 @@ export default function CartPage() {
       subtotal: String(subtotal),
       weight: String(totalWeight),
       items: JSON.stringify(items.map(i => ({
-        productId: i.id.split("-")[0],
+        productId: i.productId || i.id.split("-")[0],
         quantity: i.quantity,
         price: i.price,
-        weightKg: i.isCombo ? (i.comboWeight || 0) : toWeightKg(i.weight, i.weightUnit || "kg", i.name)
+        weightKg: getCartItemWeightKg(i)
       })))
     });
     fetch(`/api/shipping/calculate?${queryParams.toString()}`)
@@ -560,10 +574,16 @@ export default function CartPage() {
                           </div>
                           <div>
                             <h3 className="font-body font-semibold text-text-dark text-sm leading-tight mb-1">{item.name}</h3>
+                            {item.variantName && (
+                              <p className="text-[11px] font-bold text-primary">Variant: {item.variantName}</p>
+                            )}
+                            {item.sku && (
+                              <p className="text-[10px] font-mono font-semibold text-text-muted">SKU: {item.sku}</p>
+                            )}
                             <p className="text-[11px] font-semibold text-text-muted">
-                              Weight: {formatWeightKg(item.isCombo ? (item.comboWeight || 0) : toWeightKg(item.weight, item.weightUnit || "kg", item.name))}
-                              {(item.isCombo ? (item.comboWeight || 0) : toWeightKg(item.weight, item.weightUnit || "kg", item.name)) > 0 && item.quantity > 1
-                                ? ` x ${item.quantity} = ${formatWeightKg((item.isCombo ? (item.comboWeight || 0) : toWeightKg(item.weight, item.weightUnit || "kg", item.name)) * item.quantity)}`
+                              Shipping weight: {formatWeightKg(getCartItemWeightKg(item))}
+                              {getCartItemWeightKg(item) > 0 && item.quantity > 1
+                                ? ` x ${item.quantity} = ${formatWeightKg(getCartItemWeightKg(item) * item.quantity)}`
                                 : ""}
                             </p>
                             {item.isOutOfStock && (
@@ -655,8 +675,11 @@ export default function CartPage() {
                             Unit Price: <span className="font-heading font-bold text-text-dark">{formatPrice(item.price)}</span>
                           </div>
                           <div className="text-xs font-semibold text-text-muted">
-                            Weight: <span className="font-heading font-bold text-text-dark">{formatWeightKg(item.isCombo ? (item.comboWeight || 0) : toWeightKg(item.weight, item.weightUnit || "kg", item.name))}</span>
+                            {item.variantName ? "Variant" : "Weight"}: <span className="font-heading font-bold text-text-dark">{item.variantName || formatWeightKg(getCartItemWeightKg(item))}</span>
                           </div>
+                          {item.sku && (
+                            <div className="text-[10px] font-mono font-semibold text-text-muted">SKU: {item.sku}</div>
+                          )}
 
 
                           {/* Quantity and subtotal row */}

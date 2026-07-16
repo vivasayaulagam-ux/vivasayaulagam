@@ -12,7 +12,15 @@ import OrderEmptyState from "./OrderEmptyState";
 import type { OrderFilters } from "./OrdersToolbar";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-interface OrderItem { name: string; price: number; quantity: number; image?: string; weightKg?: number; }
+interface OrderItem {
+  name: string;
+  price: number;
+  quantity: number;
+  image?: string;
+  variantName?: string;
+  sku?: string;
+  weightKg?: number;
+}
 interface Order {
   _id: string; orderId: string; user: { name: string; email: string } | null;
   items: OrderItem[]; totalAmount: number; status: string; isPaid: boolean;
@@ -269,10 +277,16 @@ function OrderDetailPanel({
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold truncate text-gray-800">{item.name}</p>
+                    {item.variantName && (
+                      <p className="text-[11px] font-bold text-[#2f8f2a]">Variant: {item.variantName}</p>
+                    )}
+                    {item.sku && (
+                      <p className="text-[10px] font-mono text-gray-400">SKU: {item.sku}</p>
+                    )}
                     <p className="text-[11px] text-gray-400">
                       Qty: {item.quantity} × {formatPrice(item.price)}
                       {item.weightKg !== undefined && item.weightKg > 0 && (
-                        <span className="ml-1 text-gray-500 font-medium">({formatWeightKg(item.weightKg)})</span>
+                        <span className="ml-1 text-gray-500 font-medium">(shipping {formatWeightKg(item.weightKg)})</span>
                       )}
                     </p>
                   </div>
