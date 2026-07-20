@@ -16,6 +16,16 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Razorpay webhook
+
+Configure a Razorpay webhook for `payment.captured`, `order.paid`, and `payment.failed` at:
+
+```text
+https://<production-domain>/api/webhooks/razorpay
+```
+
+Set the same webhook signing secret in the deployment environment as `RAZORPAY_WEBHOOK_SECRET`. This secret is configured when creating the webhook in Razorpay Dashboard and is separate from `RAZORPAY_KEY_SECRET`.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

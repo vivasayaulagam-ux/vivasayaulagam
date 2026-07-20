@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { formatPrice } from "@/lib/utils";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, CircleAlert, RefreshCw, ShieldCheck } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -39,7 +39,26 @@ type CheckoutSettings = {
   courier_charges?: CourierRates;
 };
 
-type PaymentSuccess = { orderId: string };
+type PendingPaymentVerification = RazorpayPaymentResponse & {
+  dbOrderId: string;
+  displayOrderId: string;
+  token: string;
+};
+
+type VerifyPaymentResponse = {
+  success?: boolean;
+  error?: string;
+  orderId?: string;
+  dbOrderId?: string;
+  paymentId?: string;
+};
+
+const PAYMENT_PROCESSING_MESSAGES = [
+  "Processing your payment...",
+  "Verifying payment...",
+  "Updating your order...",
+  "Preparing confirmation...",
+];
 
 declare global {
   interface Window {
@@ -104,6 +123,12 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState("online");
   const [settings, setSettings] = useState<CheckoutSettings>({});
   const [isPaymentProcessing, setIsPaymentProcessing] = useState(false);
+  const [processingStep, setProcessingStep] = useState(0);
+  const [pendingVerification, setPendingVerification] = useState<PendingPaymentVerification | null>(null);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
+  const checkoutInFlightRef = useRef(false);
+  const verificationInFlightRef = useRef(false);
+  const paymentCompletedRef = useRef(false);
 
   const isCodEnabled = settings && Number((settings as any).cod_enabled) === 1;
 
@@ -112,6 +137,14 @@ export default function CheckoutPage() {
       setPaymentMethod("online");
     }
   }, [isCodEnabled, paymentMethod]);
+
+  useEffect(() => {
+    if (!isPaymentProcessing) return;
+    const interval = window.setInterval(() => {
+      setProcessingStep((current) => Math.min(current + 1, PAYMENT_PROCESSING_MESSAGES.length - 1));
+    }, 1100);
+    return () => window.clearInterval(interval);
+  }, [isPaymentProcessing]);
   
   // Custom API Courier Fee
   const [courierFee, setCourierFee] = useState<number | null>(null);
@@ -252,6 +285,63 @@ export default function CheckoutPage() {
     }
   }, [hasHydrated, items, isPaymentProcessing, router]);
 
+  const verifyAndCompletePayment = async (
+    verification: PendingPaymentVerification
+  ): Promise<boolean> => {
+    if (paymentCompletedRef.current) return true;
+    if (verificationInFlightRef.current) return false;
+
+    verificationInFlightRef.current = true;
+    setPendingVerification(verification);
+    setVerificationError(null);
+    setProcessingStep(0);
+    setIsPaymentProcessing(true);
+
+    try {
+      const verifyRes = await fetch("/api/orders/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          razorpay_order_id: verification.razorpay_order_id,
+          razorpay_payment_id: verification.razorpay_payment_id,
+          razorpay_signature: verification.razorpay_signature,
+          dbOrderId: verification.dbOrderId,
+        }),
+      });
+
+      const verifyData = (await verifyRes.json().catch(() => ({}))) as VerifyPaymentResponse;
+      if (!verifyRes.ok || !verifyData.success) {
+        throw new Error(verifyData.error || "Payment verification failed");
+      }
+
+      const confirmedOrderId = verifyData.orderId || verification.displayOrderId;
+      const confirmedDbOrderId = verifyData.dbOrderId || verification.dbOrderId;
+      const confirmedPaymentId = verifyData.paymentId || verification.razorpay_payment_id;
+      const query = new URLSearchParams({
+        orderId: confirmedOrderId,
+        dbOrderId: confirmedDbOrderId,
+        paymentId: confirmedPaymentId,
+      });
+      if (verification.token) query.set("token", verification.token);
+
+      console.info("Payment verified; redirecting customer", {
+        orderId: confirmedOrderId,
+        paymentId: confirmedPaymentId,
+      });
+      paymentCompletedRef.current = true;
+      clearCart();
+      router.replace(`/payment-success?${query.toString()}`);
+      return true;
+    } catch (error) {
+      console.error("Payment verification error:", error);
+      setVerificationError(error instanceof Error ? error.message : "Payment verification failed");
+      setIsPaymentProcessing(false);
+      return false;
+    } finally {
+      verificationInFlightRef.current = false;
+    }
+  };
+
   const handlePayment = async () => {
     // Validate optional email if entered
     if (shippingAddress.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(shippingAddress.email)) {
@@ -269,6 +359,9 @@ export default function CheckoutPage() {
       alert("Payment gateway is still loading. Please wait a moment and try again.");
       return;
     }
+
+    if (checkoutInFlightRef.current || verificationInFlightRef.current) return;
+    checkoutInFlightRef.current = true;
 
     setLoading(true);
 
@@ -308,23 +401,17 @@ export default function CheckoutPage() {
           alert("⚠️ Simulated Transaction: Since you are using placeholder Razorpay keys in your .env.local file, we are completing a mock transaction automatically for you so you aren't blocked!");
         }
         
-        const verifyRes = await fetch("/api/orders/verify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            razorpay_order_id: orderData.orderId,
-            razorpay_payment_id: `pay_mock_${Date.now()}`,
-            razorpay_signature: "mock_signature",
-            dbOrderId: orderData.dbOrderId
-          }),
+        const completed = await verifyAndCompletePayment({
+          razorpay_order_id: orderData.orderId,
+          razorpay_payment_id: `pay_mock_${Date.now()}`,
+          razorpay_signature: "mock_signature",
+          dbOrderId: String(orderData.dbOrderId),
+          displayOrderId: orderData.viuOrderId || orderData.orderId,
+          token: orderData.token || "",
         });
-
-        const verifyData = await verifyRes.json();
-        if (verifyData.success) {
-          clearCart();
-          router.replace(`/payment-success?orderId=${orderData.viuOrderId || orderData.orderId}&dbOrderId=${orderData.dbOrderId}&token=${orderData.token || ""}`);
-        } else {
-          alert("Failed to verify simulated payment: " + (verifyData.error || "Unknown error"));
+        if (!completed) {
+          checkoutInFlightRef.current = false;
+          setLoading(false);
         }
         return;
       }
@@ -338,33 +425,15 @@ export default function CheckoutPage() {
         description: "Organic Purchase",
         order_id: orderData.orderId,
         handler: async function (response: RazorpayPaymentResponse) {
-          if (isPaymentProcessing) return;
-          setIsPaymentProcessing(true);
-          try {
-            // 3. Verify payment
-            const verifyRes = await fetch("/api/orders/verify", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-                dbOrderId: orderData.dbOrderId
-              }),
-            });
-
-            const verifyData = await verifyRes.json();
-            if (verifyData.success) {
-              clearCart();
-              router.replace(`/payment-success?orderId=${orderData.viuOrderId || response.razorpay_order_id}&dbOrderId=${orderData.dbOrderId}&token=${orderData.token || ""}`);
-            } else {
-              alert("Payment verification failed");
-              setIsPaymentProcessing(false);
-            }
-          } catch (error) {
-            console.error("Payment verification error:", error);
-            alert("Payment verification failed. Please contact support if amount was deducted.");
-            setIsPaymentProcessing(false);
+          const completed = await verifyAndCompletePayment({
+            ...response,
+            dbOrderId: String(orderData.dbOrderId),
+            displayOrderId: orderData.viuOrderId || response.razorpay_order_id,
+            token: orderData.token || "",
+          });
+          if (!completed) {
+            checkoutInFlightRef.current = false;
+            setLoading(false);
           }
         },
         prefill: {
@@ -375,15 +444,27 @@ export default function CheckoutPage() {
         theme: {
           color: "#34a121",
         },
+        modal: {
+          ondismiss: function () {
+            if (!verificationInFlightRef.current) {
+              checkoutInFlightRef.current = false;
+              setLoading(false);
+            }
+          },
+        },
       };
 
       if (!Razorpay) {
         alert("Payment gateway is unavailable. Please refresh and try again.");
+        checkoutInFlightRef.current = false;
+        setLoading(false);
         return;
       }
 
       const rzp = new Razorpay(options);
       rzp.on("payment.failed", function (response) {
+        checkoutInFlightRef.current = false;
+        setLoading(false);
         alert("Payment failed: " + (response.error?.description || "Please try again."));
       });
       rzp.open();
@@ -392,7 +473,7 @@ export default function CheckoutPage() {
       console.error(error);
       const message = error instanceof Error ? error.message : "Please check your network connection";
       alert("Error initiating checkout: " + message);
-    } finally {
+      checkoutInFlightRef.current = false;
       setLoading(false);
     }
   };
@@ -411,11 +492,33 @@ export default function CheckoutPage() {
 
   if (isPaymentProcessing) {
     return (
-      <main className="fixed inset-0 z-[9999] flex min-h-[100dvh] w-full items-center justify-center bg-white px-4">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-[#34a121]"></div>
-          <h2 className="text-xl font-bold text-gray-900">Verifying Payment...</h2>
-          <p className="mt-2 text-sm text-gray-500">Please do not close or refresh this page.</p>
+      <main
+        className="fixed inset-0 z-[9999] flex min-h-[100dvh] w-full items-center justify-center bg-gradient-to-br from-green-50 via-white to-emerald-50 px-4"
+        aria-busy="true"
+      >
+        <div className="w-full max-w-md rounded-3xl border border-green-100 bg-white p-7 text-center shadow-2xl sm:p-9" role="status" aria-live="polite">
+          <div className="relative mx-auto mb-6 flex h-20 w-20 items-center justify-center">
+            <div className="absolute inset-0 animate-ping rounded-full bg-green-100 opacity-60" />
+            <div className="absolute inset-1 animate-spin rounded-full border-4 border-green-100 border-t-[#34a121]" />
+            <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-sm">
+              <ShieldCheck className="text-[#2d8f27]" size={30} aria-hidden="true" />
+            </div>
+          </div>
+          <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#2d8f27]">Secure payment</p>
+          <h2 className="mt-3 font-heading text-2xl font-bold text-gray-900">
+            {PAYMENT_PROCESSING_MESSAGES[processingStep]}
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-gray-500">Please do not close, refresh, or go back from this page.</p>
+          <div className="mt-7 h-2 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-[#2d8f27] to-[#64bc46] transition-[width] duration-700 ease-out"
+              style={{ width: `${((processingStep + 1) / PAYMENT_PROCESSING_MESSAGES.length) * 100}%` }}
+            />
+          </div>
+          <div className="mt-4 flex items-center justify-center gap-2 text-xs font-medium text-gray-400">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-[#34a121]" />
+            Verification and order update in progress
+          </div>
         </div>
       </main>
     );
@@ -426,6 +529,34 @@ export default function CheckoutPage() {
   return (
     <>
       <Script src="https://checkout.razorpay.com/v1/checkout.js" />
+      {verificationError && pendingVerification && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/55 px-4 backdrop-blur-sm">
+          <div
+            className="w-full max-w-md rounded-3xl bg-white p-7 text-center shadow-2xl sm:p-8"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="payment-verification-failed-title"
+          >
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-red-50 ring-8 ring-red-50/60">
+              <CircleAlert className="text-red-600" size={44} aria-hidden="true" />
+            </div>
+            <h2 id="payment-verification-failed-title" className="mt-7 font-heading text-2xl font-bold text-gray-900">
+              Payment Verification Failed
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-gray-600">
+              Payment could not be verified. If your amount was deducted, please contact support.
+            </p>
+            <button
+              type="button"
+              onClick={() => void verifyAndCompletePayment(pendingVerification)}
+              className="mt-7 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2"
+            >
+              <RefreshCw size={17} aria-hidden="true" />
+              Retry Verification
+            </button>
+          </div>
+        </div>
+      )}
       <Navbar />
       <main className="pt-[calc(var(--navbar-height)+1rem)] pb-16 bg-[#f9fafb] min-h-screen">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -716,7 +847,7 @@ export default function CheckoutPage() {
 
                 <button 
                   onClick={handlePayment}
-                  disabled={loading}
+                  disabled={loading || isPaymentProcessing}
                   className="w-full bg-black text-white py-3.5 rounded-sm font-bold tracking-wider text-sm hover:bg-gray-800 transition-colors shadow-md disabled:opacity-50"
                 >
                   {loading ? "PROCESSING..." : "PLACE ORDER"}
