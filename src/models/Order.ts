@@ -64,11 +64,12 @@ const OrderSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['pending', 'processing', 'shipped', 'delivered', 'cancelled'],
+      enum: ['pending', 'processing', 'confirmed', 'shipped', 'delivered', 'cancelled'],
       default: 'pending',
     },
     razorpayOrderId: {
       type: String,
+      index: true,
     },
     razorpayPaymentId: {
       type: String,
@@ -148,5 +149,6 @@ OrderSchema.pre('save', async function () {
 
 OrderSchema.index({ createdAt: -1 });
 OrderSchema.index({ user: 1, createdAt: -1 });
+OrderSchema.index({ razorpayOrderId: 1 });
 
 export default mongoose.models.Order || mongoose.model('Order', OrderSchema);
