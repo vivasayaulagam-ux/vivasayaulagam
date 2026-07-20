@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import crypto from 'crypto';
 import dbConnect from '@/lib/db';
 import Order from '@/models/Order';
 import { sendEmail, sendAdminNotification } from '@/lib/email';
 import { syncOrderToOMS } from '@/lib/services/omsSync';
+import { validatePaymentSignature } from '@/lib/razorpay';
+import { paymentLogger } from '@/lib/logger';
 
 type VerifyPaymentPayload = {
   razorpay_order_id?: string;
@@ -14,93 +15,157 @@ type VerifyPaymentPayload = {
 
 export async function POST(req: Request) {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, dbOrderId } = (await req.json()) as VerifyPaymentPayload;
+    const payload = (await req.json()) as VerifyPaymentPayload;
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, dbOrderId } = payload;
 
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !dbOrderId) {
+    paymentLogger.info({
+      event: 'VERIFY_PAYMENT_ATTEMPT',
+      orderId: dbOrderId,
+      razorpayOrderId: razorpay_order_id,
+      razorpayPaymentId: razorpay_payment_id,
+    });
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      paymentLogger.warn({
+        event: 'VERIFY_PAYMENT_MISSING_DATA',
+        details: { payload },
+      });
       return NextResponse.json({ error: 'Missing payment verification data' }, { status: 400 });
     }
 
-    const isSimulated = razorpay_order_id?.startsWith("rzp_mock_") && process.env.NODE_ENV !== 'production';
-    let isAuthentic = false;
-
-    if (isSimulated) {
-      // Simulate verification for development mode with placeholder keys
-      isAuthentic = razorpay_signature === "mock_signature";
-    } else {
-      const body = razorpay_order_id + "|" + razorpay_payment_id;
-      const expectedSignature = crypto
-        .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || 'dummy_secret')
-        .update(body.toString())
-        .digest('hex');
-
-      isAuthentic = expectedSignature === razorpay_signature;
-    }
+    const isAuthentic = validatePaymentSignature({
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+    });
 
     if (!isAuthentic) {
+      paymentLogger.error({
+        event: 'VERIFY_PAYMENT_SIGNATURE_INVALID',
+        orderId: dbOrderId,
+        razorpayOrderId: razorpay_order_id,
+        razorpayPaymentId: razorpay_payment_id,
+        details: { receivedSignature: razorpay_signature },
+      });
       return NextResponse.json({ error: 'Invalid Payment Signature' }, { status: 400 });
     }
 
     await dbConnect();
 
-    // Update order status only if it hasn't been updated yet to prevent duplicates
+    // Find query can look up by Mongo dbOrderId OR by razorpay_order_id
+    const queryConditions: any[] = [{ razorpayOrderId: razorpay_order_id }];
+    if (dbOrderId) {
+      queryConditions.push({ _id: dbOrderId });
+    }
+
+    const filter = {
+      $or: queryConditions,
+      isPaid: false,
+    };
+
+    // Atomic update to mark as paid and status as confirmed
     const order = await Order.findOneAndUpdate(
-      { _id: dbOrderId, isPaid: false },
+      filter,
       {
         razorpayPaymentId: razorpay_payment_id,
         razorpaySignature: razorpay_signature,
         isPaid: true,
         paidAt: new Date(),
-        status: 'processing'
+        status: 'confirmed',
       },
       { new: true }
     ).populate('user');
 
     if (order) {
+      paymentLogger.info({
+        event: 'PAYMENT_VERIFIED_SUCCESSFULLY',
+        orderId: order._id.toString(),
+        razorpayOrderId: order.razorpayOrderId,
+        razorpayPaymentId: order.razorpayPaymentId,
+        status: order.status,
+        amount: order.totalAmount,
+      });
+
       // Deduct stock for online orders upon payment verification
       try {
         const { deductOrderStock } = await import('@/lib/inventory');
         await deductOrderStock(order.items);
       } catch (stockErr) {
-        console.error("Failed to deduct stock for online order:", stockErr);
+        paymentLogger.error({
+          event: 'VERIFY_STOCK_DEDUCTION_FAILED',
+          orderId: order._id.toString(),
+          error: stockErr,
+        });
       }
 
-      // Sync to OMS immediately
+      // Sync to OMS
       try {
         await syncOrderToOMS(order);
       } catch (omsErr) {
-        console.error("Failed to sync order to OMS synchronously:", omsErr);
+        paymentLogger.error({
+          event: 'VERIFY_OMS_SYNC_FAILED',
+          orderId: order._id.toString(),
+          error: omsErr,
+        });
       }
 
-      // Fire and forget emails to speed up response
+      // Notifications
       sendAdminNotification(
-        `New Order Placed - ${dbOrderId}`,
-        `<h1>New Order Received!</h1><p>Order ID: ${dbOrderId}</p><p>Amount: ₹${order.totalAmount}</p>`
-      ).catch(emailErr => console.error("Failed to send admin email:", emailErr));
+        `New Order Paid - ${order.orderId || order._id}`,
+        `<h1>New Paid Order Received!</h1><p>Order ID: ${order.orderId || order._id}</p><p>Amount Paid: ₹${order.totalAmount}</p><p>Razorpay Payment ID: ${razorpay_payment_id}</p>`
+      ).catch((emailErr) =>
+        paymentLogger.error({
+          event: 'ADMIN_EMAIL_FAILED',
+          orderId: order._id.toString(),
+          error: emailErr,
+        })
+      );
 
       const orderUser = order.user as { email?: string } | null;
       const orderEmail = order.shippingAddress?.email || orderUser?.email;
-      if (orderEmail && !orderEmail.includes("@guest.vivasayaulagam.com")) {
+      if (orderEmail && !orderEmail.includes('@guest.vivasayaulagam.com')) {
         sendEmail(
           orderEmail,
           'Order Confirmation - Vivasaya Ulagam',
-          `<h1>Thank you for your order!</h1><p>Your order (ID: ${dbOrderId}) has been received and is now processing.</p><p>Amount Paid: ₹${order.totalAmount}</p>`
-        ).catch(emailErr => console.error("Failed to send customer email:", emailErr));
+          `<h1>Thank you for your payment!</h1><p>Your order (${order.orderId || order._id}) is confirmed and being processed.</p><p>Amount Paid: ₹${order.totalAmount}</p>`
+        ).catch((emailErr) =>
+          paymentLogger.error({
+            event: 'CUSTOMER_EMAIL_FAILED',
+            orderId: order._id.toString(),
+            error: emailErr,
+          })
+        );
       }
+
+      return NextResponse.json({ success: true, message: 'Payment verified and order confirmed successfully' });
     } else {
-      // Order might already be paid (duplicate callback), check if it exists and is paid
-      const existingOrder = await Order.findById(dbOrderId);
+      // Check if already paid (idempotency)
+      const existingOrder = await Order.findOne({
+        $or: queryConditions,
+      });
+
       if (existingOrder && existingOrder.isPaid) {
-        // Already paid, safe to return success
+        paymentLogger.info({
+          event: 'VERIFY_PAYMENT_ALREADY_PROCESSED',
+          orderId: existingOrder._id.toString(),
+          razorpayOrderId: existingOrder.razorpayOrderId,
+          status: existingOrder.status,
+        });
         return NextResponse.json({ success: true, message: 'Payment already verified' });
-      } else {
-        return NextResponse.json({ error: 'Order not found or already processed' }, { status: 400 });
       }
+
+      paymentLogger.warn({
+        event: 'VERIFY_ORDER_NOT_FOUND',
+        orderId: dbOrderId,
+        razorpayOrderId: razorpay_order_id,
+      });
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
-
-    return NextResponse.json({ success: true, message: 'Payment verified successfully' });
-
   } catch (error) {
-    console.error('Error verifying payment:', error);
+    paymentLogger.error({
+      event: 'VERIFY_PAYMENT_EXCEPTION',
+      error,
+    });
     const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json({ error: `Failed to verify payment: ${message}` }, { status: 500 });
   }

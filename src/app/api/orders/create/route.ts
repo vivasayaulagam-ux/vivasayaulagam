@@ -6,12 +6,11 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { normalizeComboWeightKg, parseWeightFromText, calculateCartShipping, getStateChargeKey, toWeightKg } from '@/lib/shipping';
 import { parseVariantMeasurement } from '@/lib/productVariants';
-import { sendEmail, sendAdminNotification } from '@/lib/email';
 import User from '@/models/User';
 import Product from '@/models/Product';
 import CourierCharge from '@/models/CourierCharge';
 import { generateOrderToken } from '@/lib/orderToken';
-
+import { paymentLogger } from '@/lib/logger';
 
 type CheckoutItem = {
   id?: string;
@@ -33,19 +32,16 @@ type ShippingAddress = {
   city?: string;
   postalCode?: string;
   phone?: string;
-};
-
-type CreateOrderPayload = {
-  items?: CheckoutItem[];
-  totalAmount?: number;
-  shippingAddress?: ShippingAddress;
-  isCod?: boolean;
+  state?: string;
+  country?: string;
+  email?: string;
+  addressLine2?: string;
 };
 
 export async function POST(req: Request) {
   try {
     const session = process.env.NODE_ENV === 'test' ? null : await getServerSession(authOptions);
-    const { items, totalAmount, shippingAddress, isCod, paymentMethod, saveAsDefault } = (await req.json()) as any;
+    const { items, totalAmount, shippingAddress, isCod, paymentMethod } = (await req.json()) as any;
     const isCodOrder = isCod === true || paymentMethod === 'COD';
 
     await dbConnect();
@@ -76,8 +72,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Incomplete shipping address: fullName, address, city, postalCode, phone, and state are required.' }, { status: 400 });
     }
 
-    await dbConnect();
-
     let userId = "";
     let emailToUse = "";
 
@@ -95,10 +89,8 @@ export async function POST(req: Request) {
       // Guest Checkout
       emailToUse = shippingAddress.email || `guest_${shippingAddress.phone}@guest.vivasayaulagam.com`;
 
-      // Check if user exists with this email
       let dbUser = await User.findOne({ email: emailToUse });
       if (!dbUser) {
-        // Create guest profile
         dbUser = await User.create({
           name: shippingAddress.fullName || 'Guest User',
           email: emailToUse,
@@ -117,7 +109,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Failed to resolve user for checkout' }, { status: 400 });
     }
 
-    // Save/update defaultAddress if logged-in customer (unconditionally update with latest confirmed address)
+    // Save/update defaultAddress if logged-in customer
     if (session && session.user) {
       const dbUser = await User.findById(userId);
       if (dbUser) {
@@ -136,7 +128,6 @@ export async function POST(req: Request) {
       }
     }
 
-    // Retrieve active product prices and info from the database
     let totalWeightKg = 0;
     const formattedItems = [];
     
@@ -177,7 +168,6 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: `Invalid quantity for product: ${product.title}` }, { status: 400 });
       }
       
-      // Determine variant price and stock
       let itemPrice = product.sellingPrice ?? product.price;
       const finalName = product.title;
       let itemWeight = 0.25;
@@ -186,8 +176,6 @@ export async function POST(req: Request) {
       let selectedVariantId = '';
       let selectedVariantName = '';
       let selectedSku = product.sku || '';
-
-      // No custom charge calculation here; handled in calculateCartShipping below
 
       if (product.product_type === 'combo') {
         itemWeight = normalizeComboWeightKg(
@@ -254,7 +242,7 @@ export async function POST(req: Request) {
         variantId: selectedVariantId || undefined,
         variantName: selectedVariantName || undefined,
         name: finalName,
-        price: itemPrice, // STRICTLY USE DB OR VARIANT PRICE
+        price: itemPrice,
         quantity: orderQty,
         image: product.images?.[0] || item.image || "",
         weight: selectedWeight,
@@ -271,7 +259,6 @@ export async function POST(req: Request) {
 
     const computedSubtotal = formattedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-    // Calculate custom courier fee matching admin rules
     const state = shippingAddress?.state?.trim() || '';
     const pincode = shippingAddress?.postalCode?.trim() || '';
     if (!state) {
@@ -305,9 +292,8 @@ export async function POST(req: Request) {
     }
 
     const deliveryFee = calculateCartShipping(formattedItems, state, computedSubtotal, matchingRule);
-    const appliedRate = 0; // Legacy unused field
+    const appliedRate = 0;
 
-    // Check if there's any weight-based (slab) items that failed to resolve shipping
     const stateKey = getStateChargeKey(state);
     const slabItems = formattedItems.filter(item => {
       const stateCharge = item.state_courier_charges?.[stateKey];
@@ -332,36 +318,28 @@ export async function POST(req: Request) {
 
     const computedTotal = computedSubtotal + deliveryFee;
 
-    // Validate client totalAmount against calculated server subtotal
     if (typeof totalAmount === 'number' && Number.isFinite(totalAmount)) {
       if (Math.abs(computedTotal - totalAmount) > 1) {
         return NextResponse.json({ error: 'Product prices have changed. Please refresh your cart and try again.' }, { status: 400 });
       }
     }
 
-    // Check if Razorpay keys are properly configured or placeholders
-    let isRazorpayConfigured = 
-      process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID && 
-      !process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID.includes("your_key_id") && 
-      !process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID.includes("dummy");
-
-    // Safety check: force simulation if using a live key in development environment to avoid accidental charges
-    const isLiveKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID?.startsWith("rzp_live_");
-    const isDevMode = process.env.NODE_ENV !== 'production';
-    if (isLiveKey && isDevMode && process.env.ALLOW_LIVE_IN_DEV !== 'true') {
-      console.warn("⚠️ Live Razorpay key detected in development mode. Forcing simulated transaction for safety.");
-      isRazorpayConfigured = false;
-    }
+    const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID;
+    const isPlaceholderKey = !keyId || keyId.includes("your_key_id") || keyId.includes("dummy");
+    let isRazorpayConfigured = !isPlaceholderKey;
 
     let razorpayOrderId = "";
     let razorpayAmount = Math.round(computedTotal * 100);
 
     if (isCodOrder) {
-      // For COD order, generate a mock or dummy razorpay ID to satisfy schema constraints
       razorpayOrderId = `cod_${Date.now()}_${String(Math.random()).slice(-6)}`;
     } else {
       if (!isRazorpayConfigured) {
-        console.warn("⚠️ Razorpay is using placeholder keys. Simulating mock order for local test.");
+        paymentLogger.warn({
+          event: 'RAZORPAY_ORDER_SIMULATED',
+          amount: computedTotal,
+          details: { reason: 'Razorpay keys are unconfigured or placeholders' }
+        });
         razorpayOrderId = `rzp_mock_${Date.now().toString().slice(-6)}`;
       } else {
         const options = {
@@ -372,10 +350,16 @@ export async function POST(req: Request) {
         const razorpayOrder = await razorpay.orders.create(options);
         razorpayOrderId = razorpayOrder.id;
         razorpayAmount = typeof razorpayOrder.amount === 'string' ? parseInt(razorpayOrder.amount, 10) : razorpayOrder.amount;
+
+        paymentLogger.info({
+          event: 'RAZORPAY_ORDER_CREATED',
+          razorpayOrderId,
+          amount: razorpayAmount,
+          details: { currency: "INR", receipt: options.receipt }
+        });
       }
     }
 
-    // Use new+save to guarantee pre-save hook fires
     const newOrder = new Order({
       user: userId,
       items: formattedItems,
@@ -396,21 +380,36 @@ export async function POST(req: Request) {
     });
     await newOrder.save();
 
+    paymentLogger.info({
+      event: 'ORDER_SAVED_PENDING',
+      orderId: newOrder._id.toString(),
+      razorpayOrderId,
+      amount: computedTotal,
+      status: 'pending',
+      details: { viuOrderId: newOrder.orderId, paymentMethod: isCodOrder ? 'COD' : 'online' }
+    });
+
     if (isCodOrder) {
-      // Deduct stock immediately for COD orders
       try {
         const { deductOrderStock } = await import('@/lib/inventory');
         await deductOrderStock(formattedItems);
       } catch (stockErr) {
-        console.error("Failed to deduct stock for COD order:", stockErr);
+        paymentLogger.error({
+          event: 'COD_STOCK_DEDUCTION_FAILED',
+          orderId: newOrder._id.toString(),
+          error: stockErr
+        });
       }
 
-      // Sync to OMS immediately
       try {
         const { syncOrderToOMS } = await import('@/lib/services/omsSync');
         await syncOrderToOMS(newOrder);
       } catch (omsErr) {
-        console.error("Failed to sync COD order to OMS:", omsErr);
+        paymentLogger.error({
+          event: 'COD_OMS_SYNC_FAILED',
+          orderId: newOrder._id.toString(),
+          error: omsErr
+        });
       }
     }
 
@@ -425,7 +424,10 @@ export async function POST(req: Request) {
     });
 
   } catch (error) {
-    console.error('Error creating order:', error);
+    paymentLogger.error({
+      event: 'CREATE_ORDER_EXCEPTION',
+      error
+    });
     const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json({ 
       error: `Failed to create order: ${message}` 

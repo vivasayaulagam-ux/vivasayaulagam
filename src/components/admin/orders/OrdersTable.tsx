@@ -21,11 +21,27 @@ interface OrderItem {
   sku?: string;
   weightKg?: number;
 }
+
 interface Order {
-  _id: string; orderId: string; user: { name: string; email: string } | null;
-  items: OrderItem[]; totalAmount: number; status: string; isPaid: boolean;
-  createdAt: string; updatedAt: string; paidAt?: string | null;
-  shippingAddress?: { fullName?: string; address?: string; city?: string; postalCode?: string; phone?: string; email?: string; };
+  _id: string;
+  orderId: string;
+  user: { name: string; email: string } | null;
+  items: OrderItem[];
+  totalAmount: number;
+  status: string;
+  isPaid: boolean;
+  createdAt: string;
+  updatedAt: string;
+  paidAt?: string | null;
+  shippingAddress?: {
+    fullName?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    phone?: string;
+    email?: string;
+  };
   subtotalAmount?: number;
   deliveryFee?: number;
   totalWeightKg?: number;
@@ -36,11 +52,13 @@ interface Order {
   oms_order_id?: string;
   oms_order_number?: string;
 }
+
 type OrderSortColumn = "orderId" | "user" | "createdAt" | "status" | "totalAmount";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const STATUS_STYLES: Record<string, { pill: string; dot: string }> = {
   delivered:  { pill: "bg-emerald-50 text-emerald-700 border-emerald-200",  dot: "bg-emerald-500" },
+  confirmed:  { pill: "bg-teal-50 text-teal-700 border-teal-200",           dot: "bg-teal-500" },
   processing: { pill: "bg-blue-50 text-blue-700 border-blue-200",           dot: "bg-blue-500" },
   shipped:    { pill: "bg-violet-50 text-violet-700 border-violet-200",     dot: "bg-violet-500" },
   cancelled:  { pill: "bg-red-50 text-red-600 border-red-200",              dot: "bg-red-500" },
@@ -48,7 +66,11 @@ const STATUS_STYLES: Record<string, { pill: string; dot: string }> = {
 };
 
 const STATUS_NEXT: Record<string, { label: string; next: string; cls: string }[]> = {
-  pending:    [{ label: "Accept → Processing", next: "processing", cls: "bg-blue-600 hover:bg-blue-700 text-white" }],
+  pending:    [{ label: "Accept → Confirmed", next: "confirmed", cls: "bg-blue-600 hover:bg-blue-700 text-white" }],
+  confirmed:  [
+    { label: "Start Processing", next: "processing", cls: "bg-blue-600 hover:bg-blue-700 text-white" },
+    { label: "Cancel Order",     next: "cancelled",  cls: "bg-red-50 hover:bg-red-100 text-red-700 border border-red-200" },
+  ],
   processing: [
     { label: "Mark Shipped",   next: "shipped",   cls: "bg-violet-600 hover:bg-violet-700 text-white" },
     { label: "Cancel Order",   next: "cancelled", cls: "bg-red-50 hover:bg-red-100 text-red-700 border border-red-200" },
@@ -92,7 +114,6 @@ function ColumnHeader({
   );
 }
 
-// ─── Skeleton Row ─────────────────────────────────────────────────────────────
 function SkeletonRow() {
   return (
     <tr className="border-b border-[#f0f0f0]">
@@ -105,7 +126,6 @@ function SkeletonRow() {
   );
 }
 
-// ─── Status Badge ─────────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: string }) {
   const s = STATUS_STYLES[status] ?? { pill: "bg-gray-100 text-gray-600 border-gray-200", dot: "bg-gray-400" };
   return (
@@ -116,7 +136,6 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-// ─── Expanded Detail Panel ────────────────────────────────────────────────────
 function OrderDetailPanel({
   order,
   onUpdateStatus,
@@ -133,7 +152,7 @@ function OrderDetailPanel({
   copiedId: string | null;
 }) {
   const actions = STATUS_NEXT[order.status] ?? [];
-  const allStatuses = ["pending", "processing", "shipped", "delivered", "cancelled"];
+  const allStatuses = ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"];
 
   return (
     <motion.tr
@@ -183,7 +202,6 @@ function OrderDetailPanel({
                 )}
               </div>
 
-              {/* Primary action buttons */}
               {actions.map((a) => (
                 <button
                   key={a.next}
@@ -195,7 +213,6 @@ function OrderDetailPanel({
                 </button>
               ))}
 
-              {/* Manual override */}
               <details className="mt-1 group">
                 <summary className="cursor-pointer text-[11px] text-gray-400 hover:text-gray-600 select-none list-none flex items-center gap-1">
                   <ChevronDown size={12} className="group-open:rotate-180 transition-transform" />
@@ -219,7 +236,6 @@ function OrderDetailPanel({
                 </div>
               </details>
 
-              {/* Invoice */}
               <button
                 onClick={() => {
                   const w = window.open(`/api/orders/invoice?orderId=${order._id}`, "_blank");
@@ -230,7 +246,6 @@ function OrderDetailPanel({
                 <Printer size={13} /> Print / Download Invoice
               </button>
 
-              {/* OMS Sync Status */}
               <div className="mt-4 pt-3 border-t border-gray-100">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">OMS Sync Status</p>
                 <div className="flex items-center gap-2">
@@ -321,7 +336,6 @@ function OrderDetailPanel({
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
 interface Props {
   orders: Order[];
   filters: OrderFilters;
@@ -369,8 +383,7 @@ Payment Status: ${paymentStatus}`;
         setCopiedId(order._id);
         setTimeout(() => setCopiedId(null), 2000);
       })
-      .catch((err) => {
-        // Fallback for older browsers / iframe restrictions
+      .catch(() => {
         const textArea = document.createElement("textarea");
         textArea.value = copiedText;
         textArea.style.position = "fixed";
@@ -388,7 +401,6 @@ Payment Status: ${paymentStatus}`;
       });
   };
 
-  // ── Filter ──────────────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     let list = [...orders];
 
@@ -414,7 +426,6 @@ Payment Status: ${paymentStatus}`;
       list = list.filter((o) => new Date(o.createdAt).getTime() <= end.getTime());
     }
 
-    // Sort
     const sortKey = filters.sort || "date_desc";
     list.sort((a, b) => {
       if (sortKey === "date_desc") return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -424,7 +435,6 @@ Payment Status: ${paymentStatus}`;
       return 0;
     });
 
-    // Column sort override
     if (sortCol) {
       list.sort((a, b) => {
         const av = getOrderSortValue(a, sortCol);
@@ -437,12 +447,10 @@ Payment Status: ${paymentStatus}`;
     return list;
   }, [orders, filters, sortCol, sortDir]);
 
-  // ── Pagination ──────────────────────────────────────────────────────────────
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages);
   const paginated  = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
 
-  // ── Selection helpers ───────────────────────────────────────────────────────
   const pageIds    = paginated.map((o) => o._id);
   const allOnPage  = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
   const someOnPage = pageIds.some((id) => selectedIds.has(id));
@@ -464,13 +472,11 @@ Payment Status: ${paymentStatus}`;
     onSelectionChange(next);
   };
 
-  // ── Column sort toggle ──────────────────────────────────────────────────────
   const handleColSort = (col: OrderSortColumn) => {
     if (sortCol === col) setSortDir((d) => d === "asc" ? "desc" : "asc");
     else { setSortCol(col); setSortDir("asc"); }
   };
 
-  // ── Status update ───────────────────────────────────────────────────────────
   const updateStatus = useCallback(async (orderId: string, dbId: string, newStatus: string) => {
     setUpdatingId(orderId);
     try {
@@ -489,8 +495,6 @@ Payment Status: ${paymentStatus}`;
     finally  { setUpdatingId(null); }
   }, [onOrderUpdate]);
 
-  // ── Column header helper ────────────────────────────────────────────────────
-  // ── Empty / Loading ─────────────────────────────────────────────────────────
   if (!loading && filtered.length === 0 && orders.length === 0) {
     return (
       <div className="bg-white border border-[#e5e5e5] rounded-[14px] overflow-hidden">
@@ -501,12 +505,10 @@ Payment Status: ${paymentStatus}`;
 
   return (
     <div className="bg-white border border-[#e5e5e5] rounded-[14px] overflow-hidden" style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
-      {/* Table wrapper with horizontal scroll */}
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-sm">
           <thead className="bg-[#f9f9f9] border-b border-[#f0f0f0]">
             <tr>
-              {/* Checkbox column */}
               <th className="pl-4 pr-2 py-3 w-10">
                 <input
                   type="checkbox"
@@ -532,7 +534,6 @@ Payment Status: ${paymentStatus}`;
               ? [...Array(5)].map((_, i) => <SkeletonRow key={i} />)
               : paginated.map((order) => (
                   <React.Fragment key={order._id}>
-                    {/* Main row */}
                     <motion.tr
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
@@ -542,7 +543,6 @@ Payment Status: ${paymentStatus}`;
                         expandedId === order._id ? "bg-[#fafffe]" : "hover:bg-[#fafafa]"
                       } ${selectedIds.has(order._id) ? "bg-[#f0fdf4]" : ""}`}
                     >
-                      {/* Checkbox */}
                       <td className="pl-4 pr-2 py-3.5" onClick={(e) => e.stopPropagation()}>
                         <input
                           type="checkbox"
@@ -552,27 +552,23 @@ Payment Status: ${paymentStatus}`;
                         />
                       </td>
 
-                      {/* Order ID */}
                       <td className="px-4 py-3.5">
                         <span className="font-mono font-bold text-[#34a121] text-[13px]">
                           {order.orderId || "—"}
                         </span>
                       </td>
 
-                      {/* Customer */}
                       <td className="px-4 py-3.5">
                         <p className="font-semibold text-gray-800 text-[13px]">{order.user?.name || "Guest"}</p>
                         <p className="text-[11px] text-gray-400 mt-0.5">{order.user?.email || "—"}</p>
                       </td>
 
-                      {/* Date */}
                       <td className="px-4 py-3.5 text-gray-500 text-[12px] whitespace-nowrap">
                         {new Date(order.createdAt).toLocaleDateString("en-IN", {
                           day: "2-digit", month: "short", year: "numeric",
                         })}
                       </td>
 
-                      {/* Payment */}
                       <td className="px-4 py-3.5">
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border ${
                           order.isPaid
@@ -585,17 +581,14 @@ Payment Status: ${paymentStatus}`;
                         </span>
                       </td>
 
-                      {/* Status */}
                       <td className="px-4 py-3.5">
                         <StatusBadge status={order.status} />
                       </td>
 
-                      {/* Total */}
                       <td className="px-4 py-3.5 font-bold text-gray-800 text-[13px] whitespace-nowrap">
                         {formatPrice(order.totalAmount)}
                       </td>
                       
-                      {/* Copy Details */}
                       <td className="px-2 py-3.5" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => handleCopy(order)}
@@ -606,7 +599,6 @@ Payment Status: ${paymentStatus}`;
                         </button>
                       </td>
 
-                      {/* Expand chevron */}
                       <td className="px-4 py-3.5">
                         <motion.div
                           animate={{ rotate: expandedId === order._id ? 180 : 0 }}
@@ -618,7 +610,6 @@ Payment Status: ${paymentStatus}`;
                       </td>
                     </motion.tr>
 
-                    {/* Expanded row */}
                     <AnimatePresence>
                       {expandedId === order._id && (
                         <OrderDetailPanel
@@ -634,7 +625,6 @@ Payment Status: ${paymentStatus}`;
                   </React.Fragment>
                 ))}
 
-            {/* No results (when filters applied) */}
             {!loading && filtered.length === 0 && orders.length > 0 && (
               <tr>
                 <td colSpan={8} className="py-16 text-center">
@@ -646,7 +636,6 @@ Payment Status: ${paymentStatus}`;
         </table>
       </div>
 
-      {/* Pagination */}
       {filtered.length > 0 && (
         <div className="flex items-center justify-between px-4 py-3 border-t border-[#f0f0f0] bg-[#fafafa]">
           <div className="flex items-center gap-2 text-[12px] text-gray-500">
