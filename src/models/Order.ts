@@ -73,6 +73,8 @@ const OrderSchema = new mongoose.Schema(
     },
     razorpayPaymentId: {
       type: String,
+      unique: true,
+      sparse: true,
     },
     razorpaySignature: {
       type: String,
@@ -149,6 +151,5 @@ OrderSchema.pre('save', async function () {
 
 OrderSchema.index({ createdAt: -1 });
 OrderSchema.index({ user: 1, createdAt: -1 });
-OrderSchema.index({ razorpayOrderId: 1 });
 
 export default mongoose.models.Order || mongoose.model('Order', OrderSchema);

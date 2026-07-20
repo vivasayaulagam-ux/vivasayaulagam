@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import OrdersStatsBar from "./OrdersStatsBar";
 import OrdersToolbar, { type OrderFilters } from "./OrdersToolbar";
@@ -41,6 +42,7 @@ function exportToCSV(orders: any[], selectedIds: Set<string>) {
 }
 
 export default function OrdersClient({ orders }: Props) {
+  const router = useRouter();
   const [localOrders, setLocalOrders] = useState<any[]>(orders);
   const [filters, setFilters]       = useState<OrderFilters>(DEFAULT_FILTERS);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -48,6 +50,18 @@ export default function OrdersClient({ orders }: Props) {
   useEffect(() => {
     setLocalOrders(orders);
   }, [orders]);
+
+  useEffect(() => {
+    const refreshOrders = () => {
+      if (document.visibilityState === "visible") router.refresh();
+    };
+    const interval = window.setInterval(refreshOrders, 5000);
+    window.addEventListener("focus", refreshOrders);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshOrders);
+    };
+  }, [router]);
 
   const handleOrderUpdate = useCallback((dbId: string, updatedFields: any) => {
     setLocalOrders((prev) =>

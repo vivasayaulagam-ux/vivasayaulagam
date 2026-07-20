@@ -4,13 +4,13 @@ import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { CheckCircle2 } from "lucide-react";
-import Link from "next/link";
 
 function PaymentSuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { data: session } = useSession();
   const [orderId, setOrderId] = useState<string | null>(null);
+  const [paymentId, setPaymentId] = useState<string | null>(null);
   const [dbOrderId, setDbOrderId] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isCod, setIsCod] = useState(false);
@@ -18,6 +18,7 @@ function PaymentSuccessContent() {
   useEffect(() => {
     const id = searchParams.get("orderId");
     const dbId = searchParams.get("dbOrderId");
+    const payId = searchParams.get("paymentId");
     const tok = searchParams.get("token");
     const cod = searchParams.get("isCod") === "true";
     if (id) {
@@ -25,6 +26,9 @@ function PaymentSuccessContent() {
     }
     if (dbId) {
       setDbOrderId(dbId);
+    }
+    if (payId) {
+      setPaymentId(payId);
     }
     if (tok) {
       setToken(tok);
@@ -59,12 +63,22 @@ function PaymentSuccessContent() {
         <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-gray-600 sm:text-base">
           {isCod
             ? "Thank you! Your Cash on Delivery order has been placed successfully."
-            : "Thank you! Your order has been placed successfully."}
+            : "Your payment has been received successfully."}
         </p>
-        {orderId && (
-          <div className="mt-6 rounded-xl border border-green-100 bg-green-50/70 px-4 py-3">
-            <span className="block text-xs font-semibold uppercase tracking-wider text-gray-500">Order ID</span>
-            <span className="mt-1 block break-all font-heading text-base font-bold text-[#236b2c]">{orderId}</span>
+        {(orderId || paymentId) && (
+          <div className="mt-6 space-y-3">
+            {orderId && (
+              <div className="rounded-xl border border-green-100 bg-green-50/70 px-4 py-3">
+                <span className="block text-xs font-semibold uppercase tracking-wider text-gray-500">Order ID</span>
+                <span className="mt-1 block break-all font-heading text-base font-bold text-[#236b2c]">{orderId}</span>
+              </div>
+            )}
+            {!isCod && paymentId && (
+              <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                <span className="block text-xs font-semibold uppercase tracking-wider text-gray-500">Payment ID</span>
+                <span className="mt-1 block break-all font-heading text-sm font-bold text-gray-800">{paymentId}</span>
+              </div>
+            )}
           </div>
         )}
         <div className="mt-7 grid grid-cols-1 gap-3 sm:grid-cols-2">
