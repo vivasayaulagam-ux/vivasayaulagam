@@ -29,7 +29,7 @@ export async function syncOrderToOMS(order: any): Promise<boolean> {
     return true;
   }
 
-  const OMS_API_URL = process.env.OMS_API_URL || 'http://localhost/OMS/api/create-order.php';
+  const OMS_API_URL = process.env.OMS_API_URL || 'https://omsvivasayaulagam.com/OMS/api/create-order.php';
   const OMS_API_TOKEN = process.env.OMS_API_TOKEN || 'test-api-token-123';
 
   // Load products to fetch SKUs
@@ -120,7 +120,7 @@ export async function syncOrderToOMS(order: any): Promise<boolean> {
         const json = JSON.parse(responseBody);
         if (json.success) {
           isSuccess = true;
-          omsData = json.data;
+          omsData = json.data || json;
         } else {
           syncError = json.message || 'API rejected request';
         }
@@ -165,8 +165,11 @@ export async function syncOrderToOMS(order: any): Promise<boolean> {
       dbOrder.sync_at = new Date();
       dbOrder.sync_error = undefined;
       if (omsData) {
-        dbOrder.oms_order_id = String(omsData.order_id);
-        dbOrder.oms_order_number = String(omsData.order_number);
+        const extractedOrderId = omsData.order_id || omsData.data?.order_id;
+        if (extractedOrderId) {
+          dbOrder.oms_order_id = String(extractedOrderId);
+          dbOrder.oms_order_number = omsData.order_number ? String(omsData.order_number) : `VIU-${1000 + Number(extractedOrderId)}`;
+        }
         dbOrder.oms_response = omsData;
       } else if (isDuplicate) {
         dbOrder.oms_response = { note: 'Duplicate website_order_id detected by OMS' };
