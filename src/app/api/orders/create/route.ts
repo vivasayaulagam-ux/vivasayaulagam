@@ -403,7 +403,7 @@ export async function POST(req: Request) {
       }
 
       if (!omsSuccess) {
-        newOrder.status = 'pending_oms';
+        newOrder.status = 'pending';
         newOrder.sync_status = 'Failed';
         await newOrder.save();
 
