@@ -390,6 +390,33 @@ export async function POST(req: Request) {
     });
 
     if (isCodOrder) {
+      let omsSuccess = false;
+      try {
+        const { syncOrderToOMS } = await import('@/lib/services/omsSync');
+        omsSuccess = await syncOrderToOMS(newOrder);
+      } catch (omsErr) {
+        paymentLogger.error({
+          event: 'COD_OMS_SYNC_FAILED',
+          orderId: newOrder._id.toString(),
+          error: omsErr
+        });
+      }
+
+      if (!omsSuccess) {
+        newOrder.status = 'pending_oms';
+        newOrder.sync_status = 'Failed';
+        await newOrder.save();
+
+        return NextResponse.json({
+          error: 'Unable to create order in OMS. Please contact support or retry.',
+          retryable: true
+        }, { status: 502 });
+      }
+
+      newOrder.status = 'processing';
+      newOrder.sync_status = 'Synced';
+      await newOrder.save();
+
       try {
         const { deductOrderStock } = await import('@/lib/inventory');
         await deductOrderStock(formattedItems);
@@ -398,17 +425,6 @@ export async function POST(req: Request) {
           event: 'COD_STOCK_DEDUCTION_FAILED',
           orderId: newOrder._id.toString(),
           error: stockErr
-        });
-      }
-
-      try {
-        const { syncOrderToOMS } = await import('@/lib/services/omsSync');
-        await syncOrderToOMS(newOrder);
-      } catch (omsErr) {
-        paymentLogger.error({
-          event: 'COD_OMS_SYNC_FAILED',
-          orderId: newOrder._id.toString(),
-          error: omsErr
         });
       }
     }
