@@ -17,7 +17,7 @@ export async function syncOrderToOMS(order: any): Promise<boolean> {
   // Build items array directly from order.items
   const items = (order.items || []).map((item: any) => {
     const sku = item.sku || '';
-    const omsProductId = SKU_TO_OMS_PRODUCT_ID[sku] || item.product_id || (item.productId && !isNaN(Number(item.productId)) ? Number(item.productId) : 1);
+    const omsProductId = SKU_TO_OMS_PRODUCT_ID[sku] || item.product_id || (item.productId && !isNaN(Number(item.productId)) ? Number(item.productId) : null);
 
     // Extract variation
     let variation = item.variation || item.variantName || '';
