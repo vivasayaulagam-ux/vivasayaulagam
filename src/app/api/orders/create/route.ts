@@ -408,7 +408,7 @@ export async function POST(req: Request) {
         await newOrder.save();
 
         return NextResponse.json({
-          error: 'Unable to create order in OMS. Please contact support or retry.',
+          error: newOrder.sync_error || 'Unable to create order in OMS. Please contact support or retry.',
           retryable: true
         }, { status: 502 });
       }
