@@ -229,6 +229,12 @@ export async function POST(req: Request) {
         { status: 409 }
       );
     }
+    if (result.status === 'oms_failed') {
+      return NextResponse.json(
+        { success: false, error: (result as any).error || 'Unable to create order in OMS. Please contact support or retry.', retryable: true },
+        { status: 502 }
+      );
+    }
 
     const completedOrder = result.order as {
       _id: { toString(): string };

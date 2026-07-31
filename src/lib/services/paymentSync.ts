@@ -15,7 +15,7 @@ type FinalizePaymentInput = {
 
 export type FinalizePaymentResult =
   | { status: 'updated' | 'already_paid'; order: Record<string, unknown> & { _id: { toString(): string } } }
-  | { status: 'not_found' | 'payment_conflict'; order?: Record<string, unknown> & { _id: { toString(): string } } };
+  | { status: 'not_found' | 'payment_conflict' | 'oms_failed'; error?: string; order?: Record<string, unknown> & { _id: { toString(): string } } };
 
 async function runPaidOrderSideEffects(order: any, source: PaymentSyncSource) {
   const dbOrderId = order._id.toString();
@@ -26,19 +26,6 @@ async function runPaidOrderSideEffects(order: any, source: PaymentSyncSource) {
   } catch (error) {
     paymentLogger.error({
       event: 'PAYMENT_STOCK_DEDUCTION_FAILED',
-      orderId: dbOrderId,
-      razorpayOrderId: order.razorpayOrderId,
-      razorpayPaymentId: order.razorpayPaymentId,
-      details: { source },
-      error,
-    });
-  }
-
-  try {
-    await syncOrderToOMS(order);
-  } catch (error) {
-    paymentLogger.error({
-      event: 'PAYMENT_OMS_SYNC_FAILED',
       orderId: dbOrderId,
       razorpayOrderId: order.razorpayOrderId,
       razorpayPaymentId: order.razorpayPaymentId,
@@ -68,8 +55,7 @@ async function runPaidOrderSideEffects(order: any, source: PaymentSyncSource) {
 }
 
 /**
- * Atomically marks one order paid. Checkout verification and webhooks share this
- * function so only the request that wins the isPaid:false update runs fulfilment.
+ * Atomically marks one order paid ONLY AFTER OMS API successfully confirms order creation.
  */
 export async function finalizePaidOrder({
   orderId,
@@ -78,6 +64,31 @@ export async function finalizePaidOrder({
   source,
   paidAt = new Date(),
 }: FinalizePaymentInput): Promise<FinalizePaymentResult> {
+  const existingOrder = await Order.findOne({ razorpayOrderId: orderId }).populate('user');
+  if (!existingOrder) {
+    return { status: 'not_found' };
+  }
+
+  // Idempotency Check: if already paid with this payment ID AND synced to OMS
+  if (existingOrder.isPaid && existingOrder.razorpayPaymentId === paymentId && existingOrder.sync_status === 'Synced') {
+    if (signature && !existingOrder.razorpaySignature) {
+      await Order.updateOne(
+        { _id: existingOrder._id },
+        { $set: { razorpaySignature: signature } }
+      );
+    }
+    paymentLogger.info({
+      event: 'PAYMENT_ALREADY_PROCESSED',
+      orderId: existingOrder._id.toString(),
+      razorpayOrderId: orderId,
+      razorpayPaymentId: paymentId,
+      status: existingOrder.status,
+      details: { source },
+    });
+    return { status: 'already_paid', order: existingOrder.toObject() };
+  }
+
+  // Check if payment ID has been assigned to a DIFFERENT order
   const paymentAlreadyUsed = await Order.findOne({
     razorpayPaymentId: paymentId,
     razorpayOrderId: { $ne: orderId },
@@ -94,91 +105,71 @@ export async function finalizePaidOrder({
     return { status: 'payment_conflict' };
   }
 
+  // Attach payment details to order object for OMS creation payload
+  existingOrder.razorpayPaymentId = paymentId;
+  if (signature) {
+    existingOrder.razorpaySignature = signature;
+  }
+
+  // CRITICAL STEP: Call OMS create-order API BEFORE marking payment completed or status confirmed
+  paymentLogger.info({
+    event: 'OMS_SYNC_BEFORE_PAYMENT_COMPLETION',
+    orderId: existingOrder._id.toString(),
+    razorpayOrderId: orderId,
+    razorpayPaymentId: paymentId,
+    details: { source }
+  });
+
+  const omsSuccess = await syncOrderToOMS(existingOrder);
+
+  if (!omsSuccess) {
+    paymentLogger.error({
+      event: 'PAYMENT_COMPLETION_BLOCKED_OMS_FAILED',
+      orderId: existingOrder._id.toString(),
+      razorpayOrderId: orderId,
+      razorpayPaymentId: paymentId,
+      details: { source, sync_error: existingOrder.sync_error }
+    });
+
+    // DO NOT mark payment completed. DO NOT mark order confirmed.
+    return {
+      status: 'oms_failed',
+      error: 'Unable to create order in OMS. Please contact support or retry.',
+      order: existingOrder.toObject()
+    };
+  }
+
+  // OMS API returned SUCCESS! Now update local order state in MongoDB to COMPLETED/CONFIRMED
   const fields: Record<string, unknown> = {
     razorpayPaymentId: paymentId,
     isPaid: true,
     paidAt,
     status: 'confirmed',
+    sync_status: 'Synced'
   };
   if (signature) {
     fields.razorpaySignature = signature;
   }
 
-  let updatedOrder;
-  try {
-    updatedOrder = await Order.findOneAndUpdate(
-      {
-        razorpayOrderId: orderId,
-        isPaid: false,
-        $or: [
-          { razorpayPaymentId: { $exists: false } },
-          { razorpayPaymentId: null },
-          { razorpayPaymentId: '' },
-          { razorpayPaymentId: paymentId },
-        ],
-      },
-      { $set: fields },
-      { new: true, runValidators: true }
-    ).populate('user');
-  } catch (error) {
-    if ((error as { code?: number }).code === 11000) {
-      paymentLogger.error({
-        event: 'PAYMENT_ID_UNIQUE_CONFLICT',
-        razorpayOrderId: orderId,
-        razorpayPaymentId: paymentId,
-        details: { source },
-        error,
-      });
-      return { status: 'payment_conflict' };
-    }
-    throw error;
-  }
+  const updatedOrder = await Order.findOneAndUpdate(
+    { _id: existingOrder._id },
+    { $set: fields },
+    { new: true, runValidators: true }
+  ).populate('user');
 
   if (!updatedOrder) {
-    const existingOrder = await Order.findOne({ razorpayOrderId: orderId }).populate('user');
-    if (!existingOrder) {
-      return { status: 'not_found' };
-    }
-
-    if (existingOrder.isPaid && existingOrder.razorpayPaymentId === paymentId) {
-      if (signature && !existingOrder.razorpaySignature) {
-        await Order.updateOne(
-          { _id: existingOrder._id, isPaid: true, razorpayPaymentId: paymentId, razorpaySignature: { $exists: false } },
-          { $set: { razorpaySignature: signature } }
-        );
-      }
-
-      paymentLogger.info({
-        event: 'PAYMENT_ALREADY_PROCESSED',
-        orderId: existingOrder._id.toString(),
-        razorpayOrderId: orderId,
-        razorpayPaymentId: paymentId,
-        status: existingOrder.status,
-        details: { source },
-      });
-      return { status: 'already_paid', order: existingOrder.toObject() };
-    }
-
-    return { status: 'payment_conflict', order: existingOrder.toObject() };
+    return { status: 'not_found' };
   }
 
   const dbOrderId = updatedOrder._id.toString();
   paymentLogger.info({
-    event: 'PAYMENT_DATABASE_UPDATED',
+    event: 'PAYMENT_COMPLETED_POST_OMS_SUCCESS',
     orderId: dbOrderId,
     razorpayOrderId: orderId,
     razorpayPaymentId: paymentId,
     amount: updatedOrder.totalAmount,
     status: updatedOrder.status,
-    details: { source, isPaid: updatedOrder.isPaid },
-  });
-  paymentLogger.info({
-    event: 'ORDER_CONFIRMED',
-    orderId: dbOrderId,
-    razorpayOrderId: orderId,
-    razorpayPaymentId: paymentId,
-    status: updatedOrder.status,
-    details: { source },
+    details: { source, isPaid: updatedOrder.isPaid, sync_status: updatedOrder.sync_status },
   });
 
   await runPaidOrderSideEffects(updatedOrder, source);

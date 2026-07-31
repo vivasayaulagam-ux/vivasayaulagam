@@ -2,6 +2,7 @@ import dbConnect from '@/lib/db';
 import Order from '@/models/Order';
 import Product from '@/models/Product';
 import OmsSyncLog from '@/models/OmsSyncLog';
+import { paymentLogger } from '@/lib/logger';
 
 const SKU_TO_OMS_PRODUCT_ID: Record<string, number> = {
   'PROD-A': 1,
@@ -33,19 +34,19 @@ export async function syncOrderToOMS(order: any): Promise<boolean> {
   const OMS_API_TOKEN = process.env.OMS_API_TOKEN || 'test-api-token-123';
 
   // Load products to fetch SKUs
-  const productIds = order.items.map((item: any) => item.productId);
+  const productIds = (order.items || []).map((item: any) => item.productId);
   const products = await Product.find({ _id: { $in: productIds } }).lean();
   const productsMap = new Map(products.map((p: any) => [p._id.toString(), p]));
 
   // Build items array
-  const items = order.items.map((item: any) => {
+  const items = (order.items || []).map((item: any) => {
     const product = productsMap.get(item.productId.toString());
     const sku = item.sku || product?.sku || '';
     const omsProductId = SKU_TO_OMS_PRODUCT_ID[sku] || 1; // Fallback to 1
 
     // Extract variation
     let variation = item.variantName || '';
-    if (!variation && item.name.includes(' - ')) {
+    if (!variation && item.name && item.name.includes(' - ')) {
       variation = item.name.split(' - ').slice(1).join(' - ');
     }
 
@@ -88,6 +89,7 @@ export async function syncOrderToOMS(order: any): Promise<boolean> {
     items: items
   };
 
+  const payloadString = JSON.stringify(payload);
   let responseBody = '';
   let httpStatus = 0;
   let syncError = '';
@@ -95,69 +97,102 @@ export async function syncOrderToOMS(order: any): Promise<boolean> {
   let isDuplicate = false;
   let omsData: any = null;
 
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 seconds timeout
+  const maxAttempts = 3;
+  let attempt = 0;
 
-    const response = await fetch(OMS_API_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OMS_API_TOKEN}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal
-    });
+  while (attempt < maxAttempts && !isSuccess) {
+    attempt++;
+    const startTime = Date.now();
 
-    clearTimeout(timeoutId);
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s per request timeout
 
-    httpStatus = response.status;
-    responseBody = await response.text();
+      paymentLogger.info({
+        event: 'OMS_SYNC_REQUEST_START',
+        orderId: order.orderId || order._id.toString(),
+        details: { url: OMS_API_URL, method: 'POST', attempt, maxAttempts, payload }
+      });
 
-    if (response.ok) {
-      try {
-        const json = JSON.parse(responseBody);
-        if (json.success) {
-          isSuccess = true;
-          omsData = json.data || json;
-        } else {
-          syncError = json.message || 'API rejected request';
-        }
-      } catch {
-        syncError = 'Invalid JSON response';
-      }
-    } else {
-      // Check for duplicate key violation error returned as HTTP error
-      if (
-        responseBody.includes('Duplicate entry') ||
-        responseBody.includes('1062') ||
-        responseBody.includes('uk_orders_external_reference')
-      ) {
-        isDuplicate = true;
-        isSuccess = true;
-      } else {
+      const response = await fetch(OMS_API_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OMS_API_TOKEN}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: payloadString,
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      const executionTimeMs = Date.now() - startTime;
+      httpStatus = response.status;
+      responseBody = await response.text();
+
+      paymentLogger.info({
+        event: 'OMS_SYNC_RESPONSE',
+        orderId: order.orderId || order._id.toString(),
+        status: String(httpStatus),
+        details: { attempt, maxAttempts, httpStatus, executionTimeMs, responseBody }
+      });
+
+      if (response.ok) {
         try {
           const json = JSON.parse(responseBody);
-          syncError = json.message || `HTTP ${response.status}`;
+          if (json.success) {
+            isSuccess = true;
+            omsData = json.data || json;
+          } else {
+            syncError = json.message || 'API rejected request';
+          }
         } catch {
-          syncError = `HTTP ${response.status}: ${responseBody}`;
+          syncError = 'Invalid JSON response from OMS API';
+        }
+      } else {
+        if (
+          responseBody.includes('Duplicate entry') ||
+          responseBody.includes('1062') ||
+          responseBody.includes('uk_orders_external_reference')
+        ) {
+          isDuplicate = true;
+          isSuccess = true;
+        } else {
+          try {
+            const json = JSON.parse(responseBody);
+            syncError = json.message || `HTTP ${response.status}`;
+          } catch {
+            syncError = `HTTP ${response.status}: ${responseBody}`;
+          }
         }
       }
+    } catch (error: any) {
+      const executionTimeMs = Date.now() - startTime;
+      const errorStack = error.stack || String(error);
+      if (error.name === 'AbortError') {
+        syncError = 'Connection timed out after 10 seconds';
+      } else {
+        syncError = error.message || 'Network failure';
+      }
+      httpStatus = 0;
+      responseBody = JSON.stringify({ error: syncError, stack: errorStack });
+
+      paymentLogger.error({
+        event: 'OMS_SYNC_ATTEMPT_FAILED',
+        orderId: order.orderId || order._id.toString(),
+        details: { attempt, maxAttempts, executionTimeMs, error: syncError, stack: errorStack }
+      });
     }
-  } catch (error: any) {
-    if (error.name === 'AbortError') {
-      syncError = 'Connection timed out';
-    } else {
-      syncError = error.message || 'Network failure';
+
+    if (!isSuccess && attempt < maxAttempts) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
-    httpStatus = 0;
-    responseBody = JSON.stringify({ error: syncError });
   }
 
-  // Update order fields
+  // Update order fields in MongoDB
   try {
-    dbOrder.retry_count = (dbOrder.retry_count || 0) + 1;
+    dbOrder.retry_count = (dbOrder.retry_count || 0) + attempt;
     dbOrder.last_retry = new Date();
 
     if (isSuccess) {
@@ -193,7 +228,7 @@ export async function syncOrderToOMS(order: any): Promise<boolean> {
   try {
     await OmsSyncLog.create({
       websiteOrderId: order.orderId,
-      request: JSON.stringify(payload),
+      request: payloadString,
       response: responseBody,
       httpStatus: httpStatus,
       error: isSuccess ? null : syncError
@@ -208,8 +243,6 @@ export async function syncOrderToOMS(order: any): Promise<boolean> {
 export async function syncPendingOrders(): Promise<any> {
   await dbConnect();
   
-  // Find orders that are paid but pending sync and have failed less than 5 times
-  // Find orders that are confirmed (either paid online OR COD) but not synced and have failed less than 5 times
   const pendingOrders = await Order.find({
     $and: [
       {
