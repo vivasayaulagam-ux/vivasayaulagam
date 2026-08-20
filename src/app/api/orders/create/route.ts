@@ -138,7 +138,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing product ID in order items' }, { status: 400 });
     }
     const orderProducts = await Product.find({ _id: { $in: [...new Set(productIds)] } })
-      .select('title images price compareAtPrice sellingPrice mrp base_price_1kg base_mrp_1kg status sku variants trackInventory continueSelling quantity product_type courier_charge comboWeight weight weightUnit unit state_courier_charges')
+      .select('title images price compareAtPrice sellingPrice mrp base_price_1kg base_mrp_1kg status sku variants trackInventory continueSelling quantity product_type courier_charge comboWeight weight weightUnit unit state_courier_charges isFreeShipping')
       .lean();
     const productsById = new Map(orderProducts.map((product: any) => [String(product._id), product]));
 
