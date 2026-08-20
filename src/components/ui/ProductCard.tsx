@@ -57,6 +57,15 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
           </div>
         )}
 
+        {/* Free Shipping Badge */}
+        {(product as any).isFreeShipping && !isOutOfStock && (
+          <div className="absolute top-2.5 right-2.5 z-20">
+            <span className="bg-[#34a121] text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shadow-xs">
+              Free Shipping
+            </span>
+          </div>
+        )}
+
         <div className="relative aspect-square w-full overflow-hidden bg-white">
           <Link href={`/product/${product.id}`} className="absolute inset-0 z-0 flex items-center justify-center">
             {hasImage ? (

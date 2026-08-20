@@ -19,6 +19,7 @@ export interface CartItem {
   isOutOfStock?: boolean;
   isCombo?: boolean;
   comboWeight?: number;
+  isFreeShipping?: boolean;
 }
 
 interface CartState {

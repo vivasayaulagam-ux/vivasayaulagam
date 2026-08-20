@@ -251,6 +251,7 @@ export function calculateCartShipping(
     state_courier_charges?: Record<string, number>;
     courier_charge?: number;
     product_type?: string;
+    isFreeShipping?: boolean;
   }>,
   state: string,
   subtotal: number,
@@ -263,6 +264,11 @@ export function calculateCartShipping(
   let totalWeightForSlabs = 0;
 
   for (const item of items) {
+    // Exclude products with product-level free shipping enabled
+    if (item.isFreeShipping === true) {
+      continue;
+    }
+
     const stateCharge = item.state_courier_charges?.[stateKey];
     
     let productCourierRate = 0;

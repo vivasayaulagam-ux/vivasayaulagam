@@ -55,6 +55,7 @@ const ProductSchema = new mongoose.Schema(
 
     // Custom fields for weights & combos
     product_type: { type: String, enum: ['normal', 'combo'], default: 'normal' },
+    isFreeShipping: { type: Boolean, default: false },
     courier_charge: { type: Number, default: 0 },
     state_courier_charges: {
       tamilnadu: { type: Number, default: 0 },
@@ -75,6 +76,11 @@ const ProductSchema = new mongoose.Schema(
     // Reviews (Calculated from approved customer reviews)
     rating: { type: Number, default: 0 },
     reviewCount: { type: Number, default: 0 },
+
+    // Shopping Integrations
+    googleProductCategory: { type: String, default: '' },
+    enableShoppingSync: { type: Boolean, default: true },
+    condition: { type: String, enum: ['new', 'refurbished', 'used'], default: 'new' },
   },
   { timestamps: true }
 );
@@ -111,4 +117,3 @@ if (mongoose.models && mongoose.models.Product) {
 }
 
 export default mongoose.models.Product || mongoose.model('Product', ProductSchema);
-

@@ -423,6 +423,7 @@ export default function CartPage() {
               sku: selectedVariant?.sku || product.sku || item.sku,
               isCombo: isCombo,
               comboWeight: isCombo ? product.comboWeight : undefined,
+              isFreeShipping: Boolean(product.isFreeShipping),
               price: resolvedPrice,
             });
           } catch (err) {
@@ -441,6 +442,7 @@ export default function CartPage() {
 
   const subtotal = totalPrice();
   const totalWeight = items.reduce((sum, item) => {
+    if (item.isFreeShipping) return sum;
     const itemWeight = getCartItemWeightKg(item);
     return sum + itemWeight * item.quantity;
   }, 0);
@@ -462,7 +464,8 @@ export default function CartPage() {
         productId: i.productId || i.id.split("-")[0],
         quantity: i.quantity,
         price: i.price,
-        weightKg: getCartItemWeightKg(i)
+        weightKg: getCartItemWeightKg(i),
+        isFreeShipping: Boolean(i.isFreeShipping),
       })))
     });
     fetch(`/api/shipping/calculate?${queryParams.toString()}`)
@@ -581,11 +584,16 @@ export default function CartPage() {
                               <p className="text-[10px] font-mono font-semibold text-text-muted">SKU: {item.sku}</p>
                             )}
                             <p className="text-[11px] font-semibold text-text-muted">
-                              Shipping weight: {formatWeightKg(getCartItemWeightKg(item))}
-                              {getCartItemWeightKg(item) > 0 && item.quantity > 1
+                              Shipping weight: {item.isFreeShipping ? '0 kg (Free Shipping)' : formatWeightKg(getCartItemWeightKg(item))}
+                              {!item.isFreeShipping && getCartItemWeightKg(item) > 0 && item.quantity > 1
                                 ? ` x ${item.quantity} = ${formatWeightKg(getCartItemWeightKg(item) * item.quantity)}`
                                 : ""}
                             </p>
+                            {item.isFreeShipping && (
+                              <span className="inline-block bg-emerald-100 text-[#34a121] text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider mt-1 border border-emerald-200">
+                                🚚 Free Shipping
+                              </span>
+                            )}
                             {item.isOutOfStock && (
                               <span className="inline-block bg-rose-100 text-rose-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider mt-1.5 border border-rose-200">
                                 Out of Stock
@@ -664,6 +672,11 @@ export default function CartPage() {
                             </button>
                           </div>
 
+                          {item.isFreeShipping && (
+                            <span className="inline-block bg-emerald-100 text-[#34a121] text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider border border-emerald-200">
+                              🚚 Free Shipping
+                            </span>
+                          )}
                           {item.isOutOfStock && (
                             <span className="inline-block bg-rose-100 text-rose-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider border border-rose-200">
                               Out of Stock
