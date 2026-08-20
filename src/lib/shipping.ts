@@ -259,6 +259,12 @@ export function calculateCartShipping(
 ): number {
   if (!state) return 0;
   
+  // If all products in cart are free shipping, shipping is strictly 0
+  const nonFreeItems = items.filter(item => !item.isFreeShipping);
+  if (items.length > 0 && nonFreeItems.length === 0) {
+    return 0;
+  }
+
   const stateKey = getStateChargeKey(state);
   const rateGroups: Record<number, number> = {};
   let totalWeightForSlabs = 0;
