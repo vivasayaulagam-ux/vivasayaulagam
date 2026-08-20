@@ -88,6 +88,7 @@ export function normalizeProductOutput(p: any) {
     sku: p.sku || '',
     continueSelling: p.continueSelling ?? false,
     product_type: p.product_type || 'normal',
+    isFreeShipping: Boolean(p.isFreeShipping),
     courier_charge: p.courier_charge || 0,
     state_courier_charges: p.state_courier_charges ? (p.state_courier_charges.toObject ? p.state_courier_charges.toObject() : p.state_courier_charges) : {
       tamilnadu: 0,
@@ -156,6 +157,7 @@ export function normalizeProductPayload(body: any) {
         }))
       : [],
     product_type: body.product_type || 'normal',
+    isFreeShipping: Boolean(body.isFreeShipping),
     courier_charge: body.courier_charge === '' || body.courier_charge === undefined ? 0 : Number(body.courier_charge),
     state_courier_charges: {
       tamilnadu: body.state_courier_charges?.tamilnadu === '' || body.state_courier_charges?.tamilnadu === undefined ? 0 : Number(body.state_courier_charges.tamilnadu),

@@ -194,6 +194,7 @@ export default function QuickAddModal({
       isOutOfStock: false,
       isCombo,
       comboWeight: isCombo ? measurement.weightKg : undefined,
+      isFreeShipping: Boolean((product as any).isFreeShipping),
     });
 
     setToastVisible(true);

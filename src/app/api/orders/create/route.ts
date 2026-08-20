@@ -254,6 +254,7 @@ export async function POST(req: Request) {
         state_courier_charges: product.state_courier_charges,
         courier_charge: product.courier_charge,
         product_type: product.product_type,
+        isFreeShipping: Boolean(product.isFreeShipping),
       });
     }
 
@@ -296,6 +297,7 @@ export async function POST(req: Request) {
 
     const stateKey = getStateChargeKey(state);
     const slabItems = formattedItems.filter(item => {
+      if (item.isFreeShipping === true) return false;
       const stateCharge = item.state_courier_charges?.[stateKey];
       const productCourierRate = (typeof stateCharge === 'number' && stateCharge > 0)
         ? stateCharge

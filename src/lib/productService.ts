@@ -159,7 +159,7 @@ export async function getProducts(params: GetProductsParams = {}) {
   const sortQuery = getMongoSort(sort);
 
   // Projection - only required fields for cards to optimize performance
-  const projection = 'title seoSlug price compareAtPrice sellingPrice mrp base_price_1kg base_mrp_1kg variants images reviewCount quantity trackInventory continueSelling category status collections weight weightUnit unit product_type comboWeight sku rating averageRating createdAt';
+  const projection = 'title seoSlug price compareAtPrice sellingPrice mrp base_price_1kg base_mrp_1kg variants images reviewCount quantity trackInventory continueSelling category status collections weight weightUnit unit product_type comboWeight isFreeShipping sku rating averageRating createdAt';
 
   let productsDocs;
   let totalProducts = 0;

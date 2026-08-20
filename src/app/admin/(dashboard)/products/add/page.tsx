@@ -45,6 +45,7 @@ export type ProductFormData = {
   tags: string[];
   themeTemplate: string;
   product_type: 'normal' | 'combo';
+  isFreeShipping?: boolean;
   courier_charge: number | '';
   state_courier_charges?: {
     tamilnadu: number | '';
@@ -61,6 +62,9 @@ export type ProductFormData = {
   weightUnit: string;
   unit: string;
   comboWeight?: number | '';
+  googleProductCategory?: string;
+  enableShoppingSync?: boolean;
+  condition?: 'new' | 'refurbished' | 'used';
 };
 
 const defaultForm: ProductFormData = {
@@ -71,6 +75,7 @@ const defaultForm: ProductFormData = {
   status: 'draft', productType: '', vendor: '', collections: [], tags: [],
   themeTemplate: 'default',
   product_type: 'normal',
+  isFreeShipping: false,
   courier_charge: '',
   state_courier_charges: {
     tamilnadu: '',
@@ -87,6 +92,9 @@ const defaultForm: ProductFormData = {
   weightUnit: 'kg',
   unit: 'g',
   comboWeight: '',
+  googleProductCategory: '',
+  enableShoppingSync: true,
+  condition: 'new',
 };
 
 export default function AddProductPage() {

@@ -228,6 +228,7 @@ export default function CheckoutPage() {
 
   const subtotal = totalPrice();
   const totalWeight = items.reduce((sum, item) => {
+    if (item.isFreeShipping) return sum;
     const itemWeight = getCartItemWeightKg(item);
     return sum + itemWeight * item.quantity;
   }, 0);
@@ -245,7 +246,8 @@ export default function CheckoutPage() {
             productId: i.productId || i.id.split("-")[0],
             quantity: i.quantity,
             price: i.price,
-            weightKg: getCartItemWeightKg(i)
+            weightKg: getCartItemWeightKg(i),
+            isFreeShipping: Boolean(i.isFreeShipping),
           })))
         });
         const res = await fetch(`/api/shipping/calculate?${queryParams.toString()}`);
@@ -763,8 +765,13 @@ export default function CheckoutPage() {
                           )}
                           <p className="text-[11px] text-text-muted">Qty: {item.quantity}</p>
                           <p className="text-[11px] text-text-muted">
-                            Shipping weight: {formatWeightKg(getCartItemWeightKg(item))}
+                            Shipping weight: {item.isFreeShipping ? '0 kg (Free Shipping)' : formatWeightKg(getCartItemWeightKg(item))}
                           </p>
+                          {item.isFreeShipping && (
+                            <span className="inline-block bg-emerald-100 text-[#34a121] text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider border border-emerald-200 mt-0.5">
+                              🚚 Free Shipping
+                            </span>
+                          )}
                         </div>
                       </div>
                       <span className="font-semibold text-text-dark text-xs">{formatPrice(item.price * item.quantity)}</span>

@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, ShoppingBag, Package, Users,
   BarChart2, Settings, FileText, LogOut, Store,
-  Layers, Image, Tag, Menu, X, Truck, Percent, MessageSquare, Info
+  Layers, Image, Tag, Menu, X, Truck, Percent, MessageSquare, Info, Share2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -15,6 +15,7 @@ const NAV = [
   { href: "/admin/products",   icon: Package,         label: "Products" },
   { href: "/admin/categories", icon: Tag,             label: "Categories" },
   { href: "/admin/orders",     icon: ShoppingBag,     label: "Orders" },
+  { href: "/admin/shopping-integrations", icon: Share2, label: "Shopping Integrations" },
   { href: "/admin/customers",  icon: Users,           label: "Customers" },
   { href: "/admin/coupons",    icon: Percent,         label: "Coupons & Offers" },
   { href: "/admin/courier",    icon: Truck,           label: "Courier Charges" },

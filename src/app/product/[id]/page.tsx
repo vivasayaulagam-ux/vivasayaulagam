@@ -147,6 +147,7 @@ export default function ProductDetailPage() {
             stock_status: p.stock_status || "In Stock",
             is_out_of_stock: p.is_out_of_stock ?? false,
             product_type: p.product_type || 'normal',
+            isFreeShipping: p.isFreeShipping ?? false,
             courier_charge: p.courier_charge || 0,
             available_weights: p.available_weights || [],
             base_price_1kg: p.base_price_1kg || 0,
@@ -367,6 +368,7 @@ export default function ProductDetailPage() {
         weightUnit: "kg",
         isCombo: isCombo,
         comboWeight: isCombo ? product.comboWeight : undefined,
+        isFreeShipping: Boolean(product.isFreeShipping),
       } as any);
       
       setCartState("success");
@@ -396,6 +398,7 @@ export default function ProductDetailPage() {
       weightUnit: "kg",
       isCombo: isCombo,
       comboWeight: isCombo ? product.comboWeight : undefined,
+      isFreeShipping: Boolean(product.isFreeShipping),
     } as any);
     router.push("/checkout");
   };
@@ -627,6 +630,13 @@ export default function ProductDetailPage() {
                       {reviewCount} {reviewCount === 1 ? 'review' : 'reviews'}
                     </span>
                   </div>
+
+                  {product?.isFreeShipping && (
+                    <div className="flex items-center gap-1.5 font-bold text-[#34a121] bg-emerald-50 border border-emerald-200/80 px-3 py-1 rounded-full text-xs shadow-2xs">
+                      <Truck size={14} className="text-[#34a121]" />
+                      Free Shipping
+                    </div>
+                  )}
                 </div>
 
                 {isProductOutOfStock && (

@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
 
     if (items.length > 0) {
       const productIds = items.map((i: any) => i.productId).filter(Boolean);
-      const dbProducts = await Product.find({ _id: { $in: productIds } }).select('product_type courier_charge comboWeight weight weightUnit unit state_courier_charges').lean();
+      const dbProducts = await Product.find({ _id: { $in: productIds } }).select('product_type courier_charge comboWeight weight weightUnit unit state_courier_charges isFreeShipping').lean();
       const productsMap = new Map(dbProducts.map((p: any) => [p._id.toString(), p]));
 
       for (const item of items) {
@@ -85,6 +85,7 @@ export async function GET(req: NextRequest) {
           state_courier_charges: dbProduct?.state_courier_charges,
           courier_charge: dbProduct?.courier_charge,
           product_type: dbProduct?.product_type,
+          isFreeShipping: Boolean(dbProduct?.isFreeShipping),
         });
       }
     } else if (weight > 0) {

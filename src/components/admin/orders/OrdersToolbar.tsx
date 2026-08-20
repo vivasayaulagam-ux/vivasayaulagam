@@ -88,7 +88,7 @@ export default function OrdersToolbar({
           />
           <input
             type="text"
-            placeholder="Search orders, customers..."
+            placeholder="Search orders, customers, mobile..."
             value={filters.search}
             onChange={(e) => update({ search: e.target.value })}
             className="w-full pl-9 pr-8 py-2 text-sm bg-white border border-[#e5e5e5] rounded-[10px] outline-none focus:ring-2 focus:ring-[#34a121]/20 focus:border-[#34a121] transition-all placeholder:text-gray-400"

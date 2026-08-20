@@ -332,6 +332,43 @@ export default function VariantsSection({ form, update, errors }: Props) {
           </p>
         </div>
 
+        {/* Product Free Shipping Toggle */}
+        <div className="md:col-span-3 bg-emerald-50/60 border border-emerald-200/80 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <Truck size={16} className="text-[#34a121]" />
+              <label className="text-xs font-bold text-gray-800 uppercase tracking-wider">
+                Product-Level Free Shipping
+              </label>
+              {form.isFreeShipping ? (
+                <span className="bg-[#34a121] text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                  ON (Free Shipping)
+                </span>
+              ) : (
+                <span className="bg-gray-200 text-gray-600 text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                  OFF (Normal Shipping)
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-gray-600 mt-1 leading-relaxed">
+              When turned ON, this product will have ₹0 shipping charge and its weight will be completely excluded from cart shipping calculations.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => update({ isFreeShipping: !form.isFreeShipping })}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+              form.isFreeShipping ? 'bg-[#34a121]' : 'bg-gray-300'
+            }`}
+          >
+            <span
+              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                form.isFreeShipping ? 'translate-x-5' : 'translate-x-0'
+              }`}
+            />
+          </button>
+        </div>
+
         {/* Statewise Courier Charges */}
         <div className="md:col-span-2 border border-gray-150 rounded-xl p-4 bg-gray-50/50 mt-2">
           <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">

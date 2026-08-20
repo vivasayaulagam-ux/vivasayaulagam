@@ -41,6 +41,9 @@ const defaultForm: ProductFormData = {
   weightUnit: 'kg',
   unit: 'g',
   comboWeight: '',
+  googleProductCategory: '',
+  enableShoppingSync: true,
+  condition: 'new',
 };
 
 export default function EditProductPage() {
@@ -105,6 +108,7 @@ export default function EditProductPage() {
             tags: p.tags ?? [],
             themeTemplate: p.themeTemplate ?? 'default',
             product_type: p.product_type ?? 'normal',
+            isFreeShipping: p.isFreeShipping ?? false,
             courier_charge: p.courier_charge ?? '',
             state_courier_charges: p.state_courier_charges ? {
               tamilnadu: p.state_courier_charges.tamilnadu ?? '',
@@ -128,6 +132,9 @@ export default function EditProductPage() {
             weightUnit: p.weightUnit ?? 'kg',
             unit: p.unit ?? p.weightUnit ?? 'g',
             comboWeight: p.comboWeight ?? (p.product_type === 'combo' ? p.weight : ''),
+            googleProductCategory: p.googleProductCategory ?? '',
+            enableShoppingSync: p.enableShoppingSync ?? true,
+            condition: p.condition ?? 'new',
           });
         } else {
           setNotFound(true);

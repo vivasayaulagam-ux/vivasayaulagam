@@ -405,12 +405,36 @@ Payment Status: ${paymentStatus}`;
     let list = [...orders];
 
     if (filters.search) {
-      const q = filters.search.toLowerCase();
-      list = list.filter((o) =>
-        o.orderId?.toLowerCase().includes(q) ||
-        o.user?.name?.toLowerCase().includes(q) ||
-        o.user?.email?.toLowerCase().includes(q)
-      );
+      const q = filters.search.trim().toLowerCase();
+      const cleanQ = q.replace(/\D/g, "");
+      const cleanQNoPrefix = (cleanQ.startsWith("91") && cleanQ.length > 2) ? cleanQ.slice(2) : cleanQ;
+
+      list = list.filter((o) => {
+        const orderIdMatch = o.orderId?.toLowerCase().includes(q);
+        const userNameMatch = o.user?.name?.toLowerCase().includes(q);
+        const userEmailMatch = o.user?.email?.toLowerCase().includes(q);
+        const shippingNameMatch = o.shippingAddress?.fullName?.toLowerCase().includes(q);
+        const shippingEmailMatch = o.shippingAddress?.email?.toLowerCase().includes(q);
+
+        const rawPhone = o.shippingAddress?.phone || "";
+        const rawPhoneLower = rawPhone.toLowerCase();
+        const cleanPhone = rawPhone.replace(/\D/g, "");
+
+        const phoneRawMatch = rawPhoneLower.includes(q);
+        const phoneCleanMatch = cleanQ.length > 0 && cleanPhone.includes(cleanQ);
+        const phoneNoPrefixMatch = cleanQNoPrefix.length > 0 && cleanPhone.includes(cleanQNoPrefix);
+
+        const phoneMatch = Boolean(rawPhone && (phoneRawMatch || phoneCleanMatch || phoneNoPrefixMatch));
+
+        return (
+          Boolean(orderIdMatch) ||
+          Boolean(userNameMatch) ||
+          Boolean(userEmailMatch) ||
+          Boolean(shippingNameMatch) ||
+          Boolean(shippingEmailMatch) ||
+          phoneMatch
+        );
+      });
     }
     if (filters.status !== "all") list = list.filter((o) => o.status === filters.status);
     if (filters.payment === "paid") list = list.filter((o) => o.isPaid);
