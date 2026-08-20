@@ -168,7 +168,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: `Invalid quantity for product: ${product.title}` }, { status: 400 });
       }
       
-      let itemPrice = product.sellingPrice ?? product.price;
+      let itemPrice = Number(product.sellingPrice ?? product.price ?? 0);
       const finalName = product.title;
       let itemWeight = 0.25;
       let selectedWeight = 0;
@@ -178,32 +178,29 @@ export async function POST(req: Request) {
       let selectedSku = product.sku || '';
 
       if (product.product_type === 'combo') {
+        itemPrice = Number(product.sellingPrice || product.price || 0);
         itemWeight = normalizeComboWeightKg(
           product.comboWeight !== undefined ? product.comboWeight : product.weight,
           product.weightUnit || product.unit || 'kg'
         );
         selectedWeight = itemWeight;
         selectedUnit = 'kg';
-      } else if (requestedVariantId || requestedVariantName) {
-        const variant = product.variants.find((candidate: any) => {
-          const candidateId = String(candidate._id || candidate.id || '');
-          return (
-            (requestedVariantId && candidateId === requestedVariantId) ||
-            (requestedVariantName && candidate.value === requestedVariantName)
-          );
-        });
-        if (!variant) {
-          return NextResponse.json(
-            { error: `Selected variant is no longer available: ${product.title}` },
-            { status: 400 }
-          );
-        }
+      } else if (product.variants && product.variants.length > 0) {
+        const variant = (requestedVariantId || requestedVariantName)
+          ? product.variants.find((candidate: any) => {
+              const candidateId = String(candidate._id || candidate.id || '');
+              const candidateValue = String(candidate.value || '').trim().toLowerCase();
+              const reqName = requestedVariantName.trim().toLowerCase();
+              return (
+                (requestedVariantId && candidateId === requestedVariantId) ||
+                (requestedVariantName && candidate.value === requestedVariantName) ||
+                (reqName && candidateValue === reqName)
+              );
+            }) || product.variants[0]
+          : product.variants[0];
 
-        itemPrice = typeof variant.sellingPrice === 'number'
-          ? variant.sellingPrice
-          : (typeof variant.price === 'number'
-              ? variant.price
-              : (product.sellingPrice ?? product.price ?? 0));
+        itemPrice = Number(variant.sellingPrice || variant.price || product.sellingPrice || product.price || 0);
+
         if (
           product.trackInventory &&
           !product.continueSelling &&
@@ -230,6 +227,7 @@ export async function POST(req: Request) {
         if (product.trackInventory && !product.continueSelling && product.quantity < orderQty) {
           return NextResponse.json({ error: `Insufficient stock for product: ${product.title}` }, { status: 400 });
         }
+        itemPrice = Number(product.sellingPrice || product.price || 0);
         selectedWeight = Number(product.weight || 0);
         selectedUnit = product.weightUnit || product.unit || 'kg';
         itemWeight = toWeightKg(selectedWeight, selectedUnit, product.title);
@@ -320,8 +318,16 @@ export async function POST(req: Request) {
 
     const computedTotal = computedSubtotal + deliveryFee;
 
+    const clientSubtotal = items.reduce(
+      (sum: number, i: any) => sum + (Number(i.price) || 0) * (Math.floor(Number(i.quantity)) || 1),
+      0
+    );
+
     if (typeof totalAmount === 'number' && Number.isFinite(totalAmount)) {
-      if (Math.abs(computedTotal - totalAmount) > 1) {
+      const subtotalDiff = Math.abs(computedSubtotal - clientSubtotal);
+      const totalDiff = Math.abs(computedTotal - totalAmount);
+
+      if (subtotalDiff > 1 && totalDiff > 1) {
         return NextResponse.json({ error: 'Product prices have changed. Please refresh your cart and try again.' }, { status: 400 });
       }
     }
