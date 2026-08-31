@@ -22,6 +22,8 @@ import {
 } from "@/lib/productVariants";
 import { formatPrice, normalizeProductImage } from "@/lib/utils";
 import { useCartStore } from "@/store/cartStore";
+import { getMetaCatalogId } from "@/lib/meta/catalogId";
+import { trackAddToCart } from "@/lib/meta/pixel";
 
 interface QuickAddModalProps {
   product: Product;
@@ -195,6 +197,20 @@ export default function QuickAddModal({
       isCombo,
       comboWeight: isCombo ? measurement.weightKg : undefined,
       isFreeShipping: Boolean((product as any).isFreeShipping),
+    });
+
+    // Track Meta Pixel AddToCart
+    const catalogId = getMetaCatalogId({
+      productId,
+      sku: product.sku,
+      selectedVariant: selectedVariant ? { sku: selectedVariant.sku, value: selectedVariant.value } : null,
+    });
+    trackAddToCart({
+      content_ids: [catalogId],
+      content_type: 'product',
+      content_name: variantName ? `${product.name} - ${variantName}` : product.name,
+      value: Number(salePrice) * Number(quantity),
+      currency: 'INR',
     });
 
     setToastVisible(true);

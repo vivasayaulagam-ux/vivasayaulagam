@@ -334,7 +334,7 @@ export async function POST(req: Request) {
 
     const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID;
     const isPlaceholderKey = !keyId || keyId.includes("your_key_id") || keyId.includes("dummy");
-    let isRazorpayConfigured = !isPlaceholderKey;
+    const isRazorpayConfigured = !isPlaceholderKey;
 
     let razorpayOrderId = "";
     let razorpayAmount = Math.round(computedTotal * 100);

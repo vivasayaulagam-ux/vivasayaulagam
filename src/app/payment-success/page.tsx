@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { CheckCircle2 } from "lucide-react";
+import { getMetaCatalogId } from "@/lib/meta/catalogId";
+import { trackPurchase } from "@/lib/meta/pixel";
+
+const purchasedOrdersSet = new Set<string>();
 
 function PaymentSuccessContent() {
   const searchParams = useSearchParams();
@@ -14,6 +18,7 @@ function PaymentSuccessContent() {
   const [dbOrderId, setDbOrderId] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isCod, setIsCod] = useState(false);
+  const purchaseTrackedRef = useRef(false);
 
   useEffect(() => {
     const id = searchParams.get("orderId");
@@ -34,6 +39,93 @@ function PaymentSuccessContent() {
       setToken(tok);
     }
     setIsCod(cod);
+
+    // Track Meta Pixel Purchase event ONLY on verified Razorpay payments (never for COD)
+    const targetOrderId = dbId || id;
+    if (!targetOrderId || cod || purchaseTrackedRef.current) return;
+
+    async function trackConfirmedPurchase() {
+      try {
+        const queryParams = new URLSearchParams({ id: targetOrderId! });
+        if (tok) queryParams.set("token", tok);
+
+        const res = await fetch(`/api/orders/guest?${queryParams.toString()}`);
+        if (!res.ok) return;
+
+        const data = await res.json();
+        if (!data.success || !data.order) return;
+
+        const order = data.order;
+
+        // Strict Requirement: Fire Purchase ONLY for verified, paid Razorpay payments (never for COD or unpaid)
+        const isVerifiedRazorpayPaid = Boolean(
+          order.isPaid === true &&
+          order.paymentMethod !== "COD" &&
+          !order.isCod &&
+          (order.razorpayPaymentId || payId)
+        );
+
+        if (!isVerifiedRazorpayPaid) return;
+
+        const uniqueId = String(order.orderId || order._id || targetOrderId);
+
+        // Deduplication: prevent firing again on refresh, re-mount, or browser back
+        if (purchasedOrdersSet.has(uniqueId)) return;
+        const storageKey = `meta_pixel_purchased_${uniqueId}`;
+        if (typeof window !== "undefined" && window.sessionStorage.getItem(storageKey)) {
+          return;
+        }
+
+        purchaseTrackedRef.current = true;
+        purchasedOrdersSet.add(uniqueId);
+        try {
+          if (typeof window !== "undefined") {
+            window.sessionStorage.setItem(storageKey, "true");
+          }
+        } catch {
+          // Ignore storage quota/disabled sessionStorage
+        }
+
+        const contentIds = (order.items || []).map((item: any) =>
+          getMetaCatalogId({
+            productId: item.productId,
+            sku: item.sku,
+            variantName: item.variantName,
+          })
+        );
+
+        const contents = (order.items || []).map((item: any) => ({
+          id: getMetaCatalogId({
+            productId: item.productId,
+            sku: item.sku,
+            variantName: item.variantName,
+          }),
+          quantity: item.quantity || 1,
+          item_price: Number(item.price) || 0,
+        }));
+
+        const numItems = (order.items || []).reduce(
+          (acc: number, it: any) => acc + (it.quantity || 1),
+          0
+        );
+        const orderValue = Number(order.totalAmount ?? order.subtotalAmount ?? 0);
+
+        trackPurchase({
+          content_ids: contentIds,
+          contents,
+          content_type: 'product',
+          num_items: numItems,
+          value: orderValue,
+          currency: 'INR',
+        });
+      } catch (err) {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("[MetaPixel] Purchase tracking error:", err);
+        }
+      }
+    }
+
+    void trackConfirmedPurchase();
   }, [searchParams]);
 
   const handleViewOrder = () => {
@@ -118,4 +210,3 @@ export default function PaymentSuccessPage() {
     </Suspense>
   );
 }
-
