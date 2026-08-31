@@ -14,6 +14,8 @@ import {
   formatWeightKg,
   getCartItemWeightKg,
 } from "@/lib/shipping";
+import { getMetaCatalogId } from "@/lib/meta/catalogId";
+import { trackInitiateCheckout } from "@/lib/meta/pixel";
 
 
 type RazorpayPaymentResponse = {
@@ -286,6 +288,44 @@ export default function CheckoutPage() {
       }
     }
   }, [hasHydrated, items, isPaymentProcessing, router]);
+
+  // Track Meta Pixel InitiateCheckout event
+  const initiateCheckoutTrackedRef = useRef(false);
+  useEffect(() => {
+    if (!hasHydrated || items.length === 0 || initiateCheckoutTrackedRef.current) return;
+    initiateCheckoutTrackedRef.current = true;
+
+    const contentIds = items.map((item) =>
+      getMetaCatalogId({
+        productId: item.productId,
+        id: item.id,
+        sku: item.sku,
+        variantName: item.variantName,
+      })
+    );
+
+    const contents = items.map((item) => ({
+      id: getMetaCatalogId({
+        productId: item.productId,
+        id: item.id,
+        sku: item.sku,
+        variantName: item.variantName,
+      }),
+      quantity: item.quantity,
+      item_price: Number(item.price),
+    }));
+
+    const numItems = items.reduce((acc, it) => acc + it.quantity, 0);
+
+    trackInitiateCheckout({
+      content_ids: contentIds,
+      contents,
+      content_type: 'product',
+      num_items: numItems,
+      value: Number(subtotal),
+      currency: 'INR',
+    });
+  }, [hasHydrated, items, subtotal]);
 
   const verifyAndCompletePayment = async (
     verification: PendingPaymentVerification

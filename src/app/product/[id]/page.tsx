@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
@@ -13,6 +13,8 @@ import { formatPrice } from "@/lib/utils";
 import { useCartStore } from "@/store/cartStore";
 import { parseWeightFromText } from "@/lib/shipping";
 import { motion, AnimatePresence } from "framer-motion";
+import { getMetaCatalogId } from "@/lib/meta/catalogId";
+import { trackViewContent, trackAddToCart } from "@/lib/meta/pixel";
 
 const getEmojiAndBg = (title: string, category: string) => {
   const cat = (category || "").toLowerCase();
@@ -152,6 +154,7 @@ export default function ProductDetailPage() {
             available_weights: p.available_weights || [],
             base_price_1kg: p.base_price_1kg || 0,
             comboWeight: p.comboWeight !== undefined ? p.comboWeight : (p.product_type === 'combo' ? p.weight : undefined),
+            sku: p.sku || "",
           };
           setProduct(mappedProduct);
           setActiveImage(mappedProduct.image || mappedProduct.emoji || "");
@@ -176,6 +179,37 @@ export default function ProductDetailPage() {
     }
     loadProduct();
   }, [productId]);
+
+  // Track Meta Pixel ViewContent event
+  const viewContentTrackedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!product || loading) return;
+
+    const catalogId = getMetaCatalogId({
+      productId: String(product.id),
+      sku: product.sku,
+      selectedVariant: selectedVariant ? { sku: selectedVariant.sku, value: selectedVariant.value } : null,
+    });
+
+    const trackKey = `${product.id}-${catalogId}`;
+    if (viewContentTrackedRef.current === trackKey) return;
+    viewContentTrackedRef.current = trackKey;
+
+    const price = Number(
+      selectedVariant?.sellingPrice ??
+      selectedVariant?.price ??
+      product.salePrice ??
+      0
+    );
+
+    trackViewContent({
+      content_ids: [catalogId],
+      content_type: 'product',
+      content_name: product.name || product.title || 'Product',
+      value: price,
+      currency: 'INR',
+    });
+  }, [product, selectedVariant, loading]);
 
   const loadReviews = useCallback(async (isSilent = false) => {
     if (!productId) return;
@@ -370,6 +404,20 @@ export default function ProductDetailPage() {
         comboWeight: isCombo ? product.comboWeight : undefined,
         isFreeShipping: Boolean(product.isFreeShipping),
       } as any);
+
+      // Track Meta Pixel AddToCart
+      const catalogId = getMetaCatalogId({
+        productId: String(product.id),
+        sku: product.sku,
+        selectedVariant: selectedVariant ? { sku: selectedVariant.sku, value: selectedVariant.value } : null,
+      });
+      trackAddToCart({
+        content_ids: [catalogId],
+        content_type: 'product',
+        content_name: finalName,
+        value: Number(currentSalePrice) * Number(quantity),
+        currency: 'INR',
+      });
       
       setCartState("success");
       setCartAdded(true);
@@ -400,6 +448,21 @@ export default function ProductDetailPage() {
       comboWeight: isCombo ? product.comboWeight : undefined,
       isFreeShipping: Boolean(product.isFreeShipping),
     } as any);
+
+    // Track Meta Pixel AddToCart
+    const catalogId = getMetaCatalogId({
+      productId: String(product.id),
+      sku: product.sku,
+      selectedVariant: selectedVariant ? { sku: selectedVariant.sku, value: selectedVariant.value } : null,
+    });
+    trackAddToCart({
+      content_ids: [catalogId],
+      content_type: 'product',
+      content_name: finalName,
+      value: Number(currentSalePrice) * Number(quantity),
+      currency: 'INR',
+    });
+
     router.push("/checkout");
   };
 

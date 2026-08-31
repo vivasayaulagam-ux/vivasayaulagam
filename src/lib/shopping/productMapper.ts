@@ -112,7 +112,7 @@ export function generateStableFeedId(
   const cleanSku = (rawSku && String(rawSku).trim()) ? String(rawSku).trim().toUpperCase() : '';
   const isUniqueSku = cleanSku && (!skuFreqMap || (skuFreqMap.get(cleanSku) || 0) <= 1);
 
-  let baseId = isUniqueSku ? String(rawSku).trim() : (cleanSku ? `${cleanSku}-${mongoId.slice(-6)}` : mongoId);
+  const baseId = isUniqueSku ? String(rawSku).trim() : (cleanSku ? `${cleanSku}-${mongoId.slice(-6)}` : mongoId);
 
   if (variantVal && variantVal.trim()) {
     const cleanVariant = variantVal.trim().replace(/\s+/g, '-').toUpperCase();

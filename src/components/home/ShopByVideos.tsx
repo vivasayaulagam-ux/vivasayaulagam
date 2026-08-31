@@ -7,6 +7,8 @@ import { useCartStore } from "@/store/cartStore";
 import { toWeightKg } from "@/lib/shipping";
 import Image from "next/image";
 import { IMAGE_BLUR_DATA_URL } from "@/lib/image";
+import { getMetaCatalogId } from "@/lib/meta/catalogId";
+import { trackAddToCart } from "@/lib/meta/pixel";
 
 const getPlayableVideoUrl = (url: string) => {
   if (!url) return "";
@@ -75,6 +77,19 @@ export default function ShopByVideos() {
       image: finalImage,
       weight: finalWeight
     } as any);
+
+    // Track Meta Pixel AddToCart
+    const catalogId = getMetaCatalogId({
+      productId: product ? String(product._id || product.id) : String(vid._id || vid.id),
+      sku: product?.sku,
+    });
+    trackAddToCart({
+      content_ids: [catalogId],
+      content_type: 'product',
+      content_name: finalName,
+      value: Number(finalPrice),
+      currency: 'INR',
+    });
 
     setToastId(vid._id || String(vid.id));
     setTimeout(() => setToastId(null), 2000);

@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
+import { Suspense } from "react";
 import WhatsAppFab from "@/components/ui/WhatsAppFab";
 import AuthProvider from "@/components/providers/AuthProvider";
+import MetaPixel from "@/components/analytics/MetaPixel";
+import MetaPageViewTracker from "@/components/analytics/MetaPageViewTracker";
 import dbConnect from "@/lib/db";
 import Setting from "@/models/Setting";
 
@@ -54,6 +57,10 @@ export default async function RootLayout({
           ...(primaryColor ? { "--color-primary": "#34a121" } : {}),
         } as React.CSSProperties}
       >
+        <MetaPixel />
+        <Suspense fallback={null}>
+          <MetaPageViewTracker />
+        </Suspense>
         <AuthProvider>
           {children}
           <WhatsAppFab />
