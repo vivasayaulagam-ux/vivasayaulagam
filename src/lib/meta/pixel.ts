@@ -21,13 +21,16 @@ export function getMetaPixelId(): string {
  */
 export function trackPixelEvent(
   eventName: string,
-  data?: MetaStandardEventPayload
+  data?: MetaStandardEventPayload,
+  options?: { eventID?: string }
 ): void {
   if (typeof window === 'undefined') return;
 
   try {
     if (typeof window.fbq === 'function') {
-      if (data) {
+      if (data && options) {
+        window.fbq('track', eventName, data as Record<string, unknown>, options);
+      } else if (data) {
         window.fbq('track', eventName, data as Record<string, unknown>);
       } else {
         window.fbq('track', eventName);
@@ -71,6 +74,6 @@ export function trackInitiateCheckout(payload: InitiateCheckoutPayload): void {
 /**
  * Standard Purchase event
  */
-export function trackPurchase(payload: PurchasePayload): void {
-  trackPixelEvent('Purchase', payload);
+export function trackPurchase(payload: PurchasePayload, eventId?: string): void {
+  trackPixelEvent('Purchase', payload, eventId ? { eventID: eventId } : undefined);
 }

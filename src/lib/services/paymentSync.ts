@@ -2,6 +2,7 @@ import Order from '@/models/Order';
 import { sendAdminNotification, sendEmail } from '@/lib/email';
 import { paymentLogger } from '@/lib/logger';
 import { syncOrderToOMS } from '@/lib/services/omsSync';
+import { sendMetaPurchase } from '@/lib/meta/conversions';
 
 export type PaymentSyncSource = 'checkout' | 'webhook';
 
@@ -52,6 +53,21 @@ async function runPaidOrderSideEffects(order: any, source: PaymentSyncSource) {
       paymentLogger.error({ event: 'CUSTOMER_EMAIL_FAILED', orderId: dbOrderId, details: { source }, error })
     );
   }
+
+  // Meta Conversions API (CAPI) - Server-side Purchase event for verified payments
+  const eventId = String(order.razorpayPaymentId || order.orderId || dbOrderId);
+  sendMetaPurchase({
+    order,
+    eventId,
+  }).catch((error) => {
+    paymentLogger.error({
+      event: 'META_CAPI_PURCHASE_FAILED',
+      orderId: dbOrderId,
+      razorpayPaymentId: order.razorpayPaymentId,
+      details: { source },
+      error: error instanceof Error ? error.message : String(error),
+    });
+  });
 }
 
 /**

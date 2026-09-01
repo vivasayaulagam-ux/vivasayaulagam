@@ -110,14 +110,19 @@ function PaymentSuccessContent() {
         );
         const orderValue = Number(order.totalAmount ?? order.subtotalAmount ?? 0);
 
-        trackPurchase({
-          content_ids: contentIds,
-          contents,
-          content_type: 'product',
-          num_items: numItems,
-          value: orderValue,
-          currency: 'INR',
-        });
+        const eventId = String(order.razorpayPaymentId || payId || order.orderId || order._id || targetOrderId);
+
+        trackPurchase(
+          {
+            content_ids: contentIds,
+            contents,
+            content_type: 'product',
+            num_items: numItems,
+            value: orderValue,
+            currency: 'INR',
+          },
+          eventId
+        );
       } catch (err) {
         if (process.env.NODE_ENV !== "production") {
           console.warn("[MetaPixel] Purchase tracking error:", err);
