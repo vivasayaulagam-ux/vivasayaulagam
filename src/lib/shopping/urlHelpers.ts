@@ -16,10 +16,12 @@ export function getBaseUrl(req?: Request): string {
     return process.env.NEXT_PUBLIC_APP_URL.replace(/\/+$/, '');
   }
   if (req) {
-    const host = req.headers.get('host') || req.headers.get('x-forwarded-host');
+    const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
     const proto = req.headers.get('x-forwarded-proto') || 'https';
     if (host) {
-      return `${proto}://${host}`.replace(/\/+$/, '');
+      const isLocal = host.includes('localhost') || host.includes('127.0.0.1') || host.includes('192.168.');
+      const safeProto = isLocal ? proto : 'https';
+      return `${safeProto}://${host}`.replace(/\/+$/, '');
     }
   }
   return 'https://vivasayaulagam.com';
@@ -30,8 +32,17 @@ export function getBaseUrl(req?: Request): string {
  */
 export function toAbsoluteProductUrl(seoSlug?: string, id?: string, baseUrl?: string): string {
   const base = (baseUrl || getBaseUrl()).replace(/\/+$/, '');
-  const slugOrId = (seoSlug && seoSlug.trim()) ? seoSlug.trim() : (id ? String(id) : '');
-  return `${base}/product/${encodeURIComponent(slugOrId)}`;
+  const raw = (seoSlug && String(seoSlug).trim()) ? String(seoSlug).trim() : (id ? String(id) : '');
+  
+  // Sanitize leading slashes, domain prefixes, and '/products/' or 'products/' prefixes
+  let cleanSlug = raw
+    .replace(/^https?:\/\/[^/]+/i, '')
+    .replace(/^\/+/, '')
+    .replace(/^products\//i, '')
+    .replace(/^\/+/, '');
+
+  if (!cleanSlug) cleanSlug = String(id || '');
+  return `${base}/product/${encodeURIComponent(cleanSlug)}`;
 }
 
 /**
@@ -42,8 +53,12 @@ export function toAbsoluteImageUrl(src?: string, baseUrl?: string): string {
   const normalized = normalizeSinglePath(src);
   if (!normalized) return '';
 
-  if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
+  if (normalized.startsWith('https://')) {
     return normalized;
+  }
+  if (normalized.startsWith('http://')) {
+    // If it points to our domain with http, upgrade to https
+    return normalized.replace(/^http:\/\//i, 'https://');
   }
 
   const base = (baseUrl || getBaseUrl()).replace(/\/+$/, '');

@@ -15,6 +15,7 @@ const NAV = [
   { href: "/admin/products",   icon: Package,         label: "Products" },
   { href: "/admin/categories", icon: Tag,             label: "Categories" },
   { href: "/admin/orders",     icon: ShoppingBag,     label: "Orders" },
+  { href: "/admin/integrations/meta", icon: Share2,    label: "Meta Commerce" },
   { href: "/admin/shopping-integrations", icon: Share2, label: "Shopping Integrations" },
   { href: "/admin/customers",  icon: Users,           label: "Customers" },
   { href: "/admin/coupons",    icon: Percent,         label: "Coupons & Offers" },

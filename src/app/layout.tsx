@@ -27,6 +27,28 @@ export const metadata: Metadata = {
     shortcut: "/favicon.ico",
     apple: "/apple-touch-icon.png",
   },
+  openGraph: {
+    title: "Vivasaya Ulagam — Premium Organic Tamil Nadu Products",
+    description: "Premium organic local foods direct from Tamil Nadu farms. Pure Ghee, Millets, Honey & Cold Pressed Oils.",
+    url: "https://vivasayaulagam.com",
+    siteName: "Vivasaya Ulagam",
+    images: [
+      {
+        url: "https://vivasayaulagam.com/logo1.png",
+        width: 1200,
+        height: 630,
+        alt: "Vivasaya Ulagam",
+      },
+    ],
+    locale: "en_IN",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Vivasaya Ulagam — Premium Organic Tamil Nadu Products",
+    description: "Premium organic local foods direct from Tamil Nadu farms.",
+    images: ["https://vivasayaulagam.com/logo1.png"],
+  },
 };
 
 export default async function RootLayout({
@@ -34,20 +56,36 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Fetch dynamic CMS primary color
+  // Fetch dynamic CMS settings
   let primaryColor: string | undefined;
+  let metaDomainVerification: string | undefined;
+
   try {
     await dbConnect();
-    const colorSetting = await Setting.findOne({ key: "primary_color" });
+    const [colorSetting, metaSetting] = await Promise.all([
+      Setting.findOne({ key: "primary_color" }),
+      Setting.findOne({
+        key: { $in: ["meta_domain_verification", "meta_domain_verification_code", "facebook_domain_verification"] },
+      }),
+    ]);
+
     if (colorSetting) {
       primaryColor = colorSetting.value;
     }
+    if (metaSetting && metaSetting.value && String(metaSetting.value).trim()) {
+      metaDomainVerification = String(metaSetting.value).trim();
+    }
   } catch (error) {
-    console.error("Failed to fetch primary_color setting", error);
+    console.error("Failed to fetch layout settings", error);
   }
 
   return (
     <html lang="en" data-scroll-behavior="smooth" className={poppins.variable}>
+      <head>
+        {metaDomainVerification && (
+          <meta name="facebook-domain-verification" content={metaDomainVerification} />
+        )}
+      </head>
       <body
         style={{
           fontFamily: "var(--font-body)",

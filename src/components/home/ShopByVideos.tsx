@@ -24,8 +24,8 @@ export default function ShopByVideos() {
   const [toastId, setToastId] = useState<string | null>(null);
   const [enabled, setEnabled] = useState(true);
   const [title, setTitle] = useState("Shop By Videos");
-  const [instagramLink, setInstagramLink] = useState("https://instagram.com/vivasaya_ullagam");
-  const [youtubeLink, setYoutubeLink] = useState("https://youtube.com/@vivasayauallagam");
+  const [instagramLink, setInstagramLink] = useState("https://www.instagram.com/vivasaya_ulagam/");
+  const [youtubeLink, setYoutubeLink] = useState("https://youtube.com/@vivasayaulagam");
   const [videos, setVideos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -42,8 +42,8 @@ export default function ShopByVideos() {
           const s = settingsData.settings.social_media_settings;
           setEnabled(s.enabled !== false);
           setTitle(s.title || "Shop By Videos");
-          setInstagramLink(s.instagramLink || "https://instagram.com/vivasaya_ullagam");
-          setYoutubeLink(s.youtubeLink || "https://youtube.com/@vivasayauallagam");
+          setInstagramLink(s.instagramLink || "https://www.instagram.com/vivasaya_ulagam/");
+          setYoutubeLink(s.youtubeLink || "https://youtube.com/@vivasayaulagam");
         }
 
         // Load Synced Reels
