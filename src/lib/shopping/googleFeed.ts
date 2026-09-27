@@ -12,6 +12,10 @@ export async function generateGoogleXmlFeed(req?: Request): Promise<string> {
   const baseUrl = getBaseUrl(req);
   const products = await Product.find({ status: 'active' }).lean();
 
+  return buildGoogleXmlFeed(products, baseUrl);
+}
+
+export function buildGoogleXmlFeed(products: any[], baseUrl: string): string {
   const skuFreqMap = buildSkuFrequencyMap(products);
 
   const rawItems: ShoppingFeedItem[] = [];
@@ -28,6 +32,7 @@ export async function generateGoogleXmlFeed(req?: Request): Promise<string> {
     const itemGroupIdTag = item.item_group_id ? `<g:item_group_id>${escapeXml(item.item_group_id)}</g:item_group_id>` : '';
     const salePriceTag = item.sale_price ? `<g:sale_price>${escapeXml(item.sale_price)}</g:sale_price>` : '';
     const weightTag = item.shipping_weight ? `<g:shipping_weight>${escapeXml(item.shipping_weight)}</g:shipping_weight>` : '';
+    const shippingLabelTag = item.shipping_label ? `<g:shipping_label>${escapeXml(item.shipping_label)}</g:shipping_label>` : '';
     const additionalImages = item.additional_image_links
       .map(img => `<g:additional_image_link>${escapeXml(img)}</g:additional_image_link>`)
       .join('\n        ');
@@ -47,6 +52,7 @@ export async function generateGoogleXmlFeed(req?: Request): Promise<string> {
       <g:google_product_category>${escapeXml(item.google_product_category)}</g:google_product_category>
       <g:product_type>${escapeXml(item.product_type)}</g:product_type>
       ${weightTag}
+      ${shippingLabelTag}
       ${itemGroupIdTag}
     </item>`;
   }).join('\n');
