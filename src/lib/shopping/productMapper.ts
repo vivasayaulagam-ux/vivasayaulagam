@@ -1,5 +1,4 @@
 import { getProductPrices } from '../pricing';
-import { normalizeComboWeightKg } from '../shipping';
 import { toAbsoluteProductUrl, toAbsoluteImageUrl, sanitizeDescription } from './urlHelpers';
 
 export interface ShoppingFeedItem {
@@ -18,7 +17,6 @@ export interface ShoppingFeedItem {
   google_product_category: string;
   product_type: string;
   shipping_weight?: string;
-  shipping_label?: string;
   sku: string;
 }
 
@@ -57,56 +55,19 @@ export function formatIsoPrice(amount: any): string {
 }
 
 /**
- * Formats an authoritative mass as a Google shipping weight in kilograms.
- * Volume is not physical shipping weight and must not be inferred from ml/L.
+ * Formats weight and unit into Google/Meta compatible string (e.g. "500 g", "1 kg").
  */
 export function formatShippingWeight(weight?: any, unit?: any): string | undefined {
   const val = Number(weight);
   if (!Number.isFinite(val) || val <= 0) return undefined;
 
-  const u = String(unit || '').trim().toLowerCase();
-  const weightKg = ['g', 'gm', 'gms', 'gram', 'grams'].includes(u)
-    ? val / 1000
-    : ['kg', 'kilo', 'kilogram', 'kilograms'].includes(u)
-      ? val
-      : 0;
+  const u = String(unit || 'kg').trim().toLowerCase();
+  if (u === 'g' || u === 'gram' || u === 'grams') return `${val} g`;
+  if (u === 'kg' || u === 'kilo' || u === 'kilogram') return `${val} kg`;
+  if (u === 'ml') return `${val} ml`;
+  if (u === 'l' || u === 'liter' || u === 'litre') return `${val} l`;
 
-  if (weightKg <= 0 || weightKg > 1000) return undefined;
-  return `${weightKg} kg`;
-}
-
-function getVariantShippingWeight(variant: any): string | undefined {
-  const value = String(variant?.value || '').trim();
-  const measurement = value.match(/^(\d+(?:\.\d+)?)\s*(kg|kilograms?|g|gm|gms|grams?)$/i);
-  if (measurement) return formatShippingWeight(measurement[1], measurement[2]);
-
-  // A numeric variant value is meaningful only with its own mass unit.
-  if (/^\d+(?:\.\d+)?$/.test(value)) {
-    return formatShippingWeight(value, variant?.unit);
-  }
-  return undefined;
-}
-
-export function getShippingLabel(product: any): string | undefined {
-  if (product.isFreeShipping === true) return 'FREE_SHIPPING';
-
-  const stateRates = product.state_courier_charges || {};
-  const genericRate = Number(product.courier_charge) || 0;
-  const rate = (state: string) => Number(stateRates[state]) > 0 ? Number(stateRates[state]) : genericRate;
-  const regionalRates = ['tamilnadu', 'kerala', 'karnataka', 'andhrapradesh', 'telangana'].map(rate);
-  const otherRate = rate('otherstates');
-
-  if (product.product_type === 'combo') {
-    return [...regionalRates, otherRate].every((value) => value === 80) ? 'COMBO_80' : undefined;
-  }
-  if (product.product_type !== 'normal') return undefined;
-  if (regionalRates.some((value, index) => value !== [50, 100, 100, 100, 100][index])) return undefined;
-
-  if (otherRate === 150) return 'STANDARD';
-  if (otherRate === 149) return 'OTHER_149';
-  if (otherRate === 200) return 'OTHER_200';
-  if (otherRate === 1149) return 'OTHER_1149';
-  return undefined;
+  return `${val} ${u}`;
 }
 
 /**
@@ -197,7 +158,6 @@ export function mapProductToShoppingItems(
     const productType = (p.category && String(p.category).trim())
       ? String(p.category).trim()
       : 'Organic Goods';
-    const shippingLabel = getShippingLabel(p);
 
     // Format images
     const rawImages: string[] = Array.isArray(p.images) && p.images.length > 0
@@ -238,7 +198,7 @@ export function mapProductToShoppingItems(
           const availability = determineAvailability(p.trackInventory, vStock, p.continueSelling);
 
           const variantTitle = `${p.title || 'Product'} (${variantVal || `Variant ${index + 1}`})`;
-          const weightStr = getVariantShippingWeight(v);
+          const weightStr = formatShippingWeight(p.weight, v?.unit || p.unit || p.weightUnit);
 
           items.push({
             id: variantFeedId,
@@ -256,7 +216,6 @@ export function mapProductToShoppingItems(
             google_product_category: googleProductCategory,
             product_type: productType,
             shipping_weight: weightStr,
-            shipping_label: shippingLabel,
             sku: variantFeedId,
           });
         } catch (vErr) {
@@ -276,12 +235,7 @@ export function mapProductToShoppingItems(
     const price = formatIsoPrice(actualHasDiscount ? finalMrp : finalSellingPrice);
     const salePrice = actualHasDiscount ? formatIsoPrice(finalSellingPrice) : undefined;
     const availability = determineAvailability(p.trackInventory, p.quantity, p.continueSelling);
-    const comboUnit = String(p.weightUnit || p.unit || '').toLowerCase();
-    const weightStr = p.product_type === 'combo'
-      ? ['g', 'kg'].includes(comboUnit)
-        ? formatShippingWeight(normalizeComboWeightKg(p.comboWeight, comboUnit), 'kg')
-        : undefined
-      : formatShippingWeight(p.weight, p.weightUnit || p.unit);
+    const weightStr = formatShippingWeight(p.weight || p.comboWeight, p.weightUnit || p.unit);
 
     return [{
       id: parentFeedId,
@@ -298,7 +252,6 @@ export function mapProductToShoppingItems(
       google_product_category: googleProductCategory,
       product_type: productType,
       shipping_weight: weightStr,
-      shipping_label: shippingLabel,
       sku: parentFeedId,
     }];
   } catch (err) {
