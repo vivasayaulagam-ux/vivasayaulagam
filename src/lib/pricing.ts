@@ -1,6 +1,19 @@
 import { normalizeImageUrl, normalizeProductImage, normalizeSinglePath } from './utils';
 import { normalizeComboWeightKg } from './shipping';
 
+function normalizeVerifiedShippingWeightKg(value: unknown): number | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  if (typeof value !== 'number' && (typeof value !== 'string' || !value.trim())) {
+    throw new Error('Verified packed shipping weight must be a finite number greater than 0 kg');
+  }
+  const weightKg = Number(value);
+  if (!Number.isFinite(weightKg) || weightKg <= 0) {
+    throw new Error('Verified packed shipping weight must be a finite number greater than 0 kg');
+  }
+  return weightKg;
+}
+
 export function getProductPrices(product: any, variantValue?: string) {
   const isCombo = product.product_type === 'combo';
   
@@ -83,6 +96,7 @@ export function normalizeProductOutput(p: any) {
     status: p.status,
     collections: p.collections || [],
     weight: p.weight,
+    shippingWeightKg: p.shippingWeightKg,
     weightUnit: p.weightUnit,
     unit: p.unit || p.weightUnit || 'g',
     sku: p.sku || '',
@@ -123,6 +137,7 @@ export function normalizeProductOutput(p: any) {
         savings: vSavings,
         stock: v.stock ?? 0,
         unit: v.unit || p.unit || p.weightUnit || 'g',
+        shippingWeightKg: v.shippingWeightKg,
         sku: v.sku || '',
       };
     })
@@ -153,6 +168,7 @@ export function normalizeProductPayload(body: any) {
           price: variant.sellingPrice === '' || variant.sellingPrice === undefined ? undefined : Number(variant.sellingPrice),
           compareAtPrice: variant.mrp === '' || variant.mrp === undefined ? undefined : Number(variant.mrp),
           stock: variant.stock === '' || variant.stock === undefined ? 0 : Number(variant.stock),
+          shippingWeightKg: normalizeVerifiedShippingWeightKg(variant.shippingWeightKg),
           unit: variant.unit || productUnit,
         }))
       : [],
@@ -171,6 +187,7 @@ export function normalizeProductPayload(body: any) {
     base_price_1kg: body.base_price_1kg === '' || body.base_price_1kg === undefined ? 0 : Number(body.base_price_1kg),
     base_mrp_1kg: body.base_mrp_1kg === '' || body.base_mrp_1kg === undefined ? 0 : Number(body.base_mrp_1kg),
     weight: body.weight === '' || body.weight === undefined ? 0 : Number(body.weight),
+    shippingWeightKg: normalizeVerifiedShippingWeightKg(body.shippingWeightKg),
     weightUnit: body.weightUnit || 'kg',
     unit: productUnit,
     comboWeight: body.product_type === 'combo' && rawComboWeight !== undefined

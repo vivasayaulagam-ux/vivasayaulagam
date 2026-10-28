@@ -34,7 +34,7 @@ export type ProductFormData = {
   sku: string;
   barcode: string;
   continueSelling: boolean;
-  variants: { type: string; value: string; sellingPrice?: number | ''; mrp?: number | ''; price?: number | ''; compareAtPrice?: number | ''; additionalPrice: number | ''; stock: number | '' }[];
+  variants: { type: string; value: string; sellingPrice?: number | ''; mrp?: number | ''; price?: number | ''; compareAtPrice?: number | ''; additionalPrice: number | ''; stock: number | ''; shippingWeightKg?: number | '' }[];
   seoTitle: string;
   seoDescription: string;
   seoSlug: string;
@@ -62,6 +62,7 @@ export type ProductFormData = {
   weightUnit: string;
   unit: string;
   comboWeight?: number | '';
+  shippingWeightKg?: number | '';
   googleProductCategory?: string;
   enableShoppingSync?: boolean;
   condition?: 'new' | 'refurbished' | 'used';
@@ -92,6 +93,7 @@ const defaultForm: ProductFormData = {
   weightUnit: 'kg',
   unit: 'g',
   comboWeight: '',
+  shippingWeightKg: '',
   googleProductCategory: '',
   enableShoppingSync: true,
   condition: 'new',
@@ -109,6 +111,14 @@ export default function AddProductPage() {
     const e: typeof errors = {};
     if (!form.title.trim()) e.title = 'Title is required';
     if (!form.unit) e.unit = 'Unit is required';
+    if (form.shippingWeightKg !== '' && form.shippingWeightKg !== undefined &&
+        (!Number.isFinite(form.shippingWeightKg) || form.shippingWeightKg <= 0)) {
+      e.shippingWeightKg = 'Enter a finite weight greater than 0 kg';
+    }
+    if (form.variants.some(v => v.shippingWeightKg !== '' && v.shippingWeightKg !== undefined &&
+        (!Number.isFinite(v.shippingWeightKg) || v.shippingWeightKg <= 0))) {
+      e.variants = 'Each verified variant weight must be greater than 0 kg';
+    }
     
     if (form.product_type === 'combo') {
       if (form.sellingPrice === '' || Number(form.sellingPrice) <= 0) {

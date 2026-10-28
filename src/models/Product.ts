@@ -1,5 +1,13 @@
 import mongoose from 'mongoose';
 
+const verifiedShippingWeightKg = {
+  type: Number,
+  validate: {
+    validator: (value: number | null | undefined) => value == null || (Number.isFinite(value) && value > 0),
+    message: 'Verified packed shipping weight must be a finite number greater than 0 kg',
+  },
+};
+
 const VariantSchema = new mongoose.Schema({
   type: { type: String, required: true }, // 'size' | 'color'
   value: { type: String, required: true },
@@ -7,6 +15,7 @@ const VariantSchema = new mongoose.Schema({
   sellingPrice: { type: Number },
   mrp: { type: Number, default: 0 },
   unit: { type: String, enum: ['g', 'kg', 'ml', 'L'], default: 'g' },
+  shippingWeightKg: verifiedShippingWeightKg,
   additionalPrice: { type: Number, default: 0 },
   stock: { type: Number, default: 0 },
   sku: { type: String, default: '' },
@@ -72,6 +81,7 @@ const ProductSchema = new mongoose.Schema(
     weightUnit: { type: String, default: 'kg' },
     unit: { type: String, enum: ['g', 'kg', 'ml', 'L'], default: 'g', required: true },
     comboWeight: { type: Number },
+    shippingWeightKg: verifiedShippingWeightKg,
 
     // Reviews (Calculated from approved customer reviews)
     rating: { type: Number, default: 0 },

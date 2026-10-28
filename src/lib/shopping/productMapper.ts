@@ -1,5 +1,4 @@
 import { getProductPrices } from '../pricing';
-import { normalizeComboWeightKg } from '../shipping';
 import { toAbsoluteProductUrl, toAbsoluteImageUrl, sanitizeDescription } from './urlHelpers';
 
 export interface ShoppingFeedItem {
@@ -73,6 +72,12 @@ export function formatShippingWeight(weight?: any, unit?: any): string | undefin
 
   if (weightKg <= 0 || weightKg > 1000) return undefined;
   return `${weightKg} kg`;
+}
+
+function formatVerifiedShippingWeightKg(weight: unknown): string | undefined {
+  return typeof weight === 'number' && Number.isFinite(weight) && weight > 0
+    ? `${weight} kg`
+    : undefined;
 }
 
 function getVariantShippingWeight(variant: any): string | undefined {
@@ -239,7 +244,9 @@ export function mapProductToShoppingItems(
           const availability = determineAvailability(p.trackInventory, vStock, p.continueSelling);
 
           const variantTitle = `${p.title || 'Product'} (${variantVal || `Variant ${index + 1}`})`;
-          const weightStr = getVariantShippingWeight(v);
+          const weightStr = p.product_type === 'combo'
+            ? formatVerifiedShippingWeightKg(p.shippingWeightKg)
+            : formatVerifiedShippingWeightKg(v?.shippingWeightKg) ?? getVariantShippingWeight(v);
 
           items.push({
             id: variantFeedId,
@@ -277,12 +284,9 @@ export function mapProductToShoppingItems(
     const price = formatIsoPrice(actualHasDiscount ? finalMrp : finalSellingPrice);
     const salePrice = actualHasDiscount ? formatIsoPrice(finalSellingPrice) : undefined;
     const availability = determineAvailability(p.trackInventory, p.quantity, p.continueSelling);
-    const comboUnit = String(p.weightUnit || p.unit || '').toLowerCase();
     const weightStr = p.product_type === 'combo'
-      ? ['g', 'kg'].includes(comboUnit)
-        ? formatShippingWeight(normalizeComboWeightKg(p.comboWeight, comboUnit), 'kg')
-        : undefined
-      : formatShippingWeight(p.weight, p.weightUnit || p.unit);
+      ? formatVerifiedShippingWeightKg(p.shippingWeightKg)
+      : formatVerifiedShippingWeightKg(p.shippingWeightKg) ?? formatShippingWeight(p.weight, p.weightUnit || p.unit);
 
     return [{
       id: parentFeedId,
