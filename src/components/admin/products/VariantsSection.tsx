@@ -131,6 +131,7 @@ export default function VariantsSection({ form, update, errors }: Props) {
     });
 
     const newVariants = sortedWeightsList.map((w) => {
+      const existingVariant = form.variants?.find((variant) => variant.value === w);
       const match = w.match(/^([\d.]+)\s*(g|kg|ml|l)$/i);
       let calculatedPrice = 0;
       let calculatedMrp = 0;
@@ -165,6 +166,7 @@ export default function VariantsSection({ form, update, errors }: Props) {
         additionalPrice: 0,
         stock: quantity,
         unit: variantUnit,
+        shippingWeightKg: existingVariant?.shippingWeightKg ?? '',
       };
     });
 
@@ -665,6 +667,41 @@ export default function VariantsSection({ form, update, errors }: Props) {
             </AnimatePresence>
           </div>
 
+          {form.variants.length > 0 && (
+            <div className="border border-gray-150 rounded-xl p-4 space-y-3">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                Verified packed shipping weight (kg) by variant
+              </label>
+              <p className="text-[11px] text-gray-500">
+                Physical packed weight for shipping feeds. Enter measured weight in kg. This does not change checkout courier charges.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {form.variants.map((variant, index) => (
+                  <div key={variant.value}>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1" htmlFor={`shipping-weight-${index}`}>
+                      {variant.value}
+                    </label>
+                    <input
+                      id={`shipping-weight-${index}`}
+                      type="number"
+                      step="any"
+                      min="0"
+                      value={variant.shippingWeightKg ?? ''}
+                      onChange={(event) => update({
+                        variants: form.variants.map((item, itemIndex) => itemIndex === index
+                          ? { ...item, shippingWeightKg: event.target.value === '' ? '' : Number(event.target.value) }
+                          : item),
+                      })}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400"
+                      placeholder="Measured kg"
+                    />
+                  </div>
+                ))}
+              </div>
+              {errors.variants && <p className="text-xs text-red-500">{errors.variants}</p>}
+            </div>
+          )}
+
           {/* Pricing Preview Table */}
           {availableWeights.length > 0 && basePrice1Kg !== '' && Number(basePrice1Kg) > 0 && (
             <motion.div
@@ -721,6 +758,28 @@ export default function VariantsSection({ form, update, errors }: Props) {
           )}
         </div>
       )}
+      <div className="border-t border-gray-100 pt-5">
+        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2" htmlFor="product-shipping-weight">
+          Verified packed shipping weight (kg)
+        </label>
+        <input
+          id="product-shipping-weight"
+          type="number"
+          step="any"
+          min="0"
+          value={form.shippingWeightKg ?? ''}
+          onChange={(event) => update({ shippingWeightKg: event.target.value === '' ? '' : Number(event.target.value) })}
+          className="w-full max-w-md px-3.5 py-2.5 rounded-lg border border-gray-300 text-sm outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400"
+          placeholder="Measured kg"
+        />
+        <p className="text-[11px] text-gray-500 mt-2">
+          Physical packed weight for shipping feeds. Enter measured weight in kg. This does not change checkout courier charges.
+        </p>
+        {productType === 'normal' && form.variants.length > 0 && (
+          <p className="text-[11px] text-gray-500 mt-1">Variant offers use their own verified weights above.</p>
+        )}
+        {errors.shippingWeightKg && <p className="text-xs text-red-500 mt-1">{errors.shippingWeightKg}</p>}
+      </div>
     </motion.div>
   );
 }
