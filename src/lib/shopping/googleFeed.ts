@@ -21,7 +21,7 @@ export function buildGoogleXmlFeed(products: any[], baseUrl: string): string {
   const rawItems: ShoppingFeedItem[] = [];
   products.forEach((p: any) => {
     if (p.enableShoppingSync !== false) {
-      const items = mapProductToShoppingItems(p, baseUrl, skuFreqMap);
+      const items = mapProductToShoppingItems(p, baseUrl, skuFreqMap, { matchStorefrontVariantStock: true });
       rawItems.push(...items);
     }
   });
