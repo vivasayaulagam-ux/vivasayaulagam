@@ -174,7 +174,8 @@ export function generateStableFeedId(
 export function mapProductToShoppingItems(
   p: any,
   baseUrl?: string,
-  skuFreqMap?: Map<string, number>
+  skuFreqMap?: Map<string, number>,
+  options?: { matchStorefrontVariantStock?: boolean }
 ): ShoppingFeedItem[] {
   try {
     if (!p || typeof p !== 'object') return [];
@@ -240,8 +241,15 @@ export function mapProductToShoppingItems(
           const price = formatIsoPrice(hasDiscount ? vMrp : (vSellingPrice || 100));
           const salePrice = hasDiscount ? formatIsoPrice(vSellingPrice) : undefined;
 
-          const vStock = v?.stock !== undefined ? Number(v.stock) : (p.quantity ?? 0);
-          const availability = determineAvailability(p.trackInventory, vStock, p.continueSelling);
+          const vStock = typeof v?.stock === 'number' ? v.stock : (p.quantity ?? 0);
+          // The product page disables tracked variants at zero stock even when continueSelling is set.
+          const availability = options?.matchStorefrontVariantStock
+            ? determineAvailability(p.trackInventory, vStock)
+            : determineAvailability(
+              p.trackInventory,
+              v?.stock !== undefined ? Number(v.stock) : (p.quantity ?? 0),
+              p.continueSelling
+            );
 
           const variantTitle = `${p.title || 'Product'} (${variantVal || `Variant ${index + 1}`})`;
           const weightStr = p.product_type === 'combo'

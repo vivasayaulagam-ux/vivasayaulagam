@@ -92,7 +92,11 @@ export default async function ProductLayout(props: {
       const imageUrls = rawImages.map(img => toAbsoluteImageUrl(img, baseUrl)).filter(Boolean);
 
       const { sellingPrice } = getProductPrices(product);
-      const isOutOfStock = product.trackInventory && (product.quantity ?? 0) <= 0 && !product.continueSelling;
+      const variants = Array.isArray(product.variants) ? product.variants : [];
+      const isOutOfStock = product.status !== 'active' || (variants.length > 0
+        ? product.trackInventory && variants.every((variant: { stock?: number }) =>
+          (typeof variant.stock === 'number' ? variant.stock : (product.quantity ?? 0)) <= 0)
+        : product.trackInventory && (product.quantity ?? 0) <= 0 && !product.continueSelling);
 
       jsonLd = {
         '@context': 'https://schema.org',
